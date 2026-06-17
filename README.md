@@ -2,6 +2,10 @@
 
 This repository is the **single source of truth** for StatementAudit Pro. It exists to end the recurring "stale-file trap": for months the stored copy of the app kept drifting from the live artifact, so each session risked starting from an out-of-date snapshot and re-solving already-closed work. Git history + a start-of-session check make that impossible.
 
+## Guardrails
+
+The full anti-drift guardrails (with the diagnosis of why drift happened and the board's feedback) are in `docs/GUARDRAILS.md`. The short version: **G1** run `verify.sh` before working · **G2** commit before closing · **G3** trust the latest handover over any summary · **G4** diagnose with evidence before proposing big changes · **G5** name conflicts out loud · **G6** never let a change silently weaken the approval gate or the maths.
+
 ## The rule that ends the loop
 
 **At the start of every session, before editing anything, run:**

@@ -71,6 +71,7 @@ grep -q "uFEFF" "$SRC" && grn "✓ UTF-8 BOM on export" || { red "✗ UTF-8 BOM 
 echo "────────────────────────────────────────────────"
 if [ "$FAIL" -eq 0 ]; then
   grn "ALL CHECKS PASSED — this is the canonical build. Safe to work."
+  yel "Reminder (G2): a session isn't done until your changes are committed and VERSION is updated if the line count changed."
   exit 0
 else
   red "CHECKS FAILED — do NOT build on this file until reconciled with the live artifact."
