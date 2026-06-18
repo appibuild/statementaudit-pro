@@ -265,19 +265,22 @@ const dlFile = (content, name) => {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 };
 
+// Splits matches into cross-statement (genuine double-count — block the gate, red)
+// and same-statement (a legitimate same-day repeat — soft amber "verify", does NOT block).
 const findDupes = stmts => {
   const all = stmts.flatMap(s => (s.editedTransactions||s.transactions||[]).map(t => ({...t, sid:s.id})));
-  const set = new Set();
+  const cross = new Set(), same = new Set();
   for (let i = 0; i < all.length; i++) for (let j = i+1; j < all.length; j++) {
     const a = all[i], b = all[j];
     if (a.date === b.date
       && ((a.debit != null && a.debit === b.debit) || (a.credit != null && a.credit === b.credit))
       && (a.payee||'').toLowerCase().trim() === (b.payee||'').toLowerCase().trim()
       && (a.payee||'').length > 2) {
+      const set = a.sid === b.sid ? same : cross;
       set.add(`${a.sid}:${a.id}`); set.add(`${b.sid}:${b.id}`);
     }
   }
-  return set;
+  return { cross, same };
 };
 
 const detectPeriods = stmts => {
@@ -354,7 +357,7 @@ export default function App() {
     approved:  stmts.filter(s => s.status === 'approved').length,
     errors:    stmts.filter(s => s.status === 'error').length,
     flags:     stmts.flatMap(s => getTx(s)).filter(t => t.flagged).length,
-    dupeCount: Math.round(dupes.size / 2),
+    dupeCount: Math.round(dupes.cross.size / 2),
     failRec:   stmts.filter(s => ['review','approved'].includes(s.status) && !s.reconciliation?.reconciled).length,
   }), [stmts, dupes]);
 
@@ -704,7 +707,7 @@ export default function App() {
               const atCfg  = ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current;
               const platCol = s.platform==='xero' ? '#13B5EA' : '#2CA01C';
               const platLbl = s.platform==='xero' ? 'Xero' : 'QBO';
-              const isDupe  = getTx(s).some(t => dupes.has(`${s.id}:${t.id}`));
+              const isDupe  = getTx(s).some(t => dupes.cross.has(`${s.id}:${t.id}`));
               return (
                 <div key={s.id}
                   onClick={() => { setActiveId(s.id); if (['review','approved','rejected'].includes(s.status)) setTab('audit'); }}
@@ -913,7 +916,8 @@ export default function App() {
     const idx        = reviewable.findIndex(x => x.id === s.id);
     const atTypes    = ACCOUNT_TYPES[s.accountType]?.types || ACCOUNT_TYPES.current.types;
     const canEdit    = s.status === 'review';
-    const isDupe     = tid => dupes.has(`${s.id}:${tid}`);
+    const isDupe      = tid => dupes.cross.has(`${s.id}:${tid}`);  // cross-statement: red, blocks gate
+    const isRepeat    = tid => dupes.same.has(`${s.id}:${tid}`);   // same-statement: amber, does NOT block
     const isEd       = (tid,f) => editCell?.sid === s.id && editCell?.tid === tid && editCell?.field === f;
     const atCfg      = ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current;
     const platColor  = s.platform==='xero'?'#13B5EA':'#2CA01C';
@@ -959,7 +963,7 @@ export default function App() {
             const cfg   = STATUS_CFG[x.status];
             const isA   = x.id === s.id;
             const atC   = ACCOUNT_TYPES[x.accountType]||ACCOUNT_TYPES.current;
-            const hasDp = getTx(x).some(t => dupes.has(`${x.id}:${t.id}`));
+            const hasDp = getTx(x).some(t => dupes.cross.has(`${x.id}:${t.id}`));
             return (
               <div key={x.id} onClick={() => setActiveId(x.id)}
                 style={{padding:'8px 10px',borderRadius:8,marginBottom:3,cursor:'pointer',
@@ -1137,7 +1141,12 @@ export default function App() {
           <div style={{flexShrink:0,display:'flex',flexDirection:'column',gap:5,marginBottom:6}}>
             {txList.some(t => isDupe(t.id)) && (
               <div style={{padding:'6px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,fontSize:11,color:C.red}}>
-                ⚠ Duplicate rows detected — highlighted in red. Verify before approving.
+                ⚠ Duplicate rows detected — highlighted in red. These also appear in another statement. Verify before approving.
+              </div>
+            )}
+            {txList.some(t => isRepeat(t.id)) && (
+              <div style={{padding:'6px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:11,color:C.amb}}>
+                ◆ Repeated charge on the same day within this statement — highlighted amber. Real if the statement reconciles; verify if unsure.
               </div>
             )}
             {flagCount > 0 && (
@@ -1213,8 +1222,8 @@ export default function App() {
               </thead>
               <tbody>
                 {txList.map((t, ri) => {
-                  const dp = isDupe(t.id);
-                  const td = tdBase(ri, t.flagged || t.ambiguous, dp);
+                  const dp = isDupe(t.id);                                   // cross-statement → red
+                  const td = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id), dp);  // same-statement repeat → amber (via flagged path)
                   return (
                     <tr key={t.id}>
                       <td style={{...td,color:C.t3,fontFamily:'JetBrains Mono,monospace',fontSize:10,textAlign:'center',width:28}}>{ri+1}</td>
