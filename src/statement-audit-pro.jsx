@@ -1,4 +1,4 @@
-// StatementAudit Pro — canonical build. Last updated: 2026-06-17 (CR/credit-balance opening rule added to credit-card + loan prompts)
+// StatementAudit Pro — canonical build. Last updated: 2026-06-18 (item 4: duplicate-detection cross/same split — scenario 2 fix)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
