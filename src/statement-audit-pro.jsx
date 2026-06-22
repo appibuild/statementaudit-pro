@@ -1,4 +1,4 @@
-// StatementAudit Pro — canonical build. Last updated: 2026-06-18 (item 4: duplicate-detection cross/same split — scenario 2 fix)
+// StatementAudit Pro — canonical build. Last updated: 2026-06-21 (Xero pre-coded export + makeName suffix; period-gap threshold fix)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -246,17 +246,28 @@ const buildXero = txList => {
   })].join('\r\n');
 };
 
+const buildXeroPrecoded = txList => {
+  const h = 'Date,Amount,Payee,Description,Reference,Account Code';
+  return [h, ...txList.map(t => {
+    const amt = t.credit != null ? t.credit : t.debit != null ? -t.debit : '';
+    const p = (t.payee||'').replace(/"/g,'""');
+    const d = (t.description||'').replace(/"/g,'""');
+    return `${t.date},${amt},"${p}","${d}",${t.paymentType},${t.nominalCode||''}`;
+  })].join('\r\n');
+};
+
 const buildCSV = s => {
   const tx = s.editedTransactions || s.transactions || [];
   return s.platform === 'xero' ? buildXero(tx) : buildQBO(tx);
 };
 
-const makeName = s => {
+const makeName = (s, suffix='') => {
   const bank = (s.bankName||'Bank').replace(/\s+/g,'_');
   const plat = (s.platform||'qbo').toUpperCase();
-  if (!s.period?.from) return `${bank}_${plat}.csv`;
+  const sfx  = suffix ? `_${suffix}` : '';
+  if (!s.period?.from) return `${bank}_${plat}${sfx}.csv`;
   const d = str => str.split('/').reverse().join('-');
-  return `${bank}_${d(s.period.from)}_to_${d(s.period.to)}_${plat}.csv`;
+  return `${bank}_${d(s.period.from)}_to_${d(s.period.to)}_${plat}${sfx}.csv`;
 };
 
 const dlFile = (content, name) => {
@@ -287,11 +298,15 @@ const detectPeriods = stmts => {
   const sorted = stmts.filter(s => s.period?.from && s.period?.to)
     .sort((a,b) => pDate(a.period.from) - pDate(b.period.from));
   const gaps = [], overs = [];
+  const DAY = 86400000;
   for (let i = 0; i < sorted.length - 1; i++) {
     const curr = sorted[i], next = sorted[i+1];
-    const diff = (pDate(next.period.from) - pDate(curr.period.to)) / 86400000;
-    if (diff > 1)  gaps.push({ from:curr.period.to, to:next.period.from });
-    if (diff < 0)  overs.push({ a:curr.bankName||curr.filename, b:next.bankName||next.filename });
+    const diff = (pDate(next.period.from) - pDate(curr.period.to)) / DAY;
+    // Yardstick: a genuinely missing statement leaves a hole about as long as a statement.
+    const span = Math.max(1, (pDate(curr.period.to) - pDate(curr.period.from)) / DAY);
+    const threshold = Math.max(20, span * 0.5);
+    if (diff > threshold) gaps.push({ from:curr.period.to, to:next.period.from });
+    if (diff < 0)         overs.push({ a:curr.bankName||curr.filename, b:next.bankName||next.filename });
   }
   return { gaps, overs };
 };
@@ -1379,6 +1394,10 @@ export default function App() {
               <button onClick={() => dlFile(buildXero(xeroApproved.flatMap(s=>getTx(s)).sort((a,b)=>pDate(a.date)-pDate(b.date))), 'Merged_Xero.csv')}
                 style={btn('outline')}>↓ Merge Xero ({xeroApproved.length})</button>
             )}
+            {xeroApproved.length > 1 && (
+              <button onClick={() => dlFile(buildXeroPrecoded(xeroApproved.flatMap(s=>getTx(s)).sort((a,b)=>pDate(a.date)-pDate(b.date))), 'Merged_Xero_Precoded.csv')}
+                style={btn('outline')}>↓ Merged Xero (pre-coded)</button>
+            )}
           </div>
         </div>
 
@@ -1422,6 +1441,9 @@ export default function App() {
                     {rec?.reconciled?'✓ Reconciled':'⚑ Variance'}
                   </span>
                   <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('primary')}>↓ Download</button>
+                  {s.platform==='xero' && (
+                    <button onClick={() => dlFile(buildXeroPrecoded(getTx(s)), makeName(s,'PRECODED'))} style={btn('outline')}>↓ Pre-coded</button>
+                  )}
                 </div>
               </div>
             );
