@@ -1,6 +1,6 @@
 # StatementAudit Pro — Rebuild Brief (for an OpenAI-model build)
 
-**Prepared:** 17 June 2026 · **Source of truth:** `01_LIVE_CODE/statement-audit-pro.jsx` (1,524 lines, live artifact)
+**Prepared:** 17 June 2026 · **Source of truth:** `01_LIVE_CODE/statement-audit-pro.jsx` (1,533 lines, live artifact)
 
 This is the orientation document. Read it first, then the live `.jsx`, then the docs in `02_PROJECT_DOCS/`. **Where this brief and the live code disagree, the live code wins** — it has drifted ahead of the written docs before.
 

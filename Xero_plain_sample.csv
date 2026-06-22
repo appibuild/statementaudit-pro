@@ -1,0 +1,6 @@
+Date,Amount,Payee,Description,Reference
+03/06/2026,-42.30,Tesco,Groceries,VIS
+05/06/2026,1200.00,Client A,Invoice payment,CR
+07/06/2026,-89.95,British Gas,Gas bill,DD
+10/06/2026,-25.60,Amazon,Office supplies,VIS
+12/06/2026,-5.00,Bank,Account fee,FEE

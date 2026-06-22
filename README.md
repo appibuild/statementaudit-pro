@@ -19,7 +19,7 @@ If it prints **ALL CHECKS PASSED**, this file is the canonical build and you may
 ## What's here
 
 ```
-src/statement-audit-pro.jsx   ← the app (canonical 1,524-line build)
+src/statement-audit-pro.jsx   ← the app (canonical 1,533-line build)
 verify.sh                     ← start-of-session source-of-truth check
 VERSION                       ← pinned facts: line count, model, token budget, open item
 docs/                         ← brief, project instructions, latest handovers, decision record
@@ -41,6 +41,6 @@ docs/                         ← brief, project instructions, latest handovers,
 2. If the line count changed, update `expected_lines:` in `VERSION` in the same commit.
 3. Write a dated handover into `docs/` (never overwrite a previous one).
 
-## Status (2026-06-17)
+## Status (2026-06-18)
 
-Resolved & live-verified: Lloyds opening (running-balance two-anchor), HSBC missing-row detection, CR/credit-balance opening. **Open build item: duplicate-detection tuning (item 4).** Provider is single (Anthropic, pinned); any move to a benchmark or another provider is a measured A/B against ground truth, not a frustration-driven swap — see `docs/00_START_HERE_REBUILD_BRIEF.md`.
+Resolved & live-verified: Lloyds opening (running-balance two-anchor), HSBC missing-row detection, CR/credit-balance opening, and item-4 duplicate-detection tuning (scenario 2 — same-statement repeats now amber and non-blocking; cross-statement overlap unchanged, still red and blocks the gate). **Open build items: item-4 scenarios 1 + 3 deferred (build only if a real need appears); two reproducible extraction errors logged to the Phase-2 prompt-tuning backlog.** Provider is single (Anthropic, pinned); any move to a benchmark or another provider is a measured A/B against ground truth, not a frustration-driven swap — see `docs/00_START_HERE_REBUILD_BRIEF.md`.
