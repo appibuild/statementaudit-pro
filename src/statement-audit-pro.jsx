@@ -1,4 +1,4 @@
-// StatementAudit Pro — canonical build. Last updated: 2026-06-22 (Job 3A: direction-from-column rule in current+savings prompts)
+// StatementAudit Pro — canonical build. Last updated: 2026-06-22 (Job 3B: flip-detection in recalc + flag-and-correct UI)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -171,6 +171,25 @@ const recalc = (txList, prev, acType) => {
   const idxFirstBal = txList.findIndex(t => t.balance != null);
   let trueOpeningFromTop = null;
   const balanceBreaks = [];
+  const flipSuggestions = [];
+  // Pinpoint the single transaction whose 2×amount matches |gap| — the likely sign-flip.
+  // gap<0 in credit-positive → a debit that should be credit; gap>0 → credit that should be debit.
+  // Inverted for debit-positive (credit/loan) accounts. Returns null if not uniquely identified.
+  const findFlip = (spanTxs, gap, fromDate, toDate) => {
+    const halfGap = +(Math.abs(gap) / 2).toFixed(2);
+    const toCredit = creditPos ? gap < 0 : gap > 0;
+    const cands = spanTxs.filter(t =>
+      toCredit ? Math.abs((t.debit  || 0) - halfGap) < 0.01
+               : Math.abs((t.credit || 0) - halfGap) < 0.01
+    );
+    if (cands.length !== 1) return null;
+    return {
+      tid: cands[0].id, amount: halfGap, toCredit, date: cands[0].date, fromDate, toDate,
+      msg: toCredit
+        ? `This looks like money IN — your statement shows this amount in the Paid-in column. Change to credit?`
+        : `This looks like money OUT — your statement shows this amount in the Paid-out column. Change to debit?`
+    };
+  };
   if (idxFirstBal !== -1) {
     // (1) Opening, top-down: first printed balance minus the movement up to & including it.
     let netToFirst = 0;
@@ -184,7 +203,11 @@ const recalc = (txList, prev, acType) => {
       for (let k = prevIdx + 1; k <= j; k++) seg += mv(txList[k]);
       const expected = +(txList[prevIdx].balance + seg).toFixed(2);
       const gap = +(txList[j].balance - expected).toFixed(2);
-      if (Math.abs(gap) >= 0.01) balanceBreaks.push({ fromDate: txList[prevIdx].date, toDate: txList[j].date, gap });
+      if (Math.abs(gap) >= 0.01) {
+        balanceBreaks.push({ fromDate: txList[prevIdx].date, toDate: txList[j].date, gap });
+        const flip = findFlip(txList.slice(prevIdx + 1, j + 1), gap, txList[prevIdx].date, txList[j].date);
+        if (flip) flipSuggestions.push(flip);
+      }
       prevIdx = j;
     }
     // Final leg: last printed balance → statement closing.
@@ -193,7 +216,11 @@ const recalc = (txList, prev, acType) => {
       for (let k = prevIdx + 1; k < txList.length; k++) seg += mv(txList[k]);
       const expected = +(txList[prevIdx].balance + seg).toFixed(2);
       const gap = +(close - expected).toFixed(2);
-      if (Math.abs(gap) >= 0.01) balanceBreaks.push({ fromDate: txList[prevIdx].date, toDate: 'closing', gap });
+      if (Math.abs(gap) >= 0.01) {
+        balanceBreaks.push({ fromDate: txList[prevIdx].date, toDate: 'closing', gap });
+        const flip = findFlip(txList.slice(prevIdx + 1), gap, txList[prevIdx].date, 'closing');
+        if (flip) flipSuggestions.push(flip);
+      }
     }
   }
   // Two independent opening anchors agreeing → trust the true opening, apply without a click.
@@ -202,7 +229,7 @@ const recalc = (txList, prev, acType) => {
   return { ...prev, csvDebitTotal:deb, csvCreditTotal:crd, transactionCount:txList.length,
     calculatedClosing:calc, variance, txVar, balVar, derivedOpening, openingLikelyOff,
     accountTypeLikelyWrong, suggestedType,
-    trueOpeningFromTop, openingAnchorsAgree, balanceBreaks, integrityChecked: idxFirstBal !== -1,
+    trueOpeningFromTop, openingAnchorsAgree, balanceBreaks, flipSuggestions, integrityChecked: idxFirstBal !== -1,
     reconciled: variance < 0.02 };
 };
 
@@ -565,6 +592,19 @@ export default function App() {
     const base = (s.editedTransactions || s.transactions || []).filter(t => t.id !== tid);
     const rec  = recalc(base, s.reconciliation, s.accountType);
     return {...s, editedTransactions:base, reconciliation:rec, confidenceScore:calcConfidence(rec)};
+  }));
+
+  // One-click: swap a transaction's debit↔credit when the balance cross-check pinpoints it
+  // as a likely sign-flip. Re-runs recalc so the integrity check immediately re-evaluates.
+  const flipTx = (sid, tid) => setStmts(prev => prev.map(s => {
+    if (s.id !== sid) return s;
+    const base = (s.editedTransactions || s.transactions || []).map(t => {
+      if (t.id !== tid) return t;
+      return t.debit != null ? {...t, credit: +t.debit.toFixed(2), debit: null}
+                             : {...t, debit:  +t.credit.toFixed(2), credit: null};
+    });
+    const rec = recalc(base, s.reconciliation, s.accountType);
+    return {...s, editedTransactions: base, reconciliation: rec, confidenceScore: calcConfidence(rec)};
   }));
 
   const approve = id => {
@@ -1179,11 +1219,15 @@ export default function App() {
             {rec && rec.balanceBreaks?.length > 0 && (
               <div style={{padding:'9px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,fontSize:12,color:C.red}}>
                 <div style={{fontWeight:600,marginBottom:4}}>⚠ The running balance doesn't add up — a transaction may be missing or entered the wrong way round.</div>
-                {rec.balanceBreaks.map((b,i) => (
-                  <div key={i} style={{color:C.t1,fontSize:11,marginTop:2}}>
-                    <strong style={{fontFamily:'JetBrains Mono,monospace'}}>£{Math.abs(b.gap).toFixed(2)}</strong> unaccounted between <strong>{b.fromDate}</strong> and <strong>{b.toDate==='closing'?'the closing balance':b.toDate}</strong> — check this stretch against the statement.
-                  </div>
-                ))}
+                {rec.balanceBreaks.map((b,i) => {
+                  const flip = rec.flipSuggestions?.find(f => f.fromDate === b.fromDate && f.toDate === b.toDate);
+                  return (
+                    <div key={i} style={{color:C.t1,fontSize:11,marginTop:2}}>
+                      <strong style={{fontFamily:'JetBrains Mono,monospace'}}>£{Math.abs(b.gap).toFixed(2)}</strong> unaccounted between <strong>{b.fromDate}</strong> and <strong>{b.toDate==='closing'?'the closing balance':b.toDate}</strong>
+                      {flip ? ' — likely sign flip highlighted in amber below. Accept the suggestion to correct it.' : ' — check this stretch against the statement.'}
+                    </div>
+                  );
+                })}
               </div>
             )}
             {rec && rec.accountTypeLikelyWrong && rec.suggestedType && canEdit && (
@@ -1239,8 +1283,9 @@ export default function App() {
               </thead>
               <tbody>
                 {txList.map((t, ri) => {
-                  const dp = isDupe(t.id);                                   // cross-statement → red
-                  const td = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id), dp);  // same-statement repeat → amber (via flagged path)
+                  const dp      = isDupe(t.id);                                              // cross-statement → red
+                  const flipSug = rec?.flipSuggestions?.find(f => f.tid === t.id);
+                  const td      = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id) || !!flipSug, dp);  // flip candidate → amber
                   return (
                     <tr key={t.id}>
                       <td style={{...td,color:C.t3,fontFamily:'JetBrains Mono,monospace',fontSize:10,textAlign:'center',width:28}}>{ri+1}</td>
@@ -1256,6 +1301,12 @@ export default function App() {
                             <span title={t.description}>{t.description}</span>
                             {t.wrapped && <span style={{marginLeft:7,fontSize:11.5,fontWeight:600,color:C.t2,background:'#EEF1F6',borderRadius:999,padding:'2px 9px',whiteSpace:'nowrap'}}>Joined from 2 lines</span>}
                             {t.ambiguous && <span style={{marginLeft:7,fontSize:11.5,fontWeight:600,color:C.amb,background:C.ambDim,borderRadius:999,padding:'2px 9px',whiteSpace:'nowrap'}}>Worth a check</span>}
+                            {flipSug && canEdit && (
+                              <span style={{marginLeft:7,fontSize:11,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,padding:'2px 8px',whiteSpace:'normal',display:'inline-flex',alignItems:'center',gap:6}}>
+                                {flipSug.msg}
+                                <button onClick={e=>{e.stopPropagation();flipTx(s.id,t.id);}} style={{background:'none',border:`1px solid ${C.amb}`,borderRadius:4,cursor:'pointer',color:C.amb,fontWeight:700,padding:'1px 7px',fontSize:11,lineHeight:'18px',flexShrink:0}}>Accept</button>
+                              </span>
+                            )}
                           </span>
                         )}
                       </td>
