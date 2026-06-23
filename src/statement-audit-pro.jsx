@@ -1,4 +1,4 @@
-// StatementAudit Pro — canonical build. Last updated: 2026-06-23 (Job 2: prompt completeness rule — never merge distinct transactions)
+// StatementAudit Pro — canonical build. Last updated: 2026-06-23 (consistency review: flip message account-type-aware; savings direction priority clarified)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ Direction is determined SOLELY by which money column the amount appears in. The 
   savings: `You process UK SAVINGS ACCOUNT statements for QuickBooks Online and Xero import. ${BASE_PROMPT}
 
 Payment types: DEP (deposit/payment in), WDR (withdrawal), INT (interest credited), TFR (transfer in or out), NOT (notice period withdrawal), BON (bonus interest), FEE (account fee).
-Interest is always a credit. Withdrawals are always debits.
+Interest is almost always a credit, and withdrawals are almost always debits — but if the amount appears in the other column, the COLUMN always has final say.
 Overdrawn balances: a balance marked "D"/"DR"/"OD"/"Overdrawn" is negative; "CR"/"C" or unmarked is positive. Return openingBalance and closingBalance as SIGNED numbers (negative when overdrawn).
 calculatedClosing = openingBalance + csvCreditTotal - csvDebitTotal.
 Direction is determined SOLELY by which money column the amount appears in. The left money column ("Paid out") is always money out (debit). The right money column ("Paid in") is always money in (credit). NEVER infer direction from the payment-type code: the same code (DD, BP, SO, TFR, CR, VIS, etc.) can appear in EITHER column. A "BP" or "TFR" amount in the Paid-in column is money IN (a refund, gift, or reversal); the same code in the Paid-out column is money OUT. When a row's code suggests one direction but the amount sits in the other column, the COLUMN wins.`,
@@ -188,9 +188,13 @@ const recalc = (txList, prev, acType) => {
     if (cands.length !== 1) return null;
     return {
       tid: cands[0].id, amount: halfGap, toCredit, date: cands[0].date, fromDate, toDate,
-      msg: toCredit
-        ? `This looks like money IN — your statement shows this amount in the Paid-in column. Change to credit?`
-        : `This looks like money OUT — your statement shows this amount in the Paid-out column. Change to debit?`
+      msg: creditPos
+        ? (toCredit
+            ? `This looks like money IN — your statement shows this amount in the Paid-in column. Change to credit?`
+            : `This looks like money OUT — your statement shows this amount in the Paid-out column. Change to debit?`)
+        : (toCredit
+            ? `This looks like a credit (payment or refund) — the printed balance moved in the credit direction. Change to credit?`
+            : `This looks like a debit (purchase or charge) — the printed balance moved in the debit direction. Change to debit?`)
     };
   };
   if (idxFirstBal !== -1) {
