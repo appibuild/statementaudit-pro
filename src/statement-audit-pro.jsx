@@ -316,7 +316,7 @@ const dlFile = (content, name) => {
 // and same-statement (a legitimate same-day repeat — soft amber "verify", does NOT block).
 const findDupes = stmts => {
   const all = stmts.flatMap(s => (s.editedTransactions||s.transactions||[]).map(t => ({...t, sid:s.id})));
-  const cross = new Set(), same = new Set();
+  const cross = new Set(), same = new Set(), crossPairs = [];
   for (let i = 0; i < all.length; i++) for (let j = i+1; j < all.length; j++) {
     const a = all[i], b = all[j];
     if (a.date === b.date
@@ -325,9 +325,10 @@ const findDupes = stmts => {
       && (a.payee||'').length > 2) {
       const set = a.sid === b.sid ? same : cross;
       set.add(`${a.sid}:${a.id}`); set.add(`${b.sid}:${b.id}`);
+      if (a.sid !== b.sid) crossPairs.push({ a:{sid:a.sid,tid:a.id}, b:{sid:b.sid,tid:b.id} });
     }
   }
-  return { cross, same };
+  return { cross, same, crossPairs };
 };
 
 const detectPeriods = stmts => {
@@ -364,6 +365,7 @@ export default function App() {
   const [pdfUrl,   setPdfUrl]   = useState(null);
   const [selIds,   setSelIds]   = useState(() => new Set()); // selected files in the processing queue
   const [showRaw,  setShowRaw]  = useState(() => new Set()); // raw response toggle — error rows only
+  const [showDupeViewer, setShowDupeViewer] = useState(false);
 
   const stmtsRef     = useRef([]);
   const fileInputRef = useRef(null);
@@ -696,7 +698,7 @@ export default function App() {
     const totalDeb  = processed.reduce((n,s) => n + (s.reconciliation?.csvDebitTotal  || 0), 0);
     const totalCred = processed.reduce((n,s) => n + (s.reconciliation?.csvCreditTotal || 0), 0);
     const alerts = [];
-    if (cnts.dupeCount > 0)      alerts.push({type:'red', msg:`${cnts.dupeCount} duplicate transaction pair${cnts.dupeCount>1?'s':''} detected across statements`});
+    if (cnts.dupeCount > 0)      alerts.push({type:'red', msg:`${cnts.dupeCount} duplicate transaction pair${cnts.dupeCount>1?'s':''} detected across statements — click to review`, onClick:() => setShowDupeViewer(v => !v)});
     if (periods.overs.length > 0) alerts.push({type:'red', msg:`${periods.overs.length} overlapping statement period${periods.overs.length>1?'s':''} — double-entry risk`});
     if (periods.gaps.length > 0)  alerts.push({type:'amb', msg:`${periods.gaps.length} period gap${periods.gaps.length>1?'s':''} detected — possible missing statements`});
     if (cnts.failRec > 0)         alerts.push({type:'amb', msg:`${cnts.failRec} statement${cnts.failRec>1?'s':''} with reconciliation variance`});
@@ -741,7 +743,7 @@ export default function App() {
           <div style={{flexShrink:0,display:'flex',flexDirection:'column',gap:6}}>
             <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',fontWeight:600}}>Alerts Requiring Attention</div>
             {alerts.map((a,i) => (
-              <div key={i} style={{padding:'9px 14px',borderRadius:7,fontSize:13,
+              <div key={i} onClick={a.onClick||undefined} style={{padding:'9px 14px',borderRadius:7,fontSize:13,cursor:a.onClick?'pointer':undefined,
                 background:a.type==='red'?C.redDim:C.ambDim,
                 border:`1px solid ${a.type==='red'?C.redBrd:C.ambBrd}`,
                 color:a.type==='red'?C.red:C.amb}}>
@@ -765,6 +767,37 @@ export default function App() {
                 Gap: {g.from} → {g.to}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Cross-statement duplicate viewer — opened by clicking the dupe alert */}
+        {showDupeViewer && cnts.dupeCount > 0 && (
+          <div style={{flexShrink:0,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:9,padding:'12px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <div style={{fontSize:11,color:C.red,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>Cross-Statement Duplicates — Read Only</div>
+              <button onClick={() => setShowDupeViewer(false)} style={{fontSize:11,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>✕ Close</button>
+            </div>
+            {dupes.crossPairs.length === 0
+              ? <div style={{fontSize:12,color:C.t2}}>No cross-statement duplicates found.</div>
+              : dupes.crossPairs.map((pair,i) => {
+                  const sA = stmts.find(s => s.id === pair.a.sid);
+                  const sB = stmts.find(s => s.id === pair.b.sid);
+                  const tA = getTx(sA||{}).find(t => t.id === pair.a.tid);
+                  const tB = getTx(sB||{}).find(t => t.id === pair.b.tid);
+                  if (!tA || !tB) return null;
+                  const amt = tA.debit != null ? `-${fmtCcy(tA.debit)}` : `+${fmtCcy(tA.credit||0)}`;
+                  const stmtLabel = s => s ? `${s.bankName||'Bank'}${s.period ? ` · ${s.period.from}–${s.period.to}` : ''}` : '—';
+                  return (
+                    <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i < dupes.crossPairs.length-1 ? `1px solid ${C.redBrd}` : 'none'}}>
+                      <div style={{fontSize:12,color:C.red,fontFamily:'JetBrains Mono,monospace',marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
+                      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                        <button onClick={() => { setActiveId(pair.a.sid); setTab('review'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sA)} ↗</button>
+                        <button onClick={() => { setActiveId(pair.b.sid); setTab('review'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sB)} ↗</button>
+                      </div>
+                    </div>
+                  );
+                })
+            }
           </div>
         )}
 
