@@ -1,4 +1,4 @@
-// StatementAudit Pro — canonical build. Last updated: 2026-06-23 (Job: Gate Hard-Block — approve() guard + fix-list UI)
+// StatementAudit Pro — canonical build. Last updated: 2026-06-23 (Job 1: balance-coverage visibility on strip + fix-list)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -1173,6 +1173,11 @@ export default function App() {
                         : <>The numbers don't match — <span style={{color:C.red,fontWeight:600}}>£{rec.variance?.toFixed(2)} difference</span>. Check before approving.</>}
                   </span>
                 </div>
+                {!rec.integrityChecked && (
+                  <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.bdr}`,fontSize:12,color:C.t3,lineHeight:1.4}}>
+                    No running balance read from this statement — totals checked, but individual rows can't be auto-verified.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1271,7 +1276,10 @@ export default function App() {
                   {rec.openingLikelyOff && (
                     <div>• Use the correct opening balance shown in the blue helper above.</div>
                   )}
-                  {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && (
+                  {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && !rec.integrityChecked && (
+                    <div>• No running balance was read from this statement, so no single row can be pinpointed — check each transaction's money in/out is in the right column, and that no row is missing.</div>
+                  )}
+                  {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && rec.integrityChecked && (
                     <div>• Check flagged rows, and that each transaction's money in/out is in the right column.</div>
                   )}
                 </div>
