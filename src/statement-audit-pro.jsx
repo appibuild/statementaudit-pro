@@ -363,6 +363,7 @@ export default function App() {
   const [showPdf,  setShowPdf]  = useState(false); // PDF compare pane on the review screen
   const [pdfUrl,   setPdfUrl]   = useState(null);
   const [selIds,   setSelIds]   = useState(() => new Set()); // selected files in the processing queue
+  const [showRaw,  setShowRaw]  = useState(() => new Set()); // raw response toggle — error rows only
 
   const stmtsRef     = useRef([]);
   const fileInputRef = useRef(null);
@@ -413,6 +414,7 @@ export default function App() {
   }), [stmts, dupes]);
 
   const updateS = (id, patch) => setStmts(p => p.map(s => s.id === id ? {...s, ...patch} : s));
+  const toggleRaw = id => setShowRaw(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   // ── File handling ──────────────────────────────────────────────────────
   const addFiles = useCallback(files => {
@@ -425,7 +427,7 @@ export default function App() {
         accountType:'current', platform:'qbo',
         bankName:'', accountName:'', period:null,
         openingBalance:null, closingBalance:null,
-        transactions:[], editedTransactions:null, reconciliation:null, error:null,
+        transactions:[], editedTransactions:null, reconciliation:null, error:null, rawResponse:null,
       }))];
     });
     setTab('queue');
@@ -435,7 +437,8 @@ export default function App() {
   const processOne = useCallback(async id => {
     const stmt = stmtsRef.current.find(s => s.id === id);
     if (!stmt || ['processing','approved'].includes(stmt.status)) return;
-    updateS(id, { status:'processing', error:null });
+    updateS(id, { status:'processing', error:null, rawResponse:null });
+    let capturedRaw = ''; // session-only React state — never persisted; cleared on re-run and on success
     try {
       const b64  = await toBase64(stmt.file);
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -460,6 +463,7 @@ export default function App() {
       }
       const api     = await resp.json();
       const rawText = api.content?.find(b => b.type === 'text')?.text || '';
+      capturedRaw = rawText;
       const raw     = rawText;  // model now returns the full JSON (no prefill to compensate for)
       const jsonStart = raw.indexOf('{');
       const jsonEnd   = raw.lastIndexOf('}');
@@ -499,8 +503,9 @@ export default function App() {
         transactions, editedTransactions:null,
         reconciliation: rec0,
         confidenceScore: calcConfidence(rec0),
+        rawResponse: null,
       });
-    } catch(err) { updateS(id, { status:'error', error:err.message }); }
+    } catch(err) { updateS(id, { status:'error', error:err.message, rawResponse: capturedRaw || null }); }
   }, []);
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -915,6 +920,19 @@ export default function App() {
                 </div>
                 {s.period && <div style={{fontSize:11,color:C.t3,marginTop:2}}>{s.period.from} → {s.period.to} · {getTx(s).length} txn</div>}
                 {s.error   && <div style={{fontSize:11,color:C.red,marginTop:2}}>⚠ {s.error}</div>}
+                {s.rawResponse && (
+                  <div style={{marginTop:4}}>
+                    <button onClick={() => toggleRaw(s.id)} style={{fontSize:10,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>
+                      {showRaw.has(s.id) ? 'Hide raw response' : 'Show raw response'}
+                    </button>
+                    {showRaw.has(s.id) && (
+                      <div style={{marginTop:4,position:'relative'}}>
+                        <pre style={{margin:0,fontSize:10,color:C.t2,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'8px',maxHeight:160,overflowY:'auto',fontFamily:'JetBrains Mono,monospace',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{s.rawResponse}</pre>
+                        <button onClick={() => navigator.clipboard.writeText(s.rawResponse)} style={{position:'absolute',top:4,right:4,fontSize:10,color:C.t3,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Copy</button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <select value={s.accountType} disabled={locked}
                 onChange={e => updateS(s.id,{accountType:e.target.value})}
