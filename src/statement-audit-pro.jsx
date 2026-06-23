@@ -770,37 +770,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Cross-statement duplicate viewer — opened by clicking the dupe alert */}
-        {showDupeViewer && cnts.dupeCount > 0 && (
-          <div style={{flexShrink:0,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:9,padding:'12px 16px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-              <div style={{fontSize:11,color:C.red,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>Cross-Statement Duplicates — Read Only</div>
-              <button onClick={() => setShowDupeViewer(false)} style={{fontSize:11,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>✕ Close</button>
-            </div>
-            {dupes.crossPairs.length === 0
-              ? <div style={{fontSize:12,color:C.t2}}>No cross-statement duplicates found.</div>
-              : dupes.crossPairs.map((pair,i) => {
-                  const sA = stmts.find(s => s.id === pair.a.sid);
-                  const sB = stmts.find(s => s.id === pair.b.sid);
-                  const tA = getTx(sA||{}).find(t => t.id === pair.a.tid);
-                  const tB = getTx(sB||{}).find(t => t.id === pair.b.tid);
-                  if (!tA || !tB) return null;
-                  const amt = tA.debit != null ? `-${fmtCcy(tA.debit)}` : `+${fmtCcy(tA.credit||0)}`;
-                  const stmtLabel = s => s ? `${s.bankName||'Bank'}${s.period ? ` · ${s.period.from}–${s.period.to}` : ''}` : '—';
-                  return (
-                    <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i < dupes.crossPairs.length-1 ? `1px solid ${C.redBrd}` : 'none'}}>
-                      <div style={{fontSize:12,color:C.red,fontFamily:'JetBrains Mono,monospace',marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
-                      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                        <button onClick={() => { setActiveId(pair.a.sid); setTab('review'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sA)} ↗</button>
-                        <button onClick={() => { setActiveId(pair.b.sid); setTab('review'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sB)} ↗</button>
-                      </div>
-                    </div>
-                  );
-                })
-            }
-          </div>
-        )}
-
         {/* Statement list */}
         {stmts.length > 0 && (
           <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
@@ -1157,10 +1126,40 @@ export default function App() {
               placeholder="Search all statements — payee, amount, date…"
               style={{flex:'1 1 280px',minWidth:220,padding:'10px 14px',background:C.card,border:`1px solid ${C.bdrBrt}`,
                 borderRadius:9,color:C.t1,fontSize:14,outline:'none',fontFamily:'Inter,sans-serif',boxSizing:'border-box'}}/>
-            {cnts.dupeCount>0 && <span style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'8px 12px'}}>⚠ {cnts.dupeCount} possible duplicate{cnts.dupeCount>1?'s':''} across statements</span>}
+            {cnts.dupeCount>0 && <span onClick={() => setShowDupeViewer(v => !v)} style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'8px 12px',cursor:'pointer'}}>⚠ {cnts.dupeCount} possible duplicate{cnts.dupeCount>1?'s':''} across statements — click to review</span>}
             {periods.overs.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'8px 12px'}}>⚠ {periods.overs.length} overlapping period{periods.overs.length>1?'s':''}</span>}
             {periods.gaps.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,padding:'8px 12px'}}>⚑ {periods.gaps.length} possible missing statement{periods.gaps.length>1?'s':''}</span>}
           </div>
+          {/* Cross-statement duplicate viewer — opened by clicking the dupe alert above */}
+          {showDupeViewer && cnts.dupeCount > 0 && (
+            <div style={{flexShrink:0,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:9,padding:'12px 16px',marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <div style={{fontSize:11,color:C.red,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>Cross-Statement Duplicates — Read Only</div>
+                <button onClick={() => setShowDupeViewer(false)} style={{fontSize:11,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>✕ Close</button>
+              </div>
+              {dupes.crossPairs.length === 0
+                ? <div style={{fontSize:12,color:C.t2}}>No cross-statement duplicates found.</div>
+                : dupes.crossPairs.map((pair,i) => {
+                    const sA = stmts.find(s => s.id === pair.a.sid);
+                    const sB = stmts.find(s => s.id === pair.b.sid);
+                    const tA = getTx(sA||{}).find(t => t.id === pair.a.tid);
+                    const tB = getTx(sB||{}).find(t => t.id === pair.b.tid);
+                    if (!tA || !tB) return null;
+                    const amt = tA.debit != null ? `-${fmtCcy(tA.debit)}` : `+${fmtCcy(tA.credit||0)}`;
+                    const stmtLabel = s => s ? `${s.bankName||'Bank'}${s.period ? ` · ${s.period.from}–${s.period.to}` : ''}` : '—';
+                    return (
+                      <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i < dupes.crossPairs.length-1 ? `1px solid ${C.redBrd}` : 'none'}}>
+                        <div style={{fontSize:12,color:C.red,fontFamily:'JetBrains Mono,monospace',marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                          <button onClick={() => { setActiveId(pair.a.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sA)} ↗</button>
+                          <button onClick={() => { setActiveId(pair.b.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sB)} ↗</button>
+                        </div>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+          )}
           {searchQ.length>=2 && (
             <div style={{flexShrink:0,marginBottom:10,maxHeight:210,overflowY:'auto',border:`1px solid ${C.bdr}`,borderRadius:10,background:C.card}}>
               <div style={{padding:'9px 14px',fontSize:13,color:C.t3,borderBottom:`1px solid ${C.bdr}`}}>
