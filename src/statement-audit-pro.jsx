@@ -1,4 +1,4 @@
-// StatementAudit Pro — canonical build. Last updated: 2026-06-22 (Job 3B: flip-detection in recalc + flag-and-correct UI)
+// StatementAudit Pro — canonical build. Last updated: 2026-06-23 (Job: Gate Hard-Block — approve() guard + fix-list UI)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -608,6 +608,8 @@ export default function App() {
   }));
 
   const approve = id => {
+    const stmt = stmtsRef.current.find(s => s.id === id);
+    if (stmt?.reconciliation && !stmt.reconciliation.reconciled) return; // hard-block: gate refuses non-reconciling statements
     updateS(id, {status:'approved'});
     const next = stmtsRef.current.find(s => s.status === 'review' && s.id !== id);
     if (next) setActiveId(next.id);
@@ -1081,7 +1083,10 @@ export default function App() {
                 <button onClick={() => idx<reviewable.length-1 && setActiveId(reviewable[idx+1].id)} disabled={idx>=reviewable.length-1} style={btn('outline')}>Next →</button>
                 {canEdit && <>
                   <button onClick={() => reject(s.id)} style={btn('danger')}>✕ Reject</button>
-                  {!fastTrack && <button onClick={() => { dlFile(buildCSV(s), makeName(s)); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>}
+                  {!fastTrack && (rec?.reconciled
+                    ? <button onClick={() => { dlFile(buildCSV(s), makeName(s)); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
+                    : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
+                  )}
                 </>}
                 {s.status==='approved' && <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('success')}>↓ Re-download</button>}
               </div>
@@ -1247,6 +1252,29 @@ export default function App() {
                   The <strong style={{fontFamily:'JetBrains Mono,monospace'}}>{fmtBal(rec.openingBalance)}</strong> shown is the balance after the first transaction; the true brought-forward opening is <strong style={{fontFamily:'JetBrains Mono,monospace'}}>{fmtBal(rec.derivedOpening)}</strong>.
                 </span>
                 <button onClick={() => useDerivedOpening(s.id)} style={{...btn('primary'),padding:'6px 12px',fontSize:12}}>Use {fmtBal(rec.derivedOpening)}</button>
+              </div>
+            )}
+            {rec && !rec.reconciled && canEdit && (
+              <div style={{padding:'12px 14px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,fontSize:12}}>
+                <div style={{fontWeight:700,color:C.red,marginBottom:8,fontSize:13}}>⛔ Approval blocked — variance of £{rec.variance?.toFixed(2)}</div>
+                <div style={{color:C.t2,marginBottom:6,fontSize:11}}>Correct the following, then Approve &amp; Export will unlock:</div>
+                <div style={{display:'flex',flexDirection:'column',gap:3,color:C.t1,fontSize:11}}>
+                  {rec.flipSuggestions?.length > 0 && (
+                    <div>• Accept the sign-flip suggestion on the amber-highlighted row in the table below.</div>
+                  )}
+                  {rec.balanceBreaks?.length > 0 && !(rec.flipSuggestions?.length > 0) && (
+                    <div>• Check the date span flagged above — a row may be missing or have its direction wrong.</div>
+                  )}
+                  {rec.accountTypeLikelyWrong && rec.suggestedType && (
+                    <div>• Switch account type using the button above — the numbers reconcile as a {ACCOUNT_TYPES[rec.suggestedType]?.label}.</div>
+                  )}
+                  {rec.openingLikelyOff && (
+                    <div>• Use the correct opening balance shown in the blue helper above.</div>
+                  )}
+                  {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && (
+                    <div>• Check flagged rows, and that each transaction's money in/out is in the right column.</div>
+                  )}
+                </div>
               </div>
             )}
             {canEdit && (

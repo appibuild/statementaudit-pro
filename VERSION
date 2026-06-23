@@ -1,9 +1,9 @@
 StatementAudit Pro — canonical source of truth
-build_date: 2026-06-22
+build_date: 2026-06-23
 source_file: src/statement-audit-pro.jsx
-expected_lines: 1608
+expected_lines: 1636
 model_pinned: claude-sonnet-4-20250514
 max_tokens: 32000
 json_extractor: robust indexOf/lastIndexOf (NO assistant prefill)
-last_resolved: Job 3 direction flag-and-correct (3A prompt + 3B flip-detection) (2026-06-22)
-open_item: Job 4 parser robustness (JSON double-block error); scenario 1 upload-time dupe deferred
+last_resolved: Gate Hard-Block — approve() guard + fix-list UI (2026-06-23)
+open_item: Job: Capture HSBC Balance column; Job 4 parser robustness; scenario 1 upload-time dupe deferred
