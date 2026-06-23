@@ -176,11 +176,11 @@ const recalc = (txList, prev, acType) => {
   const balanceBreaks = [];
   const flipSuggestions = [];
   // Pinpoint the single transaction whose 2×amount matches |gap| — the likely sign-flip.
-  // gap<0 in credit-positive → a debit that should be credit; gap>0 → credit that should be debit.
+  // gap>0 in credit-positive → a debit that should be credit; gap<0 → credit that should be debit.
   // Inverted for debit-positive (credit/loan) accounts. Returns null if not uniquely identified.
   const findFlip = (spanTxs, gap, fromDate, toDate) => {
     const halfGap = +(Math.abs(gap) / 2).toFixed(2);
-    const toCredit = creditPos ? gap < 0 : gap > 0;
+    const toCredit = creditPos ? gap > 0 : gap < 0;
     const cands = spanTxs.filter(t =>
       toCredit ? Math.abs((t.debit  || 0) - halfGap) < 0.01
                : Math.abs((t.credit || 0) - halfGap) < 0.01
