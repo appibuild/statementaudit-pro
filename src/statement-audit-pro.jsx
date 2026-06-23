@@ -1,4 +1,4 @@
-// StatementAudit Pro — canonical build. Last updated: 2026-06-23 (Job 1: balance-coverage visibility on strip + fix-list)
+// StatementAudit Pro — canonical build. Last updated: 2026-06-23 (Job 2: prompt completeness rule — never merge distinct transactions)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -61,8 +61,11 @@ Rules:
 - Date format DD/MM/YYYY only. Preserve original transaction order.
 - Money out = debit (positive), credit = null. Money in = credit (positive), debit = null.
 - Strip payment type prefixes from descriptions (e.g. "DD WATER RATES" → "WATER RATES").
-- Reconstruct multi-line wrapped transactions into single rows. Never split or merge incorrectly.
+- Reconstruct multi-line wrapped transactions into single rows. Never split or merge incorrectly. (This means joining the several printed lines that make up ONE transaction — it does NOT mean combining two separate transactions.)
 - Set "wrapped" to true for any transaction you rebuilt from two or more lines on the statement; otherwise false.
+- COMPLETENESS — transcribe EVERY transaction printed on the statement, in order, as one row each. The app reconciles by totalling these rows, so a single dropped or merged line breaks the whole statement.
+- Two transactions printed as separate entries are SEPARATE, even when they share the same date, merchant, and amount. NEVER deduplicate, combine, or skip one as a presumed repeat. A different reference number (e.g. "INT'L 0054831001" vs "INT'L 0054831002") always means two distinct transactions — output both. Judging whether a same-day repeat is genuine is the app's and the reviewer's job, never yours: transcribe both, and only if you are unsure they are real set "ambiguous":true.
+- Page breaks never end or merge a transaction. "BALANCE CARRIED FORWARD" / "BALANCE BROUGHT FORWARD" lines and repeated page headers and footers are layout only — exclude them as label rows (see below), but keep every real transaction on both sides of them. A transaction at the foot of one page and a similar one at the top of the next are both real; do not collapse them into one.
 - Set "ambiguous" to true when you are not confident about a transaction's payment type, payee, amount, or whether it is money in or out; otherwise false. Do not guess silently — mark it.
 - "balance": the running balance printed against this row, copied EXACTLY as printed, as a SIGNED number (negative if overdrawn, per the overdrawn rules below). If no balance is printed on this row (e.g. several transactions on one day share a single end-of-day balance), set "balance" to null. Do NOT calculate or infer balances yourself — only transcribe the figure shown. This column lets the app verify that no transaction was missed.
 - Include: bank charges, fees, interest, penalties. Exclude: page headers/footers, balance label rows, pure exchange-rate text with no GBP transaction value.
