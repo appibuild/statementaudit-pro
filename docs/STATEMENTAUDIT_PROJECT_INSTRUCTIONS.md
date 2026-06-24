@@ -1,6 +1,6 @@
 # StatementAudit Pro — Project Instructions
 
-**Last updated:** 2026-06-23 · Reconciled against the live build (`src/statement-audit-pro.jsx`, 1,568 lines) and `verify.sh`.
+**Last updated:** 2026-06-24 · Reconciled against the live build (`src/statement-audit-pro.jsx`, 1,568 lines) and `verify.sh`.
 
 > **This file holds the *durable* truths — what is always true about the product, the architecture, and the non-negotiables.** For *current* status (what's built this week, the open build item, the next step), the source of truth is the **latest dated handover in `docs/`**, not this file. When this file and the live code disagree, **the live code wins** and this file gets corrected (Guardrail G3). When the latest handover and this file disagree on status, **the handover wins**.
 
@@ -129,8 +129,8 @@ Also carries: `txVar`, `balVar`, `derivedOpening`, `openingLikelyOff`, `accountT
 
 ## Claude API Integration
 
-- **Model (pinned):** `claude-sonnet-4-20250514`. Do not change without an A/B win on real statements (corrections-per-100, not vibes).
-- **max_tokens:** `32000`. Auth handled by Claude.ai (no key in client code).
+- **Model (pinned):** `claude-sonnet-4-6`. Updated 2026-06-24 — `claude-sonnet-4-20250514` was retired by Anthropic; `claude-sonnet-4-6` is the current equivalent pinned ID. Do not change without an A/B win on real statements (corrections-per-100, not vibes).
+- **max_tokens:** `32000`. Standalone build: API key held server-side in Express proxy (`server/index.js`); never in client code.
 - **No assistant prefill.** The user message asks for JSON only. Prefill was removed — the pinned model rejected it. **Never reintroduce it.**
 - **Robust JSON extractor (sole mechanism):** slice from `indexOf('{')` to `lastIndexOf('}')`, then `JSON.parse`. Never revert to a simple `JSON.parse(raw)`.
 - **API errors:** a 429 / `exceeded_limit` shows a friendly "Usage limit reached — wait and Run again" message; sequential processing leaves a short pause between calls to reduce hitting the limit.
