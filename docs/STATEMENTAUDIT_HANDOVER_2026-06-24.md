@@ -2,11 +2,20 @@
 
 **Changes since last handover:** Strategy session validated Layer 1 spec; then Claude Code built and deployed it. Layer 1 payee code memory is now live on Render. Section 7 model pin conflict is RESOLVED — `claude-sonnet-4-6` is deployed and verify.sh confirms 11/11 green.
 
-**Build state (end of session):**
-- Lines: **1,660** (`src/statement-audit-pro.jsx` + `client/src/App.jsx` in sync)
+**Build state (end of session — updated 2026-06-24 post-testing):**
+- Lines: **1,816** (`src/statement-audit-pro.jsx` + `client/src/App.jsx` in sync)
 - verify.sh: **11/11 green**
-- Latest commit: `276c0b8` — feat: Layer 1 payee code memory
-- Branch: `main`, pushed to `origin/main` → Render auto-deploy triggered
+- Latest commit: `f15757d` — fix: strengthen JSON-only instruction to prevent model reasoning preamble
+- Branch: `main`, pushed to `origin/main`
+- **Render: requires Manual Deploy** (auto-deploy not triggering — use Manual Deploy → Deploy latest commit)
+
+**All commits this session (in order):**
+- `276c0b8` — feat: Layer 1 payee code memory
+- `59176ea` — fix: allow Re-run on approved statements with confirmation prompt
+- `f1583fa` — fix: allow selecting approved statements in queue; split locked/editLock
+- `9650bb3` — feat: rules backup failsafe + QBO XLS import + Save-to-location export
+- `0f7aef0` — fix: QBO import pre-fills account category not nominal code
+- `f15757d` — fix: strengthen JSON-only instruction to prevent model reasoning preamble
 
 **Channel:** Written in the strategy chat channel. All file edits, commits, `verify.sh` and deployment remain Claude Code's. This is the bridge — load it, run `verify.sh`, then work.
 
@@ -14,7 +23,7 @@
 
 ---
 
-## 1. ✅ BUILT — Payee code memory (Layer 1)
+## 1. ✅ BUILT & VERIFIED — Payee code memory (Layer 1) + Rules management
 
 **COMPLETED this session.** Commit `276c0b8`. Deployed to Render on push.
 
@@ -30,7 +39,21 @@
 
 **Open question to validate before Layer 2 (REASONED, unchanged):** Stephen's report is n-of-1 and best case (he recognises the payees). A bookkeeper on a brand-new catch-up client recognises nothing on statement #1 — memory compounds from period 2 onward. Confirm with one real bookkeeper whether their slow half is also recurring-recognised. If yes, Layer 1 is sufficient. If new-client unfamiliarity dominates, the suggestion layer earns its place.
 
-**What's next:** beta test the coding memory on a real second-import cycle — process the same account's next period statement and confirm held codes pre-fill correctly.
+**Verified at coal face:** memory round-trip confirmed across multiple HSBC statements. QBO category import (92 rules from C_S_M_Morris_Bank_Feed_Rules.xls) tested and working — categories pre-fill on extraction. Auto-backup fires on every Approve. 60-transaction merged CSV imported to QBO successfully.
+
+**Also fixed this session:**
+- Re-run on approved statements (confirm dialog, resets to For Review)
+- Queue checkboxes unlock for approved statements (dropdowns still locked)
+- Intermittent JSON preamble error on complex statements (model reasoning before JSON) — new closing instruction explicitly bans page-by-page analysis; Re-run is reliable fallback
+
+**Rules management (Export tab):**
+- Auto-backup on Approve → Downloads/sa-payee-rules-YYYY-MM-DD.json (no user action)
+- Save Rules → File System Access API picker (Chrome/Edge) or download fallback (Safari)
+- Import Rules (.json) → restore from backup
+- Import QBO Rules (.xls) → maps 92 QBO bank rules with category pre-filled; user assigns/edits codes, imports in one click
+- Help panel on Export tab explains backup procedure
+
+**What's next:** compliance gate (Section 6) before first real bookkeeper uses it, then beta.
 
 ---
 
