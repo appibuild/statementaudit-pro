@@ -842,6 +842,14 @@ export default function App() {
         Set account type and export platform per file in the Queue.<br/>
         Every statement requires human approval before CSV is generated.
       </div>
+      {/* Data handling notice — required before external customers */}
+      <div style={{maxWidth:520,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:9,
+        padding:'10px 16px',fontSize:11,color:C.t3,lineHeight:1.7,textAlign:'left'}}>
+        <span style={{fontWeight:600,color:C.t2}}>Data handling:</span>{' '}
+        Your PDF is sent securely over an encrypted connection to our server in Frankfurt (EU) and then to Anthropic's AI in the US for text extraction.
+        No file or transaction data is stored on our servers at any point — everything stays in your browser until you export.
+        By uploading, you confirm you have authority to process this statement.
+      </div>
       <input ref={fileInputRef} type="file" multiple accept="application/pdf"
         style={{display:'none'}} onChange={e => addFiles(e.target.files)}/>
     </div>
