@@ -447,7 +447,7 @@ export default function App() {
         accountType:'current', platform:'qbo',
         bankName:'', accountName:'', period:null,
         openingBalance:null, closingBalance:null,
-        transactions:[], editedTransactions:null, reconciliation:null, error:null, rawResponse:null,
+        transactions:[], editedTransactions:null, reconciliation:null, crossCheck:null, error:null, rawResponse:null,
       }))];
     });
     setTab('queue');
@@ -533,6 +533,7 @@ export default function App() {
         transactions, editedTransactions:null,
         reconciliation: rec0,
         confidenceScore: calcConfidence(rec0),
+        crossCheck: api._textExtract?.crossCheck ?? null,
         rawResponse: null,
       });
     } catch(err) { updateS(id, { status:'error', error:err.message, rawResponse: capturedRaw || null }); }
@@ -1237,6 +1238,34 @@ export default function App() {
                     No running balance read from this statement — totals checked, but individual rows can't be auto-verified.
                   </div>
                 )}
+                {/* Dual-extraction cross-check status */}
+                {s.crossCheck && (() => {
+                  const cc = s.crossCheck;
+                  if (cc.status === 'agree') return (
+                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{width:20,height:20,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff',background:C.blu}}>⊕</span>
+                      <span style={{fontSize:12,color:C.t2}}>Dual-path verified — <span style={{color:C.blu,fontWeight:600}}>text layer and AI agree on all {cc.llmCount} transactions</span></span>
+                    </div>
+                  );
+                  if (cc.status === 'partial') return (
+                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{width:20,height:20,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff',background:C.amb}}>⊕</span>
+                      <span style={{fontSize:12,color:C.t2}}>Dual-path check: <span style={{color:C.amb,fontWeight:600}}>{cc.flagged.length} transaction{cc.flagged.length!==1?'s':''} where text layer and AI differ</span> — review ⊕ rows below</span>
+                    </div>
+                  );
+                  if (cc.status === 'count_mismatch') return (
+                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{width:20,height:20,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff',background:C.red}}>⊕</span>
+                      <span style={{fontSize:12,color:C.t2}}>Dual-path check: <span style={{color:C.red,fontWeight:600}}>AI read {cc.llmCount}, text layer read {cc.textCount} transactions</span> — count mismatch, check for dropped rows</span>
+                    </div>
+                  );
+                  if (cc.status === 'unavailable') return (
+                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.bdr}`,fontSize:12,color:C.t3}}>
+                      ⊕ Text layer: not available for this PDF — AI extraction only (scanned document or image-based PDF)
+                    </div>
+                  );
+                  return null;
+                })()}
               </div>
             </div>
           )}
@@ -1380,6 +1409,8 @@ export default function App() {
                 {txList.map((t, ri) => {
                   const dp      = isDupe(t.id);                                              // cross-statement → red
                   const flipSug = rec?.flipSuggestions?.find(f => f.tid === t.id);
+                  const ccFlag  = s.crossCheck?.status === 'partial'                         // dual-path disagreement
+                    ? s.crossCheck.flagged?.find(f => f.index === ri) : null;
                   const td      = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id) || !!flipSug, dp);  // flip candidate → amber
                   return (
                     <tr key={t.id}>
@@ -1400,6 +1431,12 @@ export default function App() {
                               <span style={{marginLeft:7,fontSize:11,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,padding:'2px 8px',whiteSpace:'normal',display:'inline-flex',alignItems:'center',gap:6}}>
                                 {flipSug.msg}
                                 <button onClick={e=>{e.stopPropagation();flipTx(s.id,t.id);}} style={{background:'none',border:`1px solid ${C.amb}`,borderRadius:4,cursor:'pointer',color:C.amb,fontWeight:700,padding:'1px 7px',fontSize:11,lineHeight:'18px',flexShrink:0}}>Accept</button>
+                              </span>
+                            )}
+                            {ccFlag && (
+                              <span title={ccFlag.issues.map(i=>`${i.field}: AI=${i.llm} text=${i.text}`).join('; ')}
+                                style={{marginLeft:7,fontSize:11,fontWeight:600,color:C.blu,background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:6,padding:'2px 8px',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:4}}>
+                                ⊕ {ccFlag.issues.map(i => i.field === 'direction' ? `direction (AI:${i.llm}, text:${i.text})` : `${i.field} (AI:${typeof i.llm==='number'?i.llm.toFixed(2):i.llm}, text:${typeof i.text==='number'?i.text.toFixed(2):i.text})`).join(' · ')}
                               </span>
                             )}
                           </span>

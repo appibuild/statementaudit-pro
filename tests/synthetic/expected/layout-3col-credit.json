@@ -1,0 +1,87 @@
+{
+  "_fixture": "layout-3col-credit",
+  "colCount": 3,
+  "txCount": 8,
+  "transactions": [
+    {
+      "id": 1,
+      "date": "02/07/2024",
+      "paymentType": null,
+      "description": "PEMBERLEY GROCERS TRURO",
+      "payee": null,
+      "debit": 45.32,
+      "credit": null,
+      "balance": 385.82
+    },
+    {
+      "id": 2,
+      "date": "05/07/2024",
+      "paymentType": null,
+      "description": "WESTCOTT PETROL REDRUTH",
+      "payee": null,
+      "debit": 78,
+      "credit": null,
+      "balance": 463.82
+    },
+    {
+      "id": 3,
+      "date": "08/07/2024",
+      "paymentType": null,
+      "description": "PAYMENT RECEIVED THANK YOU",
+      "payee": null,
+      "debit": null,
+      "credit": 200,
+      "balance": 263.82
+    },
+    {
+      "id": 4,
+      "date": "10/07/2024",
+      "paymentType": null,
+      "description": "SUBSCRIPTION CLOUDVAULT MONTHLY",
+      "payee": null,
+      "debit": 12.99,
+      "credit": null,
+      "balance": 276.81
+    },
+    {
+      "id": 5,
+      "date": "14/07/2024",
+      "paymentType": null,
+      "description": "REFUND PEMBERLEY GROCERS TRURO",
+      "payee": null,
+      "debit": null,
+      "credit": 22.5,
+      "balance": 254.31
+    },
+    {
+      "id": 6,
+      "date": "17/07/2024",
+      "paymentType": null,
+      "description": "HEATHROW AIRPORT TERMINAL 3",
+      "payee": null,
+      "debit": 28,
+      "credit": null,
+      "balance": 282.31
+    },
+    {
+      "id": 7,
+      "date": "19/07/2024",
+      "paymentType": null,
+      "description": "PURCHASE EUR 120.00 AMSTERDAM CAFE",
+      "payee": null,
+      "debit": 103.47,
+      "credit": null,
+      "balance": 385.78
+    },
+    {
+      "id": 8,
+      "date": "22/07/2024",
+      "paymentType": null,
+      "description": "MONTHLY INTEREST CHARGE",
+      "payee": null,
+      "debit": 8.54,
+      "credit": null,
+      "balance": 394.32
+    }
+  ]
+}

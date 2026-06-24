@@ -1,7 +1,7 @@
 StatementAudit Pro — canonical source of truth
 build_date: 2026-06-24
 source_file: src/statement-audit-pro.jsx
-expected_lines: 1824
+expected_lines: 1861
 model_pinned: claude-sonnet-4-6
 max_tokens: 32000
 json_extractor: robust indexOf/lastIndexOf (NO assistant prefill)
