@@ -199,13 +199,22 @@ async function detectAndExtract(base64pdf) {
   }
 
   // Minimum viable text layer: too few items → scanned PDF
-  if (allItems.length < 12) return null;
+  if (allItems.length < 12) {
+    console.log(`[textExtract] null: ${allItems.length} text items — likely scanned/image PDF`);
+    return null;
+  }
   const moneyItems = allItems.filter(i => isMoney(i.text));
-  if (moneyItems.length < 3) return null;
+  if (moneyItems.length < 3) {
+    console.log(`[textExtract] null: ${moneyItems.length} money items from ${allItems.length} — amounts not in standard format`);
+    return null;
+  }
 
   const rows = groupIntoRows(allItems);
   const cols = findMoneyColumns(rows);
-  if (!cols || cols.colCount < 2) return null;
+  if (!cols || cols.colCount < 2) {
+    console.log(`[textExtract] null: column clustering found ${cols?.colCount ?? 0} cluster(s) from ${moneyItems.length} money items — layout not 2+ column`);
+    return null;
+  }
 
   // Parse row by row into a pending-transaction accumulator
   const transactions = [];

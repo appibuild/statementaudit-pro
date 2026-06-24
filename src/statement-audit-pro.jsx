@@ -1244,7 +1244,7 @@ export default function App() {
                   if (cc.status === 'agree') return (
                     <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:8}}>
                       <span style={{width:20,height:20,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff',background:C.blu}}>⊕</span>
-                      <span style={{fontSize:12,color:C.t2}}>Dual-path verified — <span style={{color:C.blu,fontWeight:600}}>text layer and AI agree on all {cc.llmCount} transactions</span></span>
+                      <span style={{fontSize:12,color:C.t2}}>Dual-path verified — <span style={{color:C.blu,fontWeight:600}}>text layer and AI agree on all {cc.llmCount} transactions</span>{cc.columnSwapCorrected ? ' (column order auto-corrected for this layout)' : ''}</span>
                     </div>
                   );
                   if (cc.status === 'partial') return (
