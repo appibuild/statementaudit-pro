@@ -10,14 +10,25 @@ StatementAudit Pro is a UK/Jersey bank statement processing tool built for bookk
 **The pipeline:**
 > Upload PDF → AI extracts transactions as JSON → deterministic code reconciles → human reviews & edits → human approves (mandatory gate) → CSV export → user imports to QBO/Xero
 
-**What makes it different from tools like DocuClipper:**
-- Mandatory human approval gate (the only path to CSV — hard-blocked if numbers don't reconcile)
+**The primary competitor is DocuClipper** — a mature, well-funded US platform (10,000+ finance teams, SOC 2 Type II, $20–360/month per pages processed). DocuClipper is NOT a weak incumbent. It has: bank statements, invoices, receipts, brokerage, forms; rules-based transaction categorisation; fraud detection; QBO/Xero/Sage/NetSuite integrations; API & webhooks; Google Drive/Dropbox/Gmail ingestion; project/folder organisation; and document storage.
+
+**Where DocuClipper is weak for our market:**
+- US-centric throughout (USD, US banks, US categories — not UK nominal codes or UK payment types)
+- Stores your documents on their servers (GDPR/JOIC risk for UK/Jersey practices)
+- US-headquartered (data residency outside EEA)
+- Per-page pricing becomes expensive at UK practice volumes
+- Enterprise complexity (6 tabs, folders, tagging, fraud reports) for a workflow a UK bookkeeper needs to run in 10 minutes
+- No mandatory audit gate — users can export without reviewing reconciliation
+
+**What StatementAudit Pro does differently:**
+- Mandatory human approval gate (only path to CSV — hard-blocked on non-reconciliation)
 - 7-figure reconciliation strip visible before approval
 - UK payment-type codes as a structured column (DD, BP, VIS, TFR, SO, etc.)
+- UK-native: built for UK/Jersey bank formats, UK nominal codes, UK GDPR/JOIC compliance
+- Zero document storage — PDFs never persisted; EU-hosted (Frankfurt)
+- Balance break detection (walks printed balance column to flag missing transactions — more rigorous than DocuClipper's fraud check)
 - Cross-statement duplicate detection
-- Balance break detection (flags missing transactions)
 - Batch processing up to 20 statements
-- Zero document storage (data never persisted)
 
 ---
 
@@ -53,12 +64,12 @@ Amy Hoy · Jason Fried · UK Practice Manager · Paul Jarvis · David Ogilvy · 
 
 ## Strategic Questions for Claude Chat
 
-**1. DocuClipper research recovery**
-The original competitive analysis — DocuClipper's features, pricing, what their customers value most, and how StatementAudit Pro compares — was done in an earlier Claude Chat session and never made it into the current repository. We need to recover or reconstruct it. Specifically:
-- What features do DocuClipper customers use and value most?
-- What are DocuClipper's pricing tiers and per-statement costs?
-- Where is StatementAudit Pro genuinely better, and where is it weaker?
-- Is the audit gate and reconciliation strip a meaningful differentiator to DocuClipper's target customer?
+**1. DocuClipper — customer intelligence**
+We now have a clear picture of DocuClipper's features (see above). What we need is customer intelligence:
+- What do DocuClipper's G2/Capterra reviews say customers value most — and complain about most?
+- What does their pricing mean per statement at typical UK practice volumes (20 clients × 12-page statements/month)?
+- Is there a vocal segment of their customers who are UK/international and frustrated by US-centric defaults?
+- The original Claude Chat research on this was never committed to the repo — please reconstruct the key findings.
 
 **2. Nominal code / categorisation feature — scope and design**
 Given the beta finding (50% of payees need manual categorisation in QBO), what is the minimum viable categorisation feature? Options include:
