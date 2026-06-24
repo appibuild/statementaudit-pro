@@ -710,7 +710,7 @@ export default function App() {
             const keyword     = cond.ruleConditions?.find(r => r.ruleType === 1)?.value || '';
             const qboCategory = out.ruleActions?.find(r => r.actionType === 0)?.value  || '';
             const payeeName   = out.ruleActions?.find(r => r.actionType === 5)?.value  || keyword;
-            if (keyword || payeeName) parsed.push({ name: name||payeeName||keyword, keyword, payeeName, qboCategory, nominalCode:'' });
+            if (keyword || payeeName) parsed.push({ name: name||payeeName||keyword, keyword, payeeName, qboCategory, nominalCode: qboCategory });
           } catch {}
         }
         if (parsed.length) setQboImportRows(parsed);
@@ -1528,7 +1528,7 @@ export default function App() {
             <div>
               <div style={{fontSize:16,fontWeight:700,color:C.t1}}>Import QBO Bank Rules</div>
               <div style={{fontSize:12,color:C.t2,marginTop:4,lineHeight:1.5}}>
-                {qboImportRows.length} rules found · Assign UK nominal codes below · Leave blank to skip · QBO category shown as a hint only
+                {qboImportRows.length} rules found · QBO categories pre-filled — edit to override with nominal codes, or leave as-is and import
               </div>
             </div>
             <button onClick={() => setQboImportRows(null)}
@@ -1539,8 +1539,8 @@ export default function App() {
             background:C.bg,borderRadius:7,fontSize:11,fontWeight:600,color:C.t3,
             textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
             <div>Payee / Bank keyword</div>
-            <div>QBO category (hint — do not copy blindly)</div>
-            <div>UK Nominal Code</div>
+            <div>QBO category (pre-filled)</div>
+            <div>Account Category / Nominal Code</div>
           </div>
           {/* Rows */}
           <div style={{overflowY:'auto',flex:1,display:'flex',flexDirection:'column',gap:4}}>
@@ -1553,7 +1553,7 @@ export default function App() {
                   value={row.nominalCode}
                   onChange={ev => setQboImportRows(prev => prev.map((r,j) =>
                     j===i ? {...r, nominalCode: ev.target.value.trim()} : r))}
-                  placeholder="e.g. 7400"
+                  placeholder="Category or nominal code"
                   style={{border:`1px solid ${row.nominalCode ? C.grnBrd : C.bdrBrt}`,
                     borderRadius:6,padding:'5px 8px',fontSize:12,
                     fontFamily:'JetBrains Mono,monospace',width:'100%',boxSizing:'border-box',
