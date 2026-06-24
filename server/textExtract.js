@@ -32,8 +32,42 @@ const SKIP_RE   = /balance\s+(carried|brought)\s+forward|balance\s+[bc]\/[df]|op
 const HEADER_RE = /\b(date|description|details|narrative|payments?\s*out|payments?\s*in|debit|credit|withdrawal|deposit|money\s+out|money\s+in|paid\s+out|paid\s+in)\b/i;
 const MONTHS    = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
 
+// Generalised amount string cleaner — handles conventions used across British Isles clearing banks:
+//   trailing CR/DR or C/D  (HSBC, NatWest, RBS, Ulster Bank)
+//   trailing + credit mark  (NatWest single-column)
+//   leading £ / € / $       (Irish banks using EUR, any UK bank with symbol prefix)
+//   leading − / −           (NatWest negative-debit single-column)
+// Returns { cleaned: string, direction: 'credit'|'debit'|null }
+function cleanMoneyString(raw) {
+  let s = raw.trim();
+  let direction = null;
+
+  const trailDir = s.match(/\s*(CR|DR|C|D)$/i);
+  if (trailDir) {
+    const m = trailDir[1].toUpperCase();
+    direction = (m === 'CR' || m === 'C') ? 'credit' : 'debit';
+    s = s.slice(0, s.length - trailDir[0].length).trim();
+  }
+
+  if (!direction && s.endsWith('+')) {
+    direction = 'credit';
+    s = s.slice(0, -1).trim();
+  }
+
+  s = s.replace(/^[£€$]\s*/, '');
+
+  if (!direction && /^[-−]/.test(s)) {
+    direction = 'debit';
+    s = s.replace(/^[-−]\s*/, '');
+  }
+
+  s = s.replace(/,/g, '');
+  return { cleaned: s, direction };
+}
+
 function parseMoney(s) {
-  const n = parseFloat(s.replace(/,/g, ''));
+  const { cleaned } = cleanMoneyString(s);
+  const n = parseFloat(cleaned);
   return isNaN(n) ? null : n;
 }
 
@@ -58,7 +92,7 @@ function isDate(text) {
 }
 
 function isMoney(text) {
-  return MONEY_RE.test(text.trim().replace(/,/g, ''));
+  return MONEY_RE.test(cleanMoneyString(text).cleaned);
 }
 
 // Group text items into rows by y-coordinate proximity.
@@ -134,14 +168,18 @@ function parseRow(row, cols) {
     }
 
     if (isMoney(t)) {
-      const v = parseMoney(t.replace(/,/g, ''));
-      if (v === null) continue;
-      if (nearR(item, cols.balance))       { balance = v; continue; }
-      if (nearR(item, cols.credit))        { credit  = v; continue; }
-      if (nearR(item, cols.debit))         { debit   = v; continue; }
-      // Two-column fallback: if no credit/debit column detected, item is left of balance → debit placeholder
-      if (cols.colCount === 2 && item.rightX < cols.balance - 15) { debit = v; continue; }
-      // Single-amount column that doesn't match any cluster — include as unknown
+      const { cleaned, direction } = cleanMoneyString(t);
+      const v = parseFloat(cleaned);
+      if (isNaN(v)) continue;
+      if (nearR(item, cols.balance))                              { balance = v; continue; }
+      // Direction marker (CR/DR/+/−) takes precedence over column position
+      if (direction === 'credit')                                 { credit  = v; continue; }
+      if (direction === 'debit')                                  { debit   = v; continue; }
+      // No marker — fall back to column position
+      if (nearR(item, cols.credit))                               { credit  = v; continue; }
+      if (nearR(item, cols.debit))                                { debit   = v; continue; }
+      // Two-column fallback: single amount column left of balance → debit placeholder
+      if (cols.colCount === 2 && item.rightX < cols.balance - 15){ debit   = v; continue; }
     }
 
     // Anything else and not in a money column area is description
