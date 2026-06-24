@@ -1,8 +1,8 @@
 StatementAudit Pro — canonical source of truth
-build_date: 2026-06-23
+build_date: 2026-06-24
 source_file: src/statement-audit-pro.jsx
-expected_lines: 1568
-model_pinned: claude-sonnet-4-20250514
+expected_lines: 1660
+model_pinned: claude-sonnet-4-6
 max_tokens: 32000
 json_extractor: robust indexOf/lastIndexOf (NO assistant prefill)
 last_resolved: Remove dead renderDash; single duplicate-alert definition in renderAudit (2026-06-23)

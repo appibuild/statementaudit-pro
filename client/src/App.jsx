@@ -348,6 +348,12 @@ const detectPeriods = stmts => {
   return { gaps, overs };
 };
 
+// Normalise a payee/description string to a stable lookup key for payee memory matching.
+const normKey = (payee, description) => {
+  const s = (payee && payee.trim()) || (description && description.trim()) || '';
+  return s.toUpperCase().replace(/\s+/g, ' ');
+};
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function App() {
   const [stmts,    setStmts]    = useState([]);
@@ -366,11 +372,20 @@ export default function App() {
   const [selIds,   setSelIds]   = useState(() => new Set()); // selected files in the processing queue
   const [showRaw,  setShowRaw]  = useState(() => new Set()); // raw response toggle — error rows only
   const [showDupeViewer, setShowDupeViewer] = useState(false);
+  const [payeeMemory, setPayeeMemory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_payeeMemory') || '{}'); } catch { return {}; }
+  });
 
-  const stmtsRef     = useRef([]);
-  const fileInputRef = useRef(null);
+  const stmtsRef       = useRef([]);
+  const fileInputRef   = useRef(null);
+  const rulesInputRef  = useRef(null);
+  const payeeMemoryRef = useRef({});
 
   useEffect(() => { stmtsRef.current = stmts; }, [stmts]);
+  useEffect(() => {
+    payeeMemoryRef.current = payeeMemory;
+    localStorage.setItem('sa_payeeMemory', JSON.stringify(payeeMemory));
+  }, [payeeMemory]);
 
   useEffect(() => {
     const l = document.createElement('link');
@@ -471,13 +486,22 @@ export default function App() {
       const jsonEnd   = raw.lastIndexOf('}');
       if (jsonStart === -1 || jsonEnd === -1) throw new Error('No JSON found in response — please retry this file');
       const r = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
-      const transactions = (r.transactions||[]).map((t,i) => ({
-        ...t, id:t.id??i+1, flagged:false, nominalCode:'', notes:'',
-        wrapped: t.wrapped ?? false, ambiguous: t.ambiguous ?? false,
-        debit:  t.debit  != null ? +parseFloat(t.debit).toFixed(2)  : null,
-        credit: t.credit != null ? +parseFloat(t.credit).toFixed(2) : null,
-        balance: t.balance != null && t.balance !== '' && !isNaN(parseFloat(t.balance)) ? +parseFloat(t.balance).toFixed(2) : null,
-      }));
+      const transactions = (r.transactions||[]).map((t,i) => {
+        const debit  = t.debit  != null ? +parseFloat(t.debit).toFixed(2)  : null;
+        const credit = t.credit != null ? +parseFloat(t.credit).toFixed(2) : null;
+        const remembered = payeeMemoryRef.current[normKey(t.payee, t.description)];
+        // LAYER-2-HOOK: model-inferred suggestion for unrecognised payees.
+        // Build only when real-user data proves new-client unfamiliarity (not re-coding) is the bottleneck.
+        return {
+          ...t, id:t.id??i+1, flagged:false, notes:'',
+          nominalCode: remembered || (debit != null ? 'Misc Expense' : 'Misc Revenue'),
+          codeSource: remembered ? 'remembered' : 'holding',
+          rememberCode: false,
+          wrapped: t.wrapped ?? false, ambiguous: t.ambiguous ?? false,
+          debit, credit,
+          balance: t.balance != null && t.balance !== '' && !isNaN(parseFloat(t.balance)) ? +parseFloat(t.balance).toFixed(2) : null,
+        };
+      });
       const base = {
         statementPaymentsOut:r.reconciliation?.statementPaymentsOut||0,
         statementPaymentsIn: r.reconciliation?.statementPaymentsIn||0,
@@ -588,7 +612,8 @@ export default function App() {
     setStmts(prev => prev.map(s => {
       if (s.id !== sid) return s;
       const base    = [...(s.editedTransactions || s.transactions || [])];
-      const updated = base.map(t => t.id === tid ? {...t, [field]:val} : t);
+      const extra   = field === 'nominalCode' ? { codeSource:'edited', rememberCode:true } : {};
+      const updated = base.map(t => t.id === tid ? {...t, [field]:val, ...extra} : t);
       const rec     = recalc(updated, s.reconciliation, s.accountType);
       return {...s, editedTransactions:updated, reconciliation:rec, confidenceScore:calcConfidence(rec)};
     }));
@@ -600,6 +625,33 @@ export default function App() {
     const base = [...(s.editedTransactions || s.transactions || [])];
     return {...s, editedTransactions: base.map(t => t.id === tid ? {...t, flagged:!t.flagged} : t)};
   }));
+
+  const toggleRemember = (sid, tid) => setStmts(prev => prev.map(s => {
+    if (s.id !== sid) return s;
+    const base = [...(s.editedTransactions || s.transactions || [])];
+    return {...s, editedTransactions: base.map(t => t.id === tid ? {...t, rememberCode:!t.rememberCode} : t)};
+  }));
+
+  const exportRules = () => {
+    const blob = new Blob([JSON.stringify(payeeMemory, null, 2)], {type:'application/json'});
+    const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:'sa-payee-rules.json'});
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  const importRules = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (typeof imported === 'object' && !Array.isArray(imported))
+          setPayeeMemory(prev => ({...prev, ...imported}));
+      } catch {}
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const deleteTx = (sid, tid) => setStmts(prev => prev.map(s => {
     if (s.id !== sid) return s;
@@ -624,6 +676,12 @@ export default function App() {
   const approve = id => {
     const stmt = stmtsRef.current.find(s => s.id === id);
     if (stmt?.reconciliation && !stmt.reconciliation.reconciled) return; // hard-block: gate refuses non-reconciling statements
+    const toRemember = getTx(stmt).filter(t => t.codeSource === 'edited' && t.rememberCode && t.nominalCode);
+    if (toRemember.length) setPayeeMemory(prev => {
+      const next = {...prev};
+      toRemember.forEach(t => { next[normKey(t.payee, t.description)] = t.nominalCode; });
+      return next;
+    });
     updateS(id, {status:'approved'});
     const next = stmtsRef.current.find(s => s.status === 'review' && s.id !== id);
     if (next) setActiveId(next.id);
@@ -1281,9 +1339,25 @@ export default function App() {
                         onClick={() => canEdit && startEdit(s.id,t.id,'credit',t.credit)}>
                         {isEd(t.id,'credit') ? <EI field="credit" type="number"/> : fmtN(t.credit)}
                       </td>
-                      <td style={{...td,width:90}} onClick={() => canEdit && startEdit(s.id,t.id,'nominalCode',t.nominalCode)}>
+                      <td style={{...td,width:112}} onClick={() => canEdit && startEdit(s.id,t.id,'nominalCode',t.nominalCode)}>
                         {isEd(t.id,'nominalCode') ? <EI field="nominalCode"/>
-                          : <span style={{color:t.nominalCode?C.t1:C.t3}}>{t.nominalCode||'—'}</span>}
+                          : t.codeSource==='remembered'
+                            ? <span style={{display:'flex',alignItems:'center',gap:3}}>
+                                <span style={{fontSize:9,padding:'1px 4px',borderRadius:3,background:C.purDim,color:C.pur,border:`1px solid ${C.purBrd}`,fontWeight:700}}>📌</span>
+                                <span style={{color:C.t1,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{t.nominalCode}</span>
+                              </span>
+                            : t.codeSource==='holding'
+                              ? <span style={{color:C.amb,fontFamily:'JetBrains Mono,monospace',fontSize:11}} title="Unrecognised — click to assign a code">{t.nominalCode}</span>
+                              : t.codeSource==='edited'
+                                ? <span style={{display:'flex',alignItems:'center',gap:4}}>
+                                    <span style={{color:C.t1,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{t.nominalCode}</span>
+                                    <span onClick={e=>{e.stopPropagation();toggleRemember(s.id,t.id);}}
+                                      style={{fontSize:9,padding:'1px 4px',borderRadius:3,cursor:'pointer',userSelect:'none',
+                                        background:t.rememberCode?C.grnDim:'transparent',color:t.rememberCode?C.grn:C.t3,
+                                        border:`1px solid ${t.rememberCode?C.grnBrd:C.bdr}`}}
+                                      title={t.rememberCode?'Will save on approval — click to cancel':'Click to remember for next import'}>📌</span>
+                                  </span>
+                                : <span style={{color:t.nominalCode?C.t1:C.t3}}>{t.nominalCode||'—'}</span>}
                       </td>
                       <td style={{...td,maxWidth:130}} onClick={() => canEdit && startEdit(s.id,t.id,'notes',t.notes)}>
                         {isEd(t.id,'notes') ? <EI field="notes"/>
@@ -1461,6 +1535,24 @@ export default function App() {
               </div>
             );
           })}
+        </div>
+
+        {/* Payee memory management */}
+        <div style={{flexShrink:0,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:9,padding:'12px 16px',
+          display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:C.t1}}>Payee Code Memory</div>
+            <div style={{fontSize:11,color:C.t2,marginTop:2}}>
+              {Object.keys(payeeMemory).length} rule{Object.keys(payeeMemory).length!==1?'s':''} stored · auto-fills Nominal Code on next import
+            </div>
+          </div>
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <button onClick={exportRules} disabled={!Object.keys(payeeMemory).length} style={btn('outline')}>↓ Export Rules</button>
+            <button onClick={() => rulesInputRef.current?.click()} style={btn('outline')}>↑ Import Rules</button>
+            <button onClick={() => { if(window.confirm('Clear all payee→code rules?')) setPayeeMemory({}); }}
+              disabled={!Object.keys(payeeMemory).length} style={btn('danger')}>Clear All</button>
+            <input ref={rulesInputRef} type="file" accept=".json" style={{display:'none'}} onChange={importRules}/>
+          </div>
         </div>
 
         {/* Import guides */}
