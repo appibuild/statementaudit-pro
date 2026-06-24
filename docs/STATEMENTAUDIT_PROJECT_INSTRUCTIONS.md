@@ -1,6 +1,6 @@
 # StatementAudit Pro — Project Instructions
 
-**Last updated:** 2026-06-18 · Reconciled against the live build (`src/statement-audit-pro.jsx`, 1,524 lines) and `verify.sh`.
+**Last updated:** 2026-06-23 · Reconciled against the live build (`src/statement-audit-pro.jsx`, 1,568 lines) and `verify.sh`.
 
 > **This file holds the *durable* truths — what is always true about the product, the architecture, and the non-negotiables.** For *current* status (what's built this week, the open build item, the next step), the source of truth is the **latest dated handover in `docs/`**, not this file. When this file and the live code disagree, **the live code wins** and this file gets corrected (Guardrail G3). When the latest handover and this file disagree on status, **the handover wins**.
 
@@ -16,7 +16,7 @@ Stephen builds to production quality and asks for code changes made directly. He
 
 ## How We Work — Session Operating Rules
 
-Standing rules for every session. Not optional. (The mechanical anti-drift guardrails G1–G6 live in `docs/GUARDRAILS.md`.)
+Standing rules for every session. Not optional. (The mechanical anti-drift guardrails G1–G7 live in `docs/GUARDRAILS.md`.)
 
 - **Run the check first.** `bash verify.sh` before doing anything. If it does not print ALL CHECKS PASSED, stop and reconcile against the live build before working (G1).
 - **Plan first.** Confirm what you're about to do, the output, and what's out of scope. Wait for go-ahead before building.
@@ -30,7 +30,7 @@ Standing rules for every session. Not optional. (The mechanical anti-drift guard
 - **Capture lessons.** When corrected, suggest an update to this file or `GUARDRAILS.md`.
 - **Plain language.** Explain in terms a non-developer understands. Define jargon simply.
 - **Confirm before any file save or delete.** Never act on files silently.
-- **Never persist real personal bank details** to memory or to git. Test data is synthetic with known ground truth, Stephen's own or consenting clients', or public-authority transparency PDFs only — never Scribd or similar.
+- **Never persist real personal bank details** to memory or to git. Test data is synthetic with known ground truth, Stephen's own or consenting clients', QBO/Xero sample-company data, or public-authority transparency PDFs only — never Scribd or similar.
 
 ---
 
@@ -69,7 +69,7 @@ This split is the reason the Lloyds and HSBC classes of error are closed in code
 - **Stack:** React (JSX), Anthropic Claude API, inline styles.
 - **Theme:** Light. All styling via inline styles and a `C` colour-constant object at the top of the file. No CSS classes / Tailwind / external stylesheets without flagging a deliberate departure.
 - **Fonts:** Inter (UI) + JetBrains Mono (financial figures), via Google Fonts injected with a `useEffect`.
-- **Deployment:** runs today as a Claude.ai artifact (Anthropic handles API auth — no key in client code). The standalone build needs a Node/Express proxy for the API key and OAuth2.
+- **Deployment:** runs today as a Claude.ai artifact (Anthropic handles API auth — no key in client code). The standalone build needs a Node/Express proxy for the API key and OAuth2. Hosting decided 2026-06-23 — see Deployment Roadmap.
 
 ### State shape — each statement object
 
@@ -88,6 +88,7 @@ This split is the reason the Lloyds and HSBC classes of error are closed in code
   reconciliation: Reconciliation | null,
   confidenceScore: number | null,             // set by calcConfidence
   error: string | null,
+  rawResponse: string | null,                 // model's raw text, captured ONLY on parse failure; session-only, cleared on re-run/success
 }
 ```
 
@@ -143,6 +144,7 @@ These are closed and live-verified. Carry them across verbatim; do not re-solve 
 - **Lloyds opening balance — RESOLVED (06-16), via the running-balance two-anchor method.** Some banks print a "Balance on [start date]" that already includes day-one's first transaction, so the printed opening is *not* the true brought-forward figure. The model transcribes the printed running-balance column; deterministic code derives the true opening two independent ways — top-down (`trueOpeningFromTop`: first printed balance − the movement up to it) and bottom-up (`derivedOpening`: closing − net). When both anchors agree (`openingAnchorsAgree`) and differ from the printed opening, the app applies the true opening **on load**, reconciles, no click, with a "brought forward — your statement shows £Y" note. If the anchors disagree, it flags rather than silently committing. The manual one-click opening fix remains as the fallback when balances are absent or anchors disagree.
 - **HSBC missing-transaction class — RESOLVED (06-16, detection).** A per-row integrity check walks consecutive printed balances and records a `balanceBreaks` entry for any span the transactions don't account for (a dropped or mis-entered row). Bank-agnostic; does nothing gracefully when no balances are present. A break shows a red banner naming the exact date span.
 - **CR / credit-balance opening — RESOLVED (06-17), account-type-aware prompt rule.** On credit-card and loan accounts (debit-positive), an Account-Summary balance carrying a credit marker ("CR"/"C"/trailing minus) means the holder is overpaid and must be returned NEGATIVE. A blanket CR→negative rule would corrupt current accounts (where CR = in credit = positive), so the rule is scoped to the debit-positive account types and to the summary balances only. Grep fingerprint: `credit-marked balance`.
+- **BP-coded direction (3A) — RESOLVED as a watch item (06-23).** The column always determines direction; never infer it from the payment-type code. Verified live across HSBC + Lloyds, current + credit-card statements. The `findFlip` flip-catcher (3B) is the safety net beneath it. Watch, don't re-open, unless a flip recurs — then capture the raw model response first.
 
 ---
 
@@ -167,13 +169,15 @@ The Pass-1 pipeline is production-grade and the Confidence Threshold System is b
 | Flag (⚑) and delete (✕) per row | ✅ Live |
 | `wrapped` / `ambiguous` signals + row badges | ✅ Live |
 | Duplicate detection (cross-statement) | ✅ Live |
+| Cross-statement duplicate viewer (read-only, jump-to-statement) | ✅ Live |
+| Raw-response capture on parse failure (diagnostic) | ✅ Live |
 | Period gap/overlap detection | ✅ Live |
 | Cross-statement search | ✅ Live |
 | Confidence Threshold System | ✅ Live |
 | Reprocess (per-row Run) + bulk Run/select + backoff | ✅ Live |
 | "No transactions found" message | ✅ Live |
-| Approve & Export gate (mandatory) | ✅ Live |
-| QBO + Xero CSV export, merge across approved | ✅ Live |
+| Approve & Export gate (mandatory, hard-blocked on non-reconciliation) | ✅ Live |
+| QBO + Xero CSV export (incl. Xero pre-coded), merge across approved | ✅ Live |
 | QBO/Xero import step guides | ✅ Live |
 
 ### Confidence Threshold System (built)
@@ -186,7 +190,7 @@ The Pass-1 pipeline is production-grade and the Confidence Threshold System is b
 
 **QuickBooks Online:** `Date,Payment Type,Description,Payee,Debit,Credit,Nominal Code,Notes` — Debit and Credit both positive, the unused field blank.
 
-**Xero:** `Date,Amount,Payee,Description,Reference,Cheque Number,Analysis Code` — Amount signed (negative = money out); Reference = payment type; Analysis Code = Nominal Code.
+**Xero:** `Date,Amount,Payee,Description,Reference,Cheque Number,Analysis Code` — Amount signed (negative = money out); Reference = payment type; Analysis Code = Nominal Code. (Plain and pre-coded variants — two native import doors.)
 
 **File naming:** `BankName_YYYY-MM-DD_to_YYYY-MM-DD_PLATFORM.csv`. Transaction dates in the CSV body stay DD/MM/YYYY.
 
@@ -214,13 +218,17 @@ These are checked by `verify.sh` by fingerprint; a change touching any of them i
 - **Phase 2 — Direct API push to QBO/Xero:** one-click push, replacing manual CSV download/upload. Requires Phase 1.
 - **Phase 3 — Multi-user:** login per staff member, session-level audit logs, client workspace separation.
 
+**Hosting (decided 2026-06-23 — see `docs/DECISION_RECORD_2026-06-23_1800_*`):** **Render** (Starter, paid/always-on), **Frankfurt / EU region**. Chosen because its web services allow a request up to ~100 minutes (no serverless cut-off mid-extraction, unlike Vercel's function timeouts), it keeps data in the EEA, has low ops burden, and runs ~£6–11/month (service, plus Postgres only when persistence is added). The dominant variable cost is the Anthropic API (~£0.13–0.31/statement), which scales with paying usage, not a fixed burn. Full EU-sovereign routing (e.g. Claude via an EU cloud endpoint such as Bedrock Frankfurt) is a *later* option, only if a customer requires it — the host alone doesn't deliver it, because inference still reaches the US Anthropic API.
+
+**Compliance go-live gate (before the first real customer with real client data):** a DPA to offer customers, back-to-back sub-processor terms (Anthropic's commercial DPA with SCCs; the host's DPA), a confirmed US-transfer mechanism, JOIC registration (Jersey), a privacy policy, and a basic security baseline. None of this is needed for self-played beta on QBO/Xero sample companies. Consult the Compliance & Data-Protection adviser and retain a real professional at this gate. See the decision record for the full checklist.
+
 Standalone-era items (not fixable in the artifact sandbox): PDF side-by-side compare, full-width presentation, provider abstraction.
 
 ---
 
 ## Board of Advisers
 
-Evaluate strategic decisions against this standing panel before a single recommendation is made; surface genuine disagreements, then give one opinionated recommendation. Summon the relevant members — not all six every time.
+Evaluate strategic decisions against this standing panel before a single recommendation is made; surface genuine disagreements, then give one opinionated recommendation. Summon the relevant members — not all eight every time.
 
 - **Amy Hoy** — problem definition, customer clarity, pricing.
 - **Jason Fried** — simplicity & scope discipline.
@@ -228,8 +236,10 @@ Evaluate strategic decisions against this standing panel before a single recomme
 - **Angus Cheng** — content marketing & solo-SaaS growth (bankstatementconverter.com as GTM model).
 - **David Ogilvy** — copy & conversion (privacy claim and the DocuClipper comparison are the strongest assets).
 - **Paul Jarvis** — solo-SaaS positioning (simplicity as competitive advantage).
+- **Simon Willison** — AI/extraction reliability and solo-dev maintainability (enrolled 2026-06-23).
+- **Compliance & Data-Protection adviser** — UK GDPR, Data Protection (Jersey) Law 2018 / JOIC, EU cross-border transfers, processor/sub-processor duties, financial-data handling (enrolled 2026-06-23). A **role-defined seat standing in for the qualified professional to be retained at go-live — not a substitute for one.** Consult before go-live, before adding persistence/accounts, before any provider or region change, and before publishing any privacy marketing claim (so the claim is defensible).
 
-Any change to the approval gate needs all six and consensus.
+Any change to the approval gate needs all members and consensus.
 
 ---
 
