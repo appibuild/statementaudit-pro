@@ -453,7 +453,8 @@ export default function App() {
   // ── Claude API ─────────────────────────────────────────────────────────
   const processOne = useCallback(async id => {
     const stmt = stmtsRef.current.find(s => s.id === id);
-    if (!stmt || ['processing','approved'].includes(stmt.status)) return;
+    if (!stmt || stmt.status === 'processing') return;
+    if (stmt.status === 'approved' && !window.confirm('Re-running will reset this approved statement to For Review and clear all edits. Continue?')) return;
     updateS(id, { status:'processing', error:null, rawResponse:null });
     let capturedRaw = ''; // session-only React state — never persisted; cleared on re-run and on success
     try {
