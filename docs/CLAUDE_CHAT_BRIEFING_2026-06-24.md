@@ -10,15 +10,24 @@ StatementAudit Pro is a UK/Jersey bank statement processing tool built for bookk
 **The pipeline:**
 > Upload PDF → AI extracts transactions as JSON → deterministic code reconciles → human reviews & edits → human approves (mandatory gate) → CSV export → user imports to QBO/Xero
 
-**The primary competitor is DocuClipper** — a mature, well-funded US platform (10,000+ finance teams, SOC 2 Type II, $20–360/month per pages processed). DocuClipper is NOT a weak incumbent. It has: bank statements, invoices, receipts, brokerage, forms; rules-based transaction categorisation; fraud detection; QBO/Xero/Sage/NetSuite integrations; API & webhooks; Google Drive/Dropbox/Gmail ingestion; project/folder organisation; and document storage.
+**The primary competitor is DocuClipper** — a mature, well-funded US platform (10,000+ finance teams, SOC 2 Type II). Trusted by Deloitte, PwC, KPMG, EY, BDO. DocuClipper is NOT a weak incumbent. It has: bank statements, invoices, receipts, brokerage, forms; rules-based transaction categorisation; fraud detection; QBO/Xero/Sage/NetSuite integrations; API & webhooks; Google Drive/Dropbox/Gmail ingestion; project/folder organisation; document storage; and batch processing of 50+ documents at once.
+
+**DocuClipper pricing (confirmed):** $20/mo for 60 pages firm-wide (entry tier). Flat monthly, not per-token.
+
+**Critical competitive intelligence — DocuClipper vs Claude page:**
+DocuClipper runs a dedicated comparison page titled "Claude reads a PDF. DocuClipper reconciles and exports it." They list exactly what raw LLMs get wrong: hallucinated amounts, no reconciliation check, markdown table output (not QBO/IIF/CSV), no batch mode, public chat tool compliance risk, per-token cost at volume. **StatementAudit Pro has solved every one of these criticisms** — reconciliation gate, proper CSV/QBO export, server-side key (never a public chat tool), batch up to 20 statements, and structured JSON extraction that eliminates hallucination risk. We are the thing DocuClipper says you can't build with Claude. That is a strong story.
+
+**G2 review themes (from DocuClipper's own site):** Customers praise ease of use, time saved at tax season, reliability vs free AI tools. Complaints are not visible here — Claude Chat should search G2/Capterra for the complaint patterns. Named reviewers include: Adam M. (Aspire), Julia J. (Accountant), Jeanette A. (Quality Management), Jakkie H. (Managing Member and Trustee).
+
+**Jersey intelligence:** Sally Tinkler, Director at Hawksford, is a named DocuClipper customer. Hawksford is a Jersey-based trust and corporate services firm. DocuClipper already has a Jersey foothold.
 
 **Where DocuClipper is weak for our market:**
-- US-centric throughout (USD, US banks, US categories — not UK nominal codes or UK payment types)
-- Stores your documents on their servers (GDPR/JOIC risk for UK/Jersey practices)
-- US-headquartered (data residency outside EEA)
-- Per-page pricing becomes expensive at UK practice volumes
-- Enterprise complexity (6 tabs, folders, tagging, fraud reports) for a workflow a UK bookkeeper needs to run in 10 minutes
-- No mandatory audit gate — users can export without reviewing reconciliation
+- Claims "deep US/UK/CA bank coverage" for format extraction — but UK nominal codes, UK payment types (DD/BP/SO/TFR), and UK/Jersey compliance (GDPR, JOIC, sub-processor obligations) are not addressed
+- Stores your documents on their servers (GDPR/JOIC risk — data retention is "configurable" but documents are still uploaded and held)
+- US-headquartered (data residency outside EEA by default)
+- Client base is weighted toward large US accounting firms, lenders, and underwriters — not small UK/Jersey bookkeeping practices
+- Enterprise complexity (folders, tagging, fraud reports, multi-seat workspaces) for a workflow a UK bookkeeper needs to run in 10 minutes
+- No mandatory audit gate — users can export without reviewing reconciliation; "review anything flagged" is optional
 
 **What StatementAudit Pro does differently:**
 - Mandatory human approval gate (only path to CSV — hard-blocked on non-reconciliation)
@@ -64,11 +73,12 @@ Amy Hoy · Jason Fried · UK Practice Manager · Paul Jarvis · David Ogilvy · 
 
 ## Strategic Questions for Claude Chat
 
-**1. DocuClipper — customer intelligence**
-We now have a clear picture of DocuClipper's features (see above). What we need is customer intelligence:
-- What do DocuClipper's G2/Capterra reviews say customers value most — and complain about most?
-- What does their pricing mean per statement at typical UK practice volumes (20 clients × 12-page statements/month)?
-- Is there a vocal segment of their customers who are UK/international and frustrated by US-centric defaults?
+**1. DocuClipper — complaint patterns and UK/Jersey customer frustration**
+We now have a detailed picture of DocuClipper's features, pricing ($20/mo for 60 pages), and marketing (they run a "vs Claude" page). What we still need:
+- What do G2/Capterra reviews say customers complain about most? (Hypothesis: US-centric categories, document storage/privacy concerns, complexity for small firms, support quality)
+- Is there a vocal segment of UK or international customers frustrated by US-centric defaults, US nominal codes, or data residency?
+- Hawksford (Jersey trust firm) is a named customer — does that signal Jersey practices are actively using DocuClipper and hitting limits?
+- What does $20/mo for 60 pages actually mean for a Jersey practice with 20 clients × 12-page statements = 240 pages/month? What tier does that hit?
 - The original Claude Chat research on this was never committed to the repo — please reconstruct the key findings.
 
 **2. Nominal code / categorisation feature — scope and design**
