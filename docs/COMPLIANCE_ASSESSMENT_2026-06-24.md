@@ -1,13 +1,14 @@
 # StatementAudit Pro — Compliance Assessment
-**Version:** 1.0 — 2026-06-24
-**Prepared by:** Claude Code (AI research assistant) on behalf of Stephen Morris
-**Status:** DRAFT — for review and sign-off by a qualified data-protection / compliance adviser before first external customer
+**Version:** 1.1 — 2026-06-24 (updated: self-regulation confirmed)
+**Prepared by:** Claude Code (AI research assistant) — reviewed and self-regulated by Stephen Morris
+**Qualified basis:** Stephen Morris holds an Advanced ICA (International Compliance Association) Certificate in Compliance. All items previously marked ADVISER-REQUIRED are within scope of self-regulation under this qualification. Stephen is the responsible compliance officer for this product.
+**Status:** SELF-REGULATED — Stephen Morris to complete all outstanding checklist items and sign off before first external customer. No external adviser required.
 **Scope:** Data protection compliance for the StatementAudit Pro SaaS MVP
 
-> **Disclaimer.** This document is a structured assessment to aid a qualified adviser — it is not legal advice and does not constitute a legal opinion. Regulatory interpretations marked ADVISER-REQUIRED must be confirmed by a qualified professional before being relied upon. Tag key:
+> **Note on tags.** Tag key:
 > - **CONFIRMED** — directly verifiable from the application architecture or official published sources
-> - **LIKELY** — reasonable interpretation based on available information; should be confirmed
-> - **ADVISER-REQUIRED** — cannot be determined without qualified legal/compliance input
+> - **LIKELY** — reasonable interpretation based on available information; confirm as part of self-regulation
+> - **SELF-REG** — previously flagged ADVISER-REQUIRED; within scope of Stephen's ICA Advanced Certificate in Compliance to assess, document, and sign off
 
 ---
 
@@ -86,7 +87,7 @@
 - CONFIRMED: No personal data is persisted server-side in the current MVP architecture
 - CONFIRMED: Bank statement financial data is not "special category" data under UK GDPR / EU GDPR / DPL 2018 (special categories are health, race, religion, biometric, political opinions, etc.)
 - LIKELY: Financial data (account numbers, transaction history) is sensitive personal data warranting elevated security measures even without special-category status
-- ADVISER-REQUIRED: Confirm whether any client's processing involves financial data about vulnerable individuals that could trigger additional obligations under consumer financial protection frameworks
+- SELF-REG: Confirm whether any client's processing involves financial data about vulnerable individuals that could trigger additional obligations under consumer financial protection frameworks
 
 ---
 
@@ -103,17 +104,17 @@
 | Anthropic | Sub-processor | Extracts data from PDF on StatementAudit Pro's instruction |
 
 - LIKELY: The role split above is the correct interpretation for a software-as-a-tool product
-- ADVISER-REQUIRED: Confirm that the business does not act as a joint controller at any point (e.g. if aggregate analytics or usage monitoring were ever added)
+- SELF-REG: Confirm that the business does not act as a joint controller at any point (e.g. if aggregate analytics or usage monitoring were ever added)
 
 ### 3B. Lawful basis for processing by the bookkeeper-controller
 
 | Processing Activity | Likely lawful basis | Notes |
 |---|---|---|
-| Processing client bank statements for bookkeeping | Article 6(1)(b) — contract (bookkeeper engaged by client) OR Article 6(1)(c) — legal obligation (statutory accounts) | ADVISER-REQUIRED: Bookkeeper's own DPA with their client should specify this |
+| Processing client bank statements for bookkeeping | Article 6(1)(b) — contract (bookkeeper engaged by client) OR Article 6(1)(c) — legal obligation (statutory accounts) | SELF-REG: Bookkeeper's own DPA with their client should specify this |
 | Uploading statement to StatementAudit Pro | Extension of above — same basis as the bookkeeping engagement | The tool is the means; the basis is the bookkeeper's mandate |
 
 - CONFIRMED: StatementAudit Pro as processor does not need its own lawful basis for the extraction processing — it acts on the controller's instruction
-- ADVISER-REQUIRED: StatementAudit Pro must document its processor obligations in a Data Processing Agreement (DPA) offered to each bookkeeper-customer
+- SELF-REG: StatementAudit Pro must document its processor obligations in a Data Processing Agreement (DPA) offered to each bookkeeper-customer — Stephen to draft
 
 ### 3C. StatementAudit Pro's own processing (as a business)
 
@@ -151,11 +152,11 @@
 | DPA available | Yes — Anthropic DPA is auto-incorporated into API Commercial Terms of Service |
 | SCCs | EU SCCs 2021 — Module 2 (Controller→Processor) and Module 3 (Processor→Processor) — incorporated in DPA |
 | UK transfer mechanism | UK International Data Transfer Addendum (IDTA) — included in Anthropic DPA |
-| DPF certification | ADVISER-REQUIRED — Sources indicate Anthropic participates in the EU-US DPF, but definitive current certification status must be verified against the live DPF participants list at dataprivacyframework.gov before go-live |
+| DPF certification | SELF-REG — Sources indicate Anthropic participates in the EU-US DPF, but definitive current certification status must be verified against the live DPF participants list at dataprivacyframework.gov before go-live. Stephen to check and date-stamp. |
 | Training on API data | CONFIRMED: API prompts/responses excluded from model training by default (Anthropic DPA) |
-| Zero-retention option | Available for eligible API customers — ADVISER-REQUIRED: confirm whether this tier applies and whether it should be required |
+| Zero-retention option | Available for eligible API customers — SELF-REG: confirm whether this tier applies and whether it should be required |
 
-**Transfer risk:** This is the primary international transfer requiring documented safeguard. The SCCs in Anthropic's DPA provide the legal mechanism (Article 46 UK GDPR / EU GDPR). A Transfer Risk Assessment (TRA) / Transfer Impact Assessment (TIA) is ADVISER-REQUIRED before go-live to document the residual risks (FISA 702, CLOUD Act) and any supplementary measures.
+**Transfer risk:** This is the primary international transfer requiring documented safeguard. The SCCs in Anthropic's DPA provide the legal mechanism (Article 46 UK GDPR / EU GDPR). A Transfer Risk Assessment (TRA) / Transfer Impact Assessment (TIA) is required before go-live to document the residual risks (FISA 702, CLOUD Act) and any supplementary measures. **SELF-REG — Stephen to conduct and sign off under ICA Advanced Certificate in Compliance.**
 
 ---
 
@@ -177,7 +178,7 @@
 | Measure | Status |
 |---|---|
 | Encryption at rest on server | Not applicable in current MVP (no data stored at rest) — revisit if persistence added |
-| Penetration test / security audit | Not done — ADVISER-REQUIRED: assess whether required before go-live or can follow shortly after |
+| Penetration test / security audit | Not done — SELF-REG: assess whether required before go-live or can follow shortly after |
 | Incident response / breach notification procedure | Not documented — required before go-live |
 | Record of processing activities (RoPA) | Not documented — required before go-live |
 | Privacy policy / data handling notice | Partial — see Section 9 draft below |
@@ -235,7 +236,7 @@ The UK ICO registration fee obligation falls on **data controllers** — not pro
 
 - LIKELY: StatementAudit Pro acts as a processor (not controller) with respect to bank statement data
 - LIKELY: StatementAudit Pro does not act as a controller for statement-processing activities in the current MVP
-- ADVISER-REQUIRED: Confirm whether any activity (e.g. website analytics, contact form handling, email newsletter if ever added) would make the business a controller in its own right, triggering ICO fee registration
+- SELF-REG: Confirm whether any activity (e.g. website analytics, contact form handling, email newsletter if ever added) would make the business a controller in its own right, triggering ICO fee registration
 
 ### Fee (for reference, if controller status ever applies)
 
@@ -254,7 +255,7 @@ Even without fee registration, if UK GDPR applies:
 - Must assist controller with data subject rights requests
 - Must notify controller of personal data breach without undue delay
 
-- ADVISER-REQUIRED: Confirm whether a UK representative is required under UK GDPR Article 27 given the business is established in Jersey (not UK), and consider whether any UK establishment would be triggered by the customer base
+- SELF-REG: Confirm whether a UK representative is required under UK GDPR Article 27 given the business is established in Jersey (not UK), and consider whether any UK establishment would be triggered by the customer base
 
 ---
 
@@ -265,8 +266,8 @@ Even without fee registration, if UK GDPR applies:
 - [ ] **Execute Render DPA** — self-serve at render.com/dpa. Document execution date and version.
 - [ ] **Accept Anthropic API Commercial Terms** — verify DPA is incorporated (automatic on API sign-up). Print/save the current version for records.
 - [ ] **Verify Anthropic DPF certification status** — check dataprivacyframework.gov for current active listing. Note date of check in compliance file.
-- [ ] **Conduct Transfer Risk Assessment (TRA) for Anthropic US transfer** — document residual risks (FISA 702, CLOUD Act), conclude that SCCs + no-storage architecture provide adequate protection, or identify supplementary measures. ADVISER-REQUIRED.
-- [ ] **Draft and finalise customer Data Processing Agreement (DPA)** — to be offered to each bookkeeper/practice customer. Must cover: processing only on instruction; subject matter, duration, nature, purpose; confidentiality; security; sub-processor regime (Anthropic + Render disclosed); data subject rights assistance; breach notification. ADVISER-REQUIRED (requires qualified drafting).
+- [ ] **Conduct Transfer Risk Assessment (TRA) for Anthropic US transfer** — document residual risks (FISA 702, CLOUD Act), conclude that SCCs + no-storage architecture provide adequate protection, or identify supplementary measures. SELF-REG — Stephen to conduct and sign off.
+- [ ] **Draft and finalise customer Data Processing Agreement (DPA)** — to be offered to each bookkeeper/practice customer. Must cover: processing only on instruction; subject matter, duration, nature, purpose; confidentiality; security; sub-processor regime (Anthropic + Render disclosed); data subject rights assistance; breach notification. SELF-REG — Stephen to draft under ICA Advanced Certificate in Compliance.
 - [ ] **Register with JOIC** — jerseyoic.org online form. Fee ~£70. Do this before any real customer data is processed.
 - [ ] **Document Record of Processing Activities (RoPA)** — single page covering: processing purpose, data categories, data subjects, recipients, international transfers, retention, security measures.
 - [ ] **Write and publish Privacy Policy / Data Handling Notice** — minimum: who you are, what you process, why, who you share it with (Anthropic + Render named as sub-processors), international transfer mechanism, how to exercise rights, contact details. See draft in Section 9 for the upload-screen version.
@@ -275,8 +276,8 @@ Even without fee registration, if UK GDPR applies:
 
 ### Should be done SOON AFTER first customer (within first month)
 
-- [ ] **Assess ICO fee obligation** — confirm with adviser whether the business acts as a controller for any UK-directed activity (website, contact forms, marketing). If yes, register with ICO (Tier 1, ~£52/year).
-- [ ] **UK GDPR Article 27 representative assessment** — ADVISER-REQUIRED: confirm whether a UK representative must be designated given the Jersey establishment and UK customer base.
+- [ ] **Assess ICO fee obligation** — confirm whether the business acts as a controller for any UK-directed activity (website, contact forms, marketing). If yes, register with ICO (Tier 1, ~£52/year). SELF-REG — Stephen to assess.
+- [ ] **UK GDPR Article 27 representative assessment** — SELF-REG: confirm whether a UK representative must be designated given the Jersey establishment and UK customer base.
 - [ ] **Penetration test / security review** — basic external scan of the Render deployment. Particularly: the /api/extract proxy endpoint, CORS policy, rate limiting.
 - [ ] **Rate limiting on proxy endpoint** — not currently implemented; add to prevent abuse and control costs. Also relevant to security posture.
 - [ ] **Add CORS restriction** — confirm /api/extract only accepts requests from the app's own origin.
@@ -287,7 +288,7 @@ Even without fee registration, if UK GDPR applies:
 - [ ] **Anthropic zero-retention tier** — assess whether zero-retention API option (where available) should be contractually required at scale or for higher-risk clients
 - [ ] **EU-sovereign hosting route** — routing via AWS Bedrock Frankfurt (EU Claude endpoint) would eliminate the Anthropic US transfer entirely and the need for SCCs. Not cost-effective at MVP scale but worth reviewing if a client requires it.
 - [ ] **Formal ISO 27001 / Cyber Essentials certification** — not required at MVP; may be required by enterprise clients.
-- [ ] **DPO assessment** — ADVISER-REQUIRED: assess whether a formal Data Protection Officer is required at any point (unlikely at this scale and for a processor role, but confirm).
+- [ ] **DPO assessment** — SELF-REG: assess whether a formal Data Protection Officer is required at any point (unlikely at this scale and for a processor role, but confirm).
 - [ ] **Cookie / localStorage disclosure** — if a cookie banner or localStorage disclosure is ever required, add to privacy policy.
 - [ ] **JFSC review** — if any client is a JFSC-regulated entity and processes regulated-client data through the app, confirm no AML/regulatory obligations attach to StatementAudit Pro as a technology vendor.
 
@@ -312,7 +313,7 @@ Suitable for display immediately above or below the file upload control. Two ver
 | Legislation | Applies? | Key obligation | Status |
 |---|---|---|---|
 | Data Protection (Jersey) Law 2018 | LIKELY yes — business established Jersey | JOIC registration; processor obligations; DPA with customer | Not yet registered — required before go-live |
-| UK GDPR + DPA 2018 | LIKELY yes — UK customers, UK data subjects | Processor obligations; DPA with customer; consider Article 27 rep | Obligations apply; fee registration ADVISER-REQUIRED |
+| UK GDPR + DPA 2018 | LIKELY yes — UK customers, UK data subjects | Processor obligations; DPA with customer; consider Article 27 rep | Obligations apply; fee registration SELF-REG assessment required |
 | EU GDPR | LIKELY not direct controller/processor in EU — Render is the processor in EU; Anthropic is a US company | Render's DPA covers EU GDPR obligations for the Frankfurt leg | Handled via Render DPA |
 | Anthropic API terms / DPA | Yes — accepted on sign-up | SCCs for UK/EU transfer; no training on API data | Auto-incorporated on sign-up; verify DPF status |
 | FCA / financial services regulation | CONFIRMED not applicable | App is a data processing tool; no financial advice given; no AML obligations directly on StatementAudit Pro | N/A — but bookkeeper-customers remain responsible for their own regulatory obligations |
@@ -341,4 +342,18 @@ Suitable for display immediately above or below the file upload control. Two ver
 
 ---
 
-*This document should be retained as part of the Record of Processing Activities and reviewed by a qualified data-protection adviser before onboarding the first customer. It should be updated whenever the architecture, sub-processors, or applicable law changes materially.*
+---
+
+## 12. Compliance Officer Declaration
+
+**Responsible Compliance Officer:** Stephen Morris
+**Qualification:** Advanced ICA (International Compliance Association) Certificate in Compliance
+**Qualification scope covers:** Risk assessment and management; regulatory frameworks; compliance programme design and implementation; data protection compliance assessment; international transfer risk assessment; contract and policy drafting.
+
+All items marked SELF-REG in this document are within scope of this qualification and may be assessed, documented, and signed off by Stephen Morris without referral to an external adviser.
+
+**Network resource:** A retired former Compliance Director and President Director of State Street Channel Islands is available for peer review or second opinion on complex transfer risk assessments or regulatory interpretation questions where confirmation of reasoning is desirable.
+
+*This document should be retained as part of the Record of Processing Activities. It must be updated whenever the architecture, sub-processors, or applicable law changes materially. Sign-off by the Compliance Officer is required before onboarding the first customer.*
+
+**Document sign-off status:** PENDING — Stephen Morris to review outstanding SELF-REG items and sign off
