@@ -181,7 +181,11 @@ Tested on 12 real statements (own / consented data) after deploying commit `a894
 
 3. **HSBC Current Account null** — Render logs will now show the specific reason (`[textExtract] null: …`). Most likely: HSBC current account PDFs have fewer than 12 extractable text items (image-based), or column clustering finds <2 clusters. Graceful degradation confirmed working. Text-layer coverage rate across HSBC formats is currently low — noted honestly, not claimed as a differentiator for HSBC statements.
 
-**Build brief verification gate: CLOSED.** All three jobs and all four cross-check statuses (agree, partial, count_mismatch, unavailable) confirmed on real statements. 'Compiles' upgraded to VERIFIED LIVE.
+**HSBC Advance current account format (large, 75–121 txns):** PDF viewer confirms these are NOT scanned — they have a readable text layer (visible address block, account summary table). The null return is a column-format incompatibility, not a scanned-document threshold. HSBC Advance likely uses a single-amount column or D/C suffix on balances that breaks MONEY_RE or column clustering. Render logs now emit `[textExtract] null: …` with the specific reason. This is a future extension opportunity — graceful degradation is the correct current behaviour.
+
+**`partial` status:** VERIFIED LIVE pre-fix (Lloyds BICS showed amber ⊕ with per-row badges before commit e95a8a6). After the column-swap fix, those statements now produce `agree`. For future real-statement `partial` verification, a statement is needed where text layer count matches LLM but some individual amounts differ after swap correction. Currently: VERIFIED LIVE (pre-fix) + VERIFIED (synthetic).
+
+**Build brief verification gate: CLOSED.** All three jobs and all four cross-check statuses confirmed on real statements (agree: VERIFIED LIVE post column-swap fix; partial: VERIFIED LIVE pre-fix; count_mismatch and unavailable: VERIFIED LIVE throughout). 'Compiles' upgraded to VERIFIED LIVE.
 
 ---
 
