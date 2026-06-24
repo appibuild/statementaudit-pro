@@ -22,26 +22,44 @@ function getPdfjs() {
 // First alt: properly comma-grouped (real PDFs). Second alt: no-comma 4+ digits (some generators).
 const MONEY_RE = /^\d{1,3}(?:,\d{3})*\.\d{2}$|^\d{4,8}\.\d{2}$/;
 
-// UK date formats: DD/MM/YYYY | DD/MM/YY | DD/MM/YY
+// UK date formats: DD/MM/YYYY | DD/MM/YY
 const DATE_UK = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
-// Month-name format: 01 Jan 2024 | 1 January 2024
+// Month-name with year: 01 Jan 2024 | 1 January 2024
 const DATE_MONTH = /^\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}$/i;
+// Short month-name without year: 03 Jul | 14 Feb (Nationwide, NatWest monthly view)
+const DATE_SHORT = /^\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*$/i;
 
 // Rows whose text matches these are layout/header rows — skip them
-const SKIP_RE   = /balance\s+(carried|brought)\s+forward|balance\s+[bc]\/[df]|opening\s+balance|closing\s+balance|account\s+summary/i;
+const SKIP_RE   = /balance\s+(carried|brought|from)\s+|brought\s+forward|opening\s+balance|closing\s+balance|account\s+summary/i;
 const HEADER_RE = /\b(date|description|details|narrative|payments?\s*out|payments?\s*in|debit|credit|withdrawal|deposit|money\s+out|money\s+in|paid\s+out|paid\s+in)\b/i;
 const MONTHS    = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
 
+// Infer statement year from all text items — picks the most-frequent 20xx year.
+function extractStatementYear(items) {
+  const freq = {};
+  for (const item of items) {
+    const m = item.text.match(/\b(20\d{2})\b/);
+    if (m) freq[m[1]] = (freq[m[1]] || 0) + 1;
+  }
+  const best = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+  return best ? parseInt(best[0], 10) : new Date().getFullYear();
+}
+
 // Generalised amount string cleaner — handles conventions used across British Isles clearing banks:
-//   trailing CR/DR or C/D  (HSBC, NatWest, RBS, Ulster Bank)
-//   trailing + credit mark  (NatWest single-column)
-//   leading £ / € / $       (Irish banks using EUR, any UK bank with symbol prefix)
-//   leading − / −           (NatWest negative-debit single-column)
+//   trailing OD                (NatWest/RBS overdrawn balance marker — strip before direction check)
+//   trailing CR/DR or C/D      (HSBC, NatWest, RBS, Ulster Bank)
+//   trailing +                 (NatWest single-column credit marker)
+//   leading -£/-€/-$ or -      (Barclays/Starling negative debit — minus BEFORE currency strip)
+//   leading £/€/$              (Barclays, Starling, Irish banks)
 // Returns { cleaned: string, direction: 'credit'|'debit'|null }
 function cleanMoneyString(raw) {
   let s = raw.trim();
   let direction = null;
 
+  // OD (overdrawn) — strip before direction marker check to avoid 'D' matching
+  s = s.replace(/\s+OD$/i, '');
+
+  // Trailing direction marker: CR, DR, C, D
   const trailDir = s.match(/\s*(CR|DR|C|D)$/i);
   if (trailDir) {
     const m = trailDir[1].toUpperCase();
@@ -49,17 +67,20 @@ function cleanMoneyString(raw) {
     s = s.slice(0, s.length - trailDir[0].length).trim();
   }
 
+  // Trailing + credit mark
   if (!direction && s.endsWith('+')) {
     direction = 'credit';
     s = s.slice(0, -1).trim();
   }
 
-  s = s.replace(/^[£€$]\s*/, '');
-
+  // Leading minus BEFORE currency strip — handles -£96.80 (Barclays/Starling)
   if (!direction && /^[-−]/.test(s)) {
     direction = 'debit';
     s = s.replace(/^[-−]\s*/, '');
   }
+
+  // Leading currency symbol — after minus strip so -£96.80 → 96.80 correctly
+  s = s.replace(/^[£€$]\s*/, '');
 
   s = s.replace(/,/g, '');
   return { cleaned: s, direction };
@@ -71,13 +92,21 @@ function parseMoney(s) {
   return isNaN(n) ? null : n;
 }
 
-function normaliseDate(s) {
+function normaliseDate(s, statementYear) {
   s = s.trim();
   if (DATE_MONTH.test(s)) {
     const m = s.match(/(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
     if (m) {
       const mon = (MONTHS[m[2].slice(0,3).toLowerCase()] || 1).toString().padStart(2, '0');
       return `${m[1].padStart(2,'0')}/${mon}/${m[3]}`;
+    }
+  }
+  if (DATE_SHORT.test(s)) {
+    const m = s.match(/(\d{1,2})\s+([a-zA-Z]+)/);
+    if (m) {
+      const mon = (MONTHS[m[2].slice(0,3).toLowerCase()] || 1).toString().padStart(2, '0');
+      const yr  = statementYear || new Date().getFullYear();
+      return `${m[1].padStart(2,'0')}/${mon}/${yr}`;
     }
   }
   const parts = s.split('/');
@@ -88,7 +117,8 @@ function normaliseDate(s) {
 }
 
 function isDate(text) {
-  return DATE_UK.test(text.trim()) || DATE_MONTH.test(text.trim());
+  const t = text.trim();
+  return DATE_UK.test(t) || DATE_MONTH.test(t) || DATE_SHORT.test(t);
 }
 
 function isMoney(text) {
@@ -171,15 +201,18 @@ function parseRow(row, cols) {
       const { cleaned, direction } = cleanMoneyString(t);
       const v = parseFloat(cleaned);
       if (isNaN(v)) continue;
-      if (nearR(item, cols.balance))                              { balance = v; continue; }
-      // Direction marker (CR/DR/+/−) takes precedence over column position
-      if (direction === 'credit')                                 { credit  = v; continue; }
-      if (direction === 'debit')                                  { debit   = v; continue; }
-      // No marker — fall back to column position
-      if (nearR(item, cols.credit))                               { credit  = v; continue; }
-      if (nearR(item, cols.debit))                                { debit   = v; continue; }
-      // Two-column fallback: single amount column left of balance → debit placeholder
-      if (cols.colCount === 2 && item.rightX < cols.balance - 15){ debit   = v; continue; }
+      if (nearR(item, cols.balance)) { balance = v; continue; }
+      if (cols.colCount >= 3) {
+        // Trust column position; systematic swap detector in crossCheck.js corrects inversions
+        if (nearR(item, cols.credit)) { credit = v; continue; }
+        if (nearR(item, cols.debit))  { debit  = v; continue; }
+      } else {
+        // colCount < 3: direction markers (CR/DR/+/−) identify the transaction side
+        if (direction === 'credit')   { credit = v; continue; }
+        if (direction === 'debit')    { debit  = v; continue; }
+        // Two-column fallback: single amount left of balance → debit placeholder
+        if (cols.colCount === 2 && item.rightX < cols.balance - 15) { debit = v; continue; }
+      }
     }
 
     // Anything else and not in a money column area is description
@@ -247,6 +280,7 @@ async function detectAndExtract(base64pdf) {
     return null;
   }
 
+  const statementYear = extractStatementYear(allItems);
   const rows = groupIntoRows(allItems);
   const cols = findMoneyColumns(rows);
   if (!cols || cols.colCount < 2) {
@@ -271,7 +305,7 @@ async function detectAndExtract(base64pdf) {
     }
     transactions.push({
       id:          idCounter++,
-      date:        normaliseDate(pendingDate),
+      date:        normaliseDate(pendingDate, statementYear),
       paymentType: null,
       description: pendingDesc.join(' ').replace(/\s+/g, ' ').trim() || null,
       payee:       null,
