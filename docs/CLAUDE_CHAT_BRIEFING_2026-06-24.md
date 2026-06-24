@@ -23,11 +23,16 @@ DocuClipper runs a dedicated comparison page titled "Claude reads a PDF. DocuCli
 
 **Where DocuClipper is weak for our market:**
 - Claims "deep US/UK/CA bank coverage" for format extraction — but UK nominal codes, UK payment types (DD/BP/SO/TFR), and UK/Jersey compliance (GDPR, JOIC, sub-processor obligations) are not addressed
+- Categorisation uses US GAAP account names (Transfer, Rent, Software, Revenue, Interest Income) — not UK nominal codes. UK users must upload a Vendor Categorisation CSV as a workaround to map their own categories; it's manual and not pre-built for UK nominal codes
+- "Debits and Credits Are Backwards" is a documented troubleshooting article — their extraction has a known debit/credit orientation problem for non-US banks
+- "Dates Show as NaN or #VALUE! in Excel" is a documented issue — UK DD/MM/YYYY is misread as MM/DD/YYYY in their exports
+- Categorisation does not run automatically — users must manually trigger it (their own help docs confirm: "Why Categorization, Transfers, and Recurring Don't Run Automatically")
 - Stores your documents on their servers (GDPR/JOIC risk — data retention is "configurable" but documents are still uploaded and held)
 - US-headquartered (data residency outside EEA by default)
 - Client base is weighted toward large US accounting firms, lenders, and underwriters — not small UK/Jersey bookkeeping practices
 - Enterprise complexity (folders, tagging, fraud reports, multi-seat workspaces) for a workflow a UK bookkeeper needs to run in 10 minutes
 - No mandatory audit gate — users can export without reviewing reconciliation; "review anything flagged" is optional
+- "Fraud Detection" is reconciliation confirmation only ("Reconciled" badge + "No fraud signals detected") — not a row-by-row balance walk
 
 **What StatementAudit Pro does differently:**
 - Mandatory human approval gate (only path to CSV — hard-blocked on non-reconciliation)
@@ -86,6 +91,11 @@ Given the beta finding (50% of payees need manual categorisation in QBO), what i
 - User-defined rules engine (if payee contains "Spotify" → suggest Nominal Code 7400)
 - Model-inferred suggestions based on description/payee
 - A hybrid (rules first, model fills gaps)
+
+**DocuClipper's approach (now observed directly):** Automated keyword rules fire on description text ("OFFICE RENT" → Rent, "TRANSFER" → Transfer, "QUICKBOOKS" → Software). Standard patterns are auto-categorised; anything non-standard shows as "Uncategorized." UK users can upload a Vendor Categorisation CSV to map custom payees. Rules must be manually triggered — not automatic on upload. This pattern works for common transactions but leaves the long tail blank, and the categories are US GAAP not UK nominal codes.
+
+**What this tells us:** Keyword rules are the proven base layer. The open question is whether our model can fill the gaps that DocuClipper's rules miss — and whether we ship UK nominal codes (7xxx series) pre-mapped rather than making each practice define them from scratch.
+
 What does the board recommend, and what would the UK Practice Manager actually use?
 
 **3. Commercial value and positioning**
