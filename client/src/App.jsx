@@ -824,9 +824,9 @@ export default function App() {
         <div style={{display:'grid',gridTemplateColumns:'28px 1fr 155px 140px 85px 90px',gap:8,
           padding:'5px 12px',fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',flexShrink:0,alignItems:'center'}}>
           <input type="checkbox"
-            checked={(() => { const sel = stmts.filter(s => !['processing','approved'].includes(s.status)); return sel.length > 0 && sel.every(s => selIds.has(s.id)); })()}
+            checked={(() => { const sel = stmts.filter(s => s.status !== 'processing'); return sel.length > 0 && sel.every(s => selIds.has(s.id)); })()}
             onChange={e => setSelIds(e.target.checked
-              ? new Set(stmts.filter(s => !['processing','approved'].includes(s.status)).map(s => s.id))
+              ? new Set(stmts.filter(s => s.status !== 'processing').map(s => s.id))
               : new Set())}
             style={{cursor:'pointer'}}/>
           <span>File</span><span>Account Type</span><span>Platform</span><span>Status</span><span></span>
@@ -835,7 +835,8 @@ export default function App() {
 
       <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
         {stmts.map(s => {
-          const locked = ['processing','approved'].includes(s.status);
+          const locked   = s.status === 'processing'; // only actively processing rows are unselectable
+          const editLock = ['processing','approved'].includes(s.status); // dropdowns still locked on approved
           return (
             <div key={s.id} style={{display:'grid',gridTemplateColumns:'28px 1fr 155px 140px 85px 90px',
               gap:8,alignItems:'center',padding:'10px 14px',borderRadius:9,
@@ -862,18 +863,18 @@ export default function App() {
                   </div>
                 )}
               </div>
-              <select value={s.accountType} disabled={locked}
+              <select value={s.accountType} disabled={editLock}
                 onChange={e => updateS(s.id,{accountType:e.target.value})}
                 style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'5px 8px',
                   color:ACCOUNT_TYPES[s.accountType]?.color||C.t1,fontSize:11,outline:'none',
-                  cursor:locked?'not-allowed':'pointer',opacity:locked?0.6:1}}>
+                  cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
                 {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              <select value={s.platform} disabled={locked}
+              <select value={s.platform} disabled={editLock}
                 onChange={e => updateS(s.id,{platform:e.target.value})}
                 style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'5px 8px',
                   color:s.platform==='xero'?'#13B5EA':'#2CA01C',fontSize:11,outline:'none',
-                  cursor:locked?'not-allowed':'pointer',opacity:locked?0.6:1}}>
+                  cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
                 <option value="qbo">QuickBooks Online</option>
                 <option value="xero">Xero</option>
               </select>
