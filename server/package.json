@@ -1,0 +1,17 @@
+{
+  "name": "statementaudit-pro-server",
+  "version": "1.0.0",
+  "description": "StatementAudit Pro — Node/Express proxy. Holds the API key server-side; forwards extraction requests to Anthropic.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

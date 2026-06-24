@@ -1,0 +1,7 @@
+{
+  "name": "statementaudit-pro",
+  "private": true,
+  "scripts": {
+    "dev": "npx concurrently -n server,client -c cyan,green \"cd server && node index.js\" \"cd client && npm run dev\""
+  }
+}
