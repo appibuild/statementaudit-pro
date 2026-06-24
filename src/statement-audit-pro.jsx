@@ -470,7 +470,7 @@ export default function App() {
           messages:[
             { role:'user', content:[
               { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 }},
-              { type:'text', text:'Process this statement. Return ONLY the JSON object, with no other text before or after it.' }
+              { type:'text', text:'Extract all transactions from this statement and output the JSON. Your first character must be {. Do not write any page-by-page analysis, working notes, transaction list, or explanation — output the JSON object immediately and nothing else. Begin now.' }
             ]}
           ]
         })
