@@ -1,5 +1,6 @@
 // StatementAudit Pro — canonical build. Last updated: 2026-06-23 (remove dead renderDash; single duplicate-alert definition in renderAudit)
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import * as XLSX from 'xlsx';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -375,10 +376,12 @@ export default function App() {
   const [payeeMemory, setPayeeMemory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sa_payeeMemory') || '{}'); } catch { return {}; }
   });
+  const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
   const stmtsRef       = useRef([]);
   const fileInputRef   = useRef(null);
   const rulesInputRef  = useRef(null);
+  const qboInputRef    = useRef(null);
   const payeeMemoryRef = useRef({});
 
   useEffect(() => { stmtsRef.current = stmts; }, [stmts]);
@@ -633,10 +636,42 @@ export default function App() {
     return {...s, editedTransactions: base.map(t => t.id === tid ? {...t, rememberCode:!t.rememberCode} : t)};
   }));
 
-  const exportRules = () => {
-    const blob = new Blob([JSON.stringify(payeeMemory, null, 2)], {type:'application/json'});
-    const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:'sa-payee-rules.json'});
+  // Auto-backup: silently download updated rules JSON to Downloads on every Approve.
+  // No user action required — the file lands in Downloads ready to drag to OneDrive/Google Drive.
+  const autoBackupRules = (rules) => {
+    if (!Object.keys(rules).length) return;
+    const date = new Date().toISOString().slice(0,10);
+    const blob = new Blob([JSON.stringify(rules, null, 2)], {type:'application/json'});
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: `sa-payee-rules-${date}.json`,
+    });
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  };
+
+  // Manual export: use File System Access API (lets user pick OneDrive/Google Drive/Desktop)
+  // with silent download fallback for Safari.
+  const exportRules = async () => {
+    if (!Object.keys(payeeMemory).length) return;
+    const date = new Date().toISOString().slice(0,10);
+    const filename = `sa-payee-rules-${date}.json`;
+    const json = JSON.stringify(payeeMemory, null, 2);
+    const blob = new Blob([json], {type:'application/json'});
+    if ('showSaveFilePicker' in window) {
+      try {
+        const fh = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'JSON Rules File', accept: {'application/json': ['.json']} }],
+        });
+        const w = await fh.createWritable();
+        await w.write(blob); await w.close();
+        return;
+      } catch(e) { if (e.name === 'AbortError') return; }
+    }
+    const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:filename});
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
   };
 
   const importRules = e => {
@@ -651,6 +686,37 @@ export default function App() {
       } catch {}
     };
     reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // Parse a QBO bank rules .xls export and open the mapping modal.
+  // Extracts: bank description keyword + QBO category (hint) from each rule row.
+  const importRulesQBO = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+        const parsed = [];
+        for (let i = 1; i < rows.length; i++) {
+          const [name, condStr, outStr] = rows[i];
+          if (!condStr || !outStr) continue;
+          try {
+            const cond = JSON.parse(condStr);
+            const out  = JSON.parse(outStr);
+            const keyword     = cond.ruleConditions?.find(r => r.ruleType === 1)?.value || '';
+            const qboCategory = out.ruleActions?.find(r => r.actionType === 0)?.value  || '';
+            const payeeName   = out.ruleActions?.find(r => r.actionType === 5)?.value  || keyword;
+            if (keyword || payeeName) parsed.push({ name: name||payeeName||keyword, keyword, payeeName, qboCategory, nominalCode:'' });
+          } catch {}
+        }
+        if (parsed.length) setQboImportRows(parsed);
+      } catch {}
+    };
+    reader.readAsArrayBuffer(file);
     e.target.value = '';
   };
 
@@ -678,14 +744,15 @@ export default function App() {
     const stmt = stmtsRef.current.find(s => s.id === id);
     if (stmt?.reconciliation && !stmt.reconciliation.reconciled) return; // hard-block: gate refuses non-reconciling statements
     const toRemember = getTx(stmt).filter(t => t.codeSource === 'edited' && t.rememberCode && t.nominalCode);
-    if (toRemember.length) setPayeeMemory(prev => {
-      const next = {...prev};
-      toRemember.forEach(t => { next[normKey(t.payee, t.description)] = t.nominalCode; });
-      return next;
-    });
+    if (toRemember.length) {
+      const updatedMemory = {...payeeMemoryRef.current};
+      toRemember.forEach(t => { updatedMemory[normKey(t.payee, t.description)] = t.nominalCode; });
+      setPayeeMemory(updatedMemory);
+      autoBackupRules(updatedMemory); // auto-download to Downloads — no user action needed
+    }
     updateS(id, {status:'approved'});
-    const next = stmtsRef.current.find(s => s.status === 'review' && s.id !== id);
-    if (next) setActiveId(next.id);
+    const nextStmt = stmtsRef.current.find(s => s.status === 'review' && s.id !== id);
+    if (nextStmt) setActiveId(nextStmt.id);
     else setTab('export');
   };
   const reject = id => updateS(id, {status:'rejected'});
@@ -1451,6 +1518,81 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────────────
   // EXPORT
   // ─────────────────────────────────────────────────────────────────────
+  const renderQboImportModal = () => {
+    if (!qboImportRows) return null;
+    const filledCount = qboImportRows.filter(r => r.nominalCode).length;
+    return (
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.48)',zIndex:200,
+        display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+        <div style={{background:C.card,borderRadius:12,padding:24,width:'min(820px,96vw)',
+          maxHeight:'85vh',display:'flex',flexDirection:'column',gap:14,boxShadow:'0 8px 40px rgba(0,0,0,0.18)'}}>
+          {/* Header */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+            <div>
+              <div style={{fontSize:16,fontWeight:700,color:C.t1}}>Import QBO Bank Rules</div>
+              <div style={{fontSize:12,color:C.t2,marginTop:4,lineHeight:1.5}}>
+                {qboImportRows.length} rules found · Assign UK nominal codes below · Leave blank to skip · QBO category shown as a hint only
+              </div>
+            </div>
+            <button onClick={() => setQboImportRows(null)}
+              style={{...btn('outline'),padding:'5px 11px',fontSize:13,flexShrink:0}}>✕</button>
+          </div>
+          {/* Column headers */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 130px',gap:8,padding:'6px 10px',
+            background:C.bg,borderRadius:7,fontSize:11,fontWeight:600,color:C.t3,
+            textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
+            <div>Payee / Bank keyword</div>
+            <div>QBO category (hint — do not copy blindly)</div>
+            <div>UK Nominal Code</div>
+          </div>
+          {/* Rows */}
+          <div style={{overflowY:'auto',flex:1,display:'flex',flexDirection:'column',gap:4}}>
+            {qboImportRows.map((row, i) => (
+              <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 130px',gap:8,
+                padding:'7px 10px',background:i%2===0?C.surf:C.card,borderRadius:6,alignItems:'center'}}>
+                <div style={{fontSize:12,color:C.t1,fontWeight:500}}>{row.payeeName || row.keyword}</div>
+                <div style={{fontSize:11,color:C.t3,fontStyle:'italic',lineHeight:1.4}}>{row.qboCategory}</div>
+                <input
+                  value={row.nominalCode}
+                  onChange={ev => setQboImportRows(prev => prev.map((r,j) =>
+                    j===i ? {...r, nominalCode: ev.target.value.trim()} : r))}
+                  placeholder="e.g. 7400"
+                  style={{border:`1px solid ${row.nominalCode ? C.grnBrd : C.bdrBrt}`,
+                    borderRadius:6,padding:'5px 8px',fontSize:12,
+                    fontFamily:'JetBrains Mono,monospace',width:'100%',boxSizing:'border-box',
+                    background: row.nominalCode ? C.grnDim : C.card,outline:'none'}}
+                />
+              </div>
+            ))}
+          </div>
+          {/* Footer */}
+          <div style={{display:'flex',gap:10,justifyContent:'flex-end',alignItems:'center',
+            borderTop:`1px solid ${C.bdr}`,paddingTop:12,flexShrink:0}}>
+            <div style={{fontSize:12,color:C.t3,flex:1}}>
+              {filledCount > 0
+                ? <span style={{color:C.grn,fontWeight:600}}>{filledCount} of {qboImportRows.length} rules ready to import</span>
+                : <span>Assign at least one nominal code to import</span>}
+            </div>
+            <button onClick={() => setQboImportRows(null)} style={btn('outline')}>Cancel</button>
+            <button
+              disabled={filledCount === 0}
+              onClick={() => {
+                const toAdd = {};
+                qboImportRows.filter(r => r.nominalCode).forEach(r => {
+                  toAdd[normKey(r.payeeName || r.keyword, '')] = r.nominalCode;
+                });
+                setPayeeMemory(prev => ({...prev, ...toAdd}));
+                setQboImportRows(null);
+              }}
+              style={btn('primary', filledCount === 0)}>
+              ↑ Import {filledCount} rule{filledCount !== 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderExport = () => {
     const approved   = stmts.filter(s => s.status === 'approved');
     const qboApproved  = approved.filter(s => s.platform === 'qbo');
@@ -1540,20 +1682,31 @@ export default function App() {
         </div>
 
         {/* Payee memory management */}
-        <div style={{flexShrink:0,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:9,padding:'12px 16px',
-          display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-          <div>
-            <div style={{fontSize:12,fontWeight:600,color:C.t1}}>Payee Code Memory</div>
-            <div style={{fontSize:11,color:C.t2,marginTop:2}}>
-              {Object.keys(payeeMemory).length} rule{Object.keys(payeeMemory).length!==1?'s':''} stored · auto-fills Nominal Code on next import
+        <div style={{flexShrink:0,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:9,padding:'14px 16px',display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:C.t1}}>Payee Code Memory</div>
+              <div style={{fontSize:11,color:C.t2,marginTop:2}}>
+                {Object.keys(payeeMemory).length} rule{Object.keys(payeeMemory).length!==1?'s':''} stored · auto-fills Nominal Code on next import
+              </div>
+            </div>
+            <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+              <button onClick={exportRules} disabled={!Object.keys(payeeMemory).length} style={btn('outline')}>↓ Save Rules</button>
+              <button onClick={() => rulesInputRef.current?.click()} style={btn('outline')}>↑ Import Rules (.json)</button>
+              <button onClick={() => qboInputRef.current?.click()} style={btn('outline')}>↑ Import QBO Rules (.xls)</button>
+              <button onClick={() => { if(window.confirm('Clear all payee→code rules?')) setPayeeMemory({}); }}
+                disabled={!Object.keys(payeeMemory).length} style={btn('danger')}>Clear All</button>
+              <input ref={rulesInputRef} type="file" accept=".json" style={{display:'none'}} onChange={importRules}/>
+              <input ref={qboInputRef}   type="file" accept=".xls,.xlsx" style={{display:'none'}} onChange={importRulesQBO}/>
             </div>
           </div>
-          <div style={{display:'flex',gap:6,alignItems:'center'}}>
-            <button onClick={exportRules} disabled={!Object.keys(payeeMemory).length} style={btn('outline')}>↓ Export Rules</button>
-            <button onClick={() => rulesInputRef.current?.click()} style={btn('outline')}>↑ Import Rules</button>
-            <button onClick={() => { if(window.confirm('Clear all payee→code rules?')) setPayeeMemory({}); }}
-              disabled={!Object.keys(payeeMemory).length} style={btn('danger')}>Clear All</button>
-            <input ref={rulesInputRef} type="file" accept=".json" style={{display:'none'}} onChange={importRules}/>
+          {/* Backup help panel */}
+          <div style={{background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:7,padding:'10px 14px',fontSize:11,color:C.t2,lineHeight:1.6}}>
+            <span style={{fontWeight:600,color:C.amb}}>⚡ Backup your rules — do this now:</span>
+            {' '}Rules are stored in this browser only. A backup file downloads automatically to your Downloads folder each time you Approve.{' '}
+            <strong>Drag that file to OneDrive, Google Drive, or iCloud Drive after each session</strong> — if you clear your browser data or switch devices, the backup is your only recovery.
+            <br/>To restore: click <em>Import Rules (.json)</em> and select your backup file.
+            To bring in rules already set up in QBO: export them from <em>Transactions → Bank Transactions → Rules → Export Rules</em>, then click <em>Import QBO Rules (.xls)</em>.
           </div>
         </div>
 
@@ -1657,6 +1810,7 @@ export default function App() {
         {tab==='audit'  && renderAudit()}
         {tab==='export' && renderExport()}
       </div>
+      {renderQboImportModal()}
     </div>
   );
 }
