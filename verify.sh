@@ -25,8 +25,8 @@ else
 fi
 
 # 2. pinned model
-if grep -q "claude-sonnet-4-20250514" "$SRC"; then
-  grn "✓ model pinned to claude-sonnet-4-20250514"
+if grep -q "claude-sonnet-4-6" "$SRC"; then
+  grn "✓ model pinned to claude-sonnet-4-6"
 else
   red "✗ pinned model string missing or changed"
   FAIL=1

@@ -446,7 +446,7 @@ export default function App() {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:32000,
+          model:'claude-sonnet-4-6', max_tokens:32000,
           system: PROMPTS[stmt.accountType] || PROMPTS.current,
           messages:[
             { role:'user', content:[
