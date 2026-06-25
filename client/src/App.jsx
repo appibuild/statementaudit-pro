@@ -213,8 +213,27 @@ const recalc = (txList, prev, acType) => {
       const gap = +(txList[j].balance - expected).toFixed(2);
       if (Math.abs(gap) >= 0.01) {
         balanceBreaks.push({ fromDate: txList[prevIdx].date, toDate: txList[j].date, gap });
-        const flip = findFlip(txList.slice(prevIdx + 1, j + 1), gap, txList[prevIdx].date, txList[j].date);
-        if (flip) flipSuggestions.push(flip);
+        if (j === prevIdx + 1) {
+          // Single-transaction span: the balance delta is direct proof of the correct direction.
+          // If actualMv + delta ≈ 0 the recorded direction opposes the balance evidence.
+          const delta     = +(txList[j].balance - txList[prevIdx].balance).toFixed(2);
+          const actualMv  = mv(txList[j]);
+          if (Math.abs(actualMv + delta) < 0.01) {
+            const toCredit = creditPos ? delta > 0 : delta < 0;
+            const amount   = +(Math.abs(delta)).toFixed(2);
+            const sign     = delta > 0 ? `+£${amount.toFixed(2)}` : `−£${amount.toFixed(2)}`;
+            const wrong    = toCredit ? 'debit' : 'credit';
+            const right    = toCredit ? 'credit' : 'debit';
+            flipSuggestions.push({
+              tid: txList[j].id, amount, toCredit, date: txList[j].date,
+              fromDate: txList[prevIdx].date, toDate: txList[j].date,
+              msg: `Balance ${fmtBal(txList[prevIdx].balance)} → ${fmtBal(txList[j].balance)} (${sign}) — recorded as ${wrong}, should be ${right}.`,
+            });
+          }
+        } else {
+          const flip = findFlip(txList.slice(prevIdx + 1, j + 1), gap, txList[prevIdx].date, txList[j].date);
+          if (flip) flipSuggestions.push(flip);
+        }
       }
       prevIdx = j;
     }
