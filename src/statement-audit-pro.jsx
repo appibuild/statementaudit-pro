@@ -1185,6 +1185,9 @@ export default function App() {
                     ? <button onClick={() => { dlFile(buildCSV(s), makeName(s)); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
                     : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
                   )}
+                  {!fastTrack && txList.length > 0 && rec && (
+                    <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                  )}
                 </>}
                 {s.status==='approved' && <>
                   <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('success')}>↓ Re-download CSV</button>
