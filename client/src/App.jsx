@@ -1314,10 +1314,10 @@ export default function App() {
                 ⚠ Reconciliation variance £{rec.variance?.toFixed(2)}{rec.notes?` — ${rec.notes}`:''}
               </div>
             )}
-            {rec && rec.balanceBreaks?.length > 0 && (
+            {rec && !rec.reconciled && rec.balanceBreaks?.length > 0 && (
               <div style={{padding:'9px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,fontSize:12,color:C.red}}>
                 <div style={{fontWeight:600,marginBottom:4}}>⚠ The running balance doesn't add up — a transaction may be missing or entered the wrong way round.</div>
-                {rec.balanceBreaks.map((b,i) => {
+                {rec.balanceBreaks.slice(0, 3).map((b,i) => {
                   const flip = rec.flipSuggestions?.find(f => f.fromDate === b.fromDate && f.toDate === b.toDate);
                   return (
                     <div key={i} style={{color:C.t1,fontSize:11,marginTop:2}}>
@@ -1326,6 +1326,9 @@ export default function App() {
                     </div>
                   );
                 })}
+                {rec.balanceBreaks.length > 3 && (
+                  <div style={{color:C.t2,fontSize:11,marginTop:4}}>…and {rec.balanceBreaks.length - 3} more — check the statement carefully for missing or wrongly-directed rows.</div>
+                )}
               </div>
             )}
             {rec && rec.accountTypeLikelyWrong && rec.suggestedType && canEdit && (
