@@ -1364,12 +1364,21 @@ export default function App() {
                   {rec.openingLikelyOff && (
                     <div>• Use the correct opening balance shown in the blue helper above.</div>
                   )}
+                  {s.crossCheck?.status === 'count_mismatch' && (() => {
+                    const diff = Math.abs((s.crossCheck.llmCount ?? 0) - (s.crossCheck.textCount ?? 0));
+                    return <div>• Text layer found {s.crossCheck.textCount} transactions, AI found {s.crossCheck.llmCount} — {diff} row{diff !== 1 ? 's' : ''} may be missing. Check all pages of the statement were uploaded and try re-running.</div>;
+                  })()}
                   {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && !rec.integrityChecked && (
                     <div>• No running balance was read from this statement, so no single row can be pinpointed — check each transaction's money in/out is in the right column, and that no row is missing.</div>
                   )}
-                  {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && rec.integrityChecked && (
-                    <div>• Check flagged rows, and that each transaction's money in/out is in the right column.</div>
-                  )}
+                  {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && rec.integrityChecked && s.crossCheck?.status !== 'count_mismatch' && (() => {
+                    const ccFlagged = s.crossCheck?.flagged?.length ?? 0;
+                    if (ccFlagged > 0)
+                      return <div>• Review the ⊕ amber rows — AI and text layer disagree on the direction or amount of those {ccFlagged} transaction{ccFlagged !== 1 ? 's' : ''}.</div>;
+                    if (flagCount > 0)
+                      return <div>• Check the ⚑-flagged rows — review their debit/credit direction against the original statement.</div>;
+                    return <div>• No specific row could be identified — review each transaction's debit (money out) and credit (money in) direction against the original statement PDF, and check for missing rows.</div>;
+                  })()}
                 </div>
               </div>
             )}
