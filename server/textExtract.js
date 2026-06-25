@@ -148,7 +148,7 @@ function groupIntoRows(items, tolerance = 4) {
   const rows = [];
   let current = [sorted[0]];
   for (let i = 1; i < sorted.length; i++) {
-    if (Math.abs(sorted[i].y - current[current.length - 1].y) <= tolerance) {
+    if (Math.abs(sorted[i].y - current[0].y) <= tolerance) {
       current.push(sorted[i]);
     } else {
       rows.push(current.sort((a, b) => a.x - b.x));
