@@ -342,10 +342,15 @@ async function detectAndExtract(base64pdf) {
   for (const row of rows) {
     const rowText = row.map(i => i.text).join(' ');
 
-    // Skip balance-label and header rows (only if no amounts on the row)
+    // Skip balance-label and header rows (only if no amounts AND no date on the row).
+    // Never skip a row that contains a date — the date is the accumulator anchor and
+    // must not be lost. Barclays/NatWest put the date and type (e.g. "Counter Credit",
+    // "Direct Debit") on the same y-coordinate; skipping those rows drops the date and
+    // causes all subsequent transactions on the page to be lost or mis-dated.
     if (SKIP_RE.test(rowText)) continue;
     const rowHasAmounts = row.some(i => isMoney(i.text));
-    if (!rowHasAmounts && HEADER_RE.test(rowText)) continue;
+    const rowHasDate    = row.some(i => isDate(i.text));
+    if (!rowHasAmounts && !rowHasDate && HEADER_RE.test(rowText)) continue;
 
     const { dateStr, debit, credit, balance, desc } = parseRow(row, cols);
 
