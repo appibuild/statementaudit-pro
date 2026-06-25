@@ -32,7 +32,7 @@ const DATE_SHORT = /^\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|De
 const DATE_SHORT_YEAR = /^\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{2}$/i;
 
 // Rows whose text matches these are layout/header rows — skip them
-const SKIP_RE   = /balance\s+(carried|brought|from)\s+|brought\s+forward|opening\s+balance|closing\s+balance|account\s+summary/i;
+const SKIP_RE   = /balance\s+(carried|brought|from)\s+|brought\s+forward|opening\s+balance|closing\s+balance|account\s+summary|previous\s+balance|balance\s+forward|start\s+balance/i;
 const HEADER_RE = /\b(date|description|details|narrative|payments?\s*out|payments?\s*in|debit|credit|withdrawal|deposit|money\s+out|money\s+in|paid\s+out|paid\s+in)\b/i;
 const MONTHS    = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
 
