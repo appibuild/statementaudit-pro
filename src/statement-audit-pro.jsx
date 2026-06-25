@@ -728,17 +728,22 @@ export default function App() {
   // ── Editing ────────────────────────────────────────────────────────────
   const startEdit = (sid, tid, field, val) => { setEditCell({sid,tid,field}); setEditVal(String(val??'')); };
 
-  // Edit a statement-level balance (opening / closing-on-statement), then re-reconcile and re-score.
-  // Lets a human correct a misread balance so the statement reconciles — the gate, working.
+  // Edit a statement-level figure (opening/closing balance or Payments Out/In), then re-reconcile.
+  // Lets a human correct a misread figure so the statement reconciles — the gate, working.
   const commitBalEdit = () => {
     if (!balEdit) return;
     const { sid, field } = balEdit;
     const num = balVal.trim() === '' ? null : +parseFloat(balVal).toFixed(2);
     setStmts(prev => prev.map(s => {
       if (s.id !== sid) return s;
-      const prevRec = { ...(s.reconciliation || {}), [field]: num, openingAdjusted: false, printedOpening: null };
+      const isStmtFig = field === 'statementPaymentsOut' || field === 'statementPaymentsIn';
+      const prevRec = isStmtFig
+        ? { ...(s.reconciliation || {}), [field]: num ?? 0 }
+        : { ...(s.reconciliation || {}), [field]: num, openingAdjusted: false, printedOpening: null };
       const rec = recalc(getTx(s), prevRec, s.accountType);
-      return { ...s, [field]: num, reconciliation: rec, confidenceScore: calcConfidence(rec) };
+      return isStmtFig
+        ? { ...s, reconciliation: rec, confidenceScore: calcConfidence(rec) }
+        : { ...s, [field]: num, reconciliation: rec, confidenceScore: calcConfidence(rec) };
     }));
     setBalEdit(null);
   };
@@ -1417,18 +1422,34 @@ export default function App() {
                   const iGap = +(Math.abs(cCrd - sIn)).toFixed(2);
                   return (
                     <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.bdr}`}}>
-                      <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8,fontWeight:600}}>Statement figures vs. your CSV</div>
+                      <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8,fontWeight:600}}>
+                        Statement figures vs. your CSV {canEdit && <span style={{fontSize:10,fontWeight:400,textTransform:'none',letterSpacing:0,color:C.t3}}> — click Statement figure to correct if wrong</span>}
+                      </div>
                       <div style={{display:'grid',gridTemplateColumns:'auto 1fr 1fr 1fr',gap:'5px 18px',alignItems:'center'}}>
                         <div/>
                         <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Statement</div>
                         <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Your CSV</div>
                         <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Gap</div>
                         <div style={{fontSize:12,color:C.t2,whiteSpace:'nowrap'}}>Payments out</div>
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1}}>{fmtCcy(sOut)}</div>
+                        {balEdit?.sid===s.id && balEdit?.field==='statementPaymentsOut'
+                          ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
+                              onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
+                              onBlur={commitBalEdit}
+                              style={{width:90,fontFamily:'JetBrains Mono,monospace',fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                          : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsOut'}),setBalVal(String(sOut)))}
+                              style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1,
+                                cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sOut)}</div>}
                         <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:oGap>=0.02?C.red:C.grn}}>{fmtCcy(cDeb)}</div>
                         <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:oGap>=0.02?C.red:C.t3}}>{oGap>=0.02?fmtCcy(oGap):'—'}</div>
                         <div style={{fontSize:12,color:C.t2,whiteSpace:'nowrap'}}>Payments in</div>
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1}}>{fmtCcy(sIn)}</div>
+                        {balEdit?.sid===s.id && balEdit?.field==='statementPaymentsIn'
+                          ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
+                              onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
+                              onBlur={commitBalEdit}
+                              style={{width:90,fontFamily:'JetBrains Mono,monospace',fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                          : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsIn'}),setBalVal(String(sIn)))}
+                              style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1,
+                                cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sIn)}</div>}
                         <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:iGap>=0.02?C.amb:C.grn}}>{fmtCcy(cCrd)}</div>
                         <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:iGap>=0.02?C.amb:C.t3}}>{iGap>=0.02?fmtCcy(iGap):'—'}</div>
                       </div>
