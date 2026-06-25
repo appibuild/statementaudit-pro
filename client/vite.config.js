@@ -5,6 +5,11 @@ export default defineConfig({
   plugins: [react()],
   build: {
     chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: { xlsx: ['xlsx'] },
+      },
+    },
   },
   server: {
     port: 5173,
