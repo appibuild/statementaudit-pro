@@ -253,11 +253,36 @@ const recalc = (txList, prev, acType) => {
   // Two independent opening anchors agreeing → trust the true opening, apply without a click.
   const openingAnchorsAgree = trueOpeningFromTop != null && derivedOpening != null
     && Math.abs(trueOpeningFromTop - derivedOpening) < 0.01;
+
+  // #12 — Date ordering: out-of-order dates make the balance walk unreliable.
+  const dateOrderWarning = txList.length > 1 &&
+    txList.some((t, i) => i > 0 && pDate(t.date) < pDate(txList[i-1].date));
+
+  // #13 — Data quality: rows where both debit+credit are null (no amount) or both non-null (double-entry).
+  const dataIssues = txList
+    .map((t, i) => ({ idx: i, tid: t.id, date: t.date,
+      issue: (t.debit == null && t.credit == null) ? 'no-amount'
+           : (t.debit != null && t.credit != null) ? 'both-columns' : null }))
+    .filter(x => x.issue != null);
+
+  // #9 — Exact-amount candidate search (no per-row balance column only).
+  // When statement-level gaps mirror each other (sign-flip signature), find transactions
+  // whose exact amount equals the gap — they are the likely wrong-direction rows.
+  const stmtOutGap = +(Math.abs(deb - stOut)).toFixed(2);
+  const stmtInGap  = +(Math.abs(crd - stIn)).toFixed(2);
+  const mirroredCandidates = (idxFirstBal === -1 && stmtOutGap >= 0.02 && Math.abs(stmtOutGap - stmtInGap) < 0.02)
+    ? txList
+        .filter(t => (deb > stOut && Math.abs((t.debit  || 0) - stmtOutGap) < 0.01)
+                  || (crd > stIn  && Math.abs((t.credit || 0) - stmtOutGap) < 0.01))
+        .map(t => t.id)
+    : [];
+
   return { ...prev, csvDebitTotal:deb, csvCreditTotal:crd, transactionCount:txList.length,
     calculatedClosing:calc, variance, txVar, balVar, derivedOpening, openingLikelyOff,
     accountTypeLikelyWrong, suggestedType,
     trueOpeningFromTop, openingAnchorsAgree, balanceBreaks, flipSuggestions, integrityChecked: idxFirstBal !== -1,
-    reconciled: variance < 0.02 };
+    reconciled: variance < 0.02,
+    dateOrderWarning, dataIssues, mirroredCandidates };
 };
 
 // Confidence score — a points checklist (NOT a probability). Start at 100 and deduct:
@@ -1358,6 +1383,12 @@ export default function App() {
                     No running balance read from this statement — totals checked, but individual rows can't be auto-verified.
                   </div>
                 )}
+                {rec.dateOrderWarning && (
+                  <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:8,fontSize:12,color:C.amb}}>
+                    <span>⚑</span>
+                    <span>Transactions appear out of date order — running balance checks may flag false breaks. Verify the statement's original row sequence.</span>
+                  </div>
+                )}
                 {/* Dual-extraction cross-check status */}
                 {s.crossCheck && (() => {
                   const cc = s.crossCheck;
@@ -1431,6 +1462,13 @@ export default function App() {
                 ⚑ {flagCount} row{flagCount!==1?'s':''} flagged — resolve before approving
               </div>
             )}
+            {rec?.dataIssues?.length > 0 && (
+              <div style={{padding:'6px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:11,color:C.amb}}>
+                ⚠ {rec.dataIssues.length} row{rec.dataIssues.length!==1?' have':' has'} a data quality issue —
+                {rec.dataIssues.filter(d=>d.issue==='no-amount').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='no-amount').length} with no debit or credit set`}
+                {rec.dataIssues.filter(d=>d.issue==='both-columns').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='both-columns').length} with both debit and credit filled`} — highlighted in amber below.
+              </div>
+            )}
             {rec && !rec.reconciled && !rec.openingLikelyOff && !(rec.balanceBreaks?.length) && (
               <div style={{padding:'6px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,fontSize:11,color:C.red}}>
                 ⚠ Reconciliation variance £{rec.variance?.toFixed(2)}{rec.notes?` — ${rec.notes}`:''}
@@ -1496,9 +1534,20 @@ export default function App() {
                   {(() => {
                     const oGap = +(Math.abs((rec.csvDebitTotal||0) - (rec.statementPaymentsOut||0))).toFixed(2);
                     const iGap = +(Math.abs((rec.csvCreditTotal||0) - (rec.statementPaymentsIn||0))).toFixed(2);
-                    if (oGap >= 0.02 && Math.abs(oGap - iGap) < 0.02)
-                      return <div>• Payments Out and Payments In are both off by <strong>£{oGap.toFixed(2)}</strong> — equal-and-opposite gaps are the signature of a transaction entered in the wrong direction. Look for a row where the amount is close to £{oGap.toFixed(2)}.</div>;
-                    return null;
+                    if (!(oGap >= 0.02 && Math.abs(oGap - iGap) < 0.02)) return null;
+                    const candIds = rec.mirroredCandidates || [];
+                    const candTxs = candIds.map(id => txList.find(t => t.id === id)).filter(Boolean);
+                    return (
+                      <>
+                        <div>• Payments Out and Payments In are both off by <strong>£{oGap.toFixed(2)}</strong> — equal-and-opposite gaps are the signature of a transaction entered in the wrong direction.{candTxs.length === 0 ? ` Look for a row where the amount is close to £${oGap.toFixed(2)}.` : ''}</div>
+                        {candTxs.length > 0 && (
+                          <div>• Candidate row{candTxs.length>1?'s':''}: {candTxs.map(t => {
+                            const n = txList.indexOf(t) + 1;
+                            return `#${n} (${t.date} · ${t.payee||t.description||'—'} · £${oGap.toFixed(2)})`;
+                          }).join(', ')} — check {candTxs.length>1?'each row\'s':'this row\'s'} debit/credit direction.</div>
+                        )}
+                      </>
+                    );
                   })()}
                   {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && !rec.integrityChecked && (
                     <div>• No running balance was read from this statement, so no single row can be pinpointed — check each transaction's money in/out is in the right column, and that no row is missing.</div>
@@ -1552,7 +1601,8 @@ export default function App() {
                   const flipSug = rec?.flipSuggestions?.find(f => f.tid === t.id);
                   const ccFlag  = s.crossCheck?.status === 'partial'                         // dual-path disagreement
                     ? s.crossCheck.flagged?.find(f => f.index === ri) : null;
-                  const td      = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id) || !!flipSug, dp);  // flip candidate → amber
+                  const hasDataIssue = rec?.dataIssues?.some(d => d.tid === t.id);
+                  const td      = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id) || !!flipSug || hasDataIssue, dp);
                   return (
                     <tr key={t.id}>
                       <td style={{...td,color:C.t3,fontFamily:'JetBrains Mono,monospace',fontSize:10,textAlign:'center',width:28}}>{ri+1}</td>
