@@ -748,6 +748,19 @@ export default function App() {
     setBalEdit(null);
   };
 
+  // One-click: set statement figures to match the CSV totals.
+  // Used when the bank doesn't print Payments Out/In, so the LLM returns 0 and the full CSV total
+  // becomes the variance. Setting both to the CSV totals drops txVar to £0.
+  const matchStmtToCSV = sid => setStmts(prev => prev.map(s => {
+    if (s.id !== sid) return s;
+    const rec = recalc(getTx(s), {
+      ...s.reconciliation,
+      statementPaymentsOut: +(s.reconciliation.csvDebitTotal  || 0).toFixed(2),
+      statementPaymentsIn:  +(s.reconciliation.csvCreditTotal || 0).toFixed(2),
+    }, s.accountType);
+    return { ...s, reconciliation: rec, confidenceScore: calcConfidence(rec) };
+  }));
+
   // One-click: accept the opening balance the app worked out from the closing balance.
   // Remember the figure printed on the statement so we can explain the difference, not hide it.
   const useDerivedOpening = sid => setStmts(prev => prev.map(s => {
@@ -1413,9 +1426,10 @@ export default function App() {
                     );
                   })}
                 </div>
-                {(rec.statementPaymentsOut > 0 || rec.statementPaymentsIn > 0) && (() => {
+                {(rec.statementPaymentsOut > 0 || rec.statementPaymentsIn > 0 || (rec.txVar >= 0.02 && rec.csvDebitTotal > 0)) && (() => {
                   const sOut = rec.statementPaymentsOut || 0;
                   const sIn  = rec.statementPaymentsIn  || 0;
+                  const figuresMissing = sOut === 0 && sIn === 0;
                   const cDeb = rec.csvDebitTotal  || 0;
                   const cCrd = rec.csvCreditTotal || 0;
                   const oGap = +(Math.abs(cDeb - sOut)).toFixed(2);
@@ -1425,6 +1439,15 @@ export default function App() {
                       <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8,fontWeight:600}}>
                         Statement figures vs. your CSV {canEdit && <span style={{fontSize:10,fontWeight:400,textTransform:'none',letterSpacing:0,color:C.t3}}> — click Statement figure to correct if wrong</span>}
                       </div>
+                      {figuresMissing && canEdit && (
+                        <div style={{marginBottom:10,padding:'8px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                          <span style={{flex:'1 1 260px'}}>⚠ Statement Payments Out/In were not read from this PDF — the full variance is your CSV total vs £0. Enter the figures from the statement, or if this bank doesn't print them:</span>
+                          <button onClick={() => matchStmtToCSV(s.id)}
+                            style={{...btn('outline'),borderColor:C.amb,color:C.amb,fontSize:12,padding:'5px 12px',whiteSpace:'nowrap'}}>
+                            Set to match CSV
+                          </button>
+                        </div>
+                      )}
                       <div style={{display:'grid',gridTemplateColumns:'auto 1fr 1fr 1fr',gap:'5px 18px',alignItems:'center'}}>
                         <div/>
                         <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Statement</div>
@@ -1621,6 +1644,9 @@ export default function App() {
                     const diff = Math.abs((s.crossCheck.llmCount ?? 0) - (s.crossCheck.textCount ?? 0));
                     return <div>• Text layer found {s.crossCheck.textCount} transactions, AI found {s.crossCheck.llmCount} — {diff} row{diff !== 1 ? 's' : ''} may be missing. Check all pages of the statement were uploaded and try re-running.</div>;
                   })()}
+                  {!(rec.statementPaymentsOut > 0) && !(rec.statementPaymentsIn > 0) && (rec.csvDebitTotal || 0) >= 0.02 && (
+                    <div>• Statement Payments Out/In were not read from this PDF — the entire £{rec.txVar?.toFixed(2)} variance is your CSV total vs £0. Scroll up to the <strong>Statement figures vs. your CSV</strong> strip, enter the correct figures, or click <strong>Set to match CSV</strong> if this bank doesn't print payment totals.</div>
+                  )}
                   {(() => {
                     const oGap = +(Math.abs((rec.csvDebitTotal||0) - (rec.statementPaymentsOut||0))).toFixed(2);
                     const iGap = +(Math.abs((rec.csvCreditTotal||0) - (rec.statementPaymentsIn||0))).toFixed(2);
