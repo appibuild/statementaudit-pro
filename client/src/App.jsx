@@ -302,12 +302,23 @@ const recalc = (txList, prev, acType) => {
       })()
     : [];
 
+  // JOB 2 — per-row expected running balance. Single source: same mv() + creditPos as the walk above.
+  // Keyed by tx id so the renderer can look up without index arithmetic.
+  const expectedBalances = {};
+  if (open != null) {
+    let running = open;
+    for (let k = 0; k < txList.length; k++) {
+      running = +(running + mv(txList[k])).toFixed(2);
+      expectedBalances[txList[k].id] = running;
+    }
+  }
+
   return { ...prev, csvDebitTotal:deb, csvCreditTotal:crd, transactionCount:txList.length,
     calculatedClosing:calc, variance, txVar, balVar, derivedOpening, openingLikelyOff,
     accountTypeLikelyWrong, suggestedType,
     trueOpeningFromTop, openingAnchorsAgree, balanceBreaks, flipSuggestions, integrityChecked: idxFirstBal !== -1,
     reconciled: variance < 0.02,
-    dateOrderWarning, dataIssues, mirroredCandidates, pairCandidates };
+    dateOrderWarning, dataIssues, mirroredCandidates, pairCandidates, expectedBalances };
 };
 
 // Confidence score — a points checklist (NOT a probability). Start at 100 and deduct:
@@ -391,12 +402,14 @@ const buildAuditWorkbook = (s, rec) => {
   ar.push(['Bank', s.bankName||'', 'Account', s.accountName||'']);
   ar.push(['Period', s.period ? `${s.period.from} \u2013 ${s.period.to}` : '', 'Account type', (ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current).label]);
   ar.push([]);
-  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Nominal code','Notes','Flags']);
+  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Nominal code','Notes','Flags']);
+  const expBals = rec?.expectedBalances || {};
   tx.forEach((t, i) => {
     const flags = [t.flagged?'\u2691':'', t.ambiguous?'Check':'', t.wrapped?'Joined':''].filter(Boolean).join(', ');
     ar.push([i+1, t.date, t.paymentType, t.description||'', t.payee||'',
       t.debit!=null?t.debit:'', t.credit!=null?t.credit:'',
-      t.balance!=null?t.balance:'', t.nominalCode||'', t.notes||'', flags]);
+      t.balance!=null?t.balance:'', expBals[t.id]!=null?expBals[t.id]:'',
+      t.nominalCode||'', t.notes||'', flags]);
   });
   ar.push([]);
   const stOut  = rec?.statementPaymentsOut || 0;
@@ -420,7 +433,7 @@ const buildAuditWorkbook = (s, rec) => {
     ar.push(['NOTE', `Equal-and-opposite gap of \u00A3${outGap.toFixed(2)} on both sides \u2014 likely a transaction entered in the wrong direction.`]);
 
   const ws1 = XLSX.utils.aoa_to_sheet(ar);
-  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:18},{wch:28},{wch:12}];
+  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:16},{wch:18},{wch:28},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Audit Review');
 
   // \u2500\u2500 Sheet 2: Import (clean) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -668,6 +681,8 @@ export default function App() {
         period:r.period||null,
         openingBalance, closingBalance:r.closingBalance??null,
         transactions, editedTransactions:null,
+        baseReconciliation: rec0,
+        baseAccountType: stmt.accountType,
         reconciliation: rec0,
         confidenceScore: calcConfidence(rec0),
         crossCheck: api._textExtract?.crossCheck ?? null,
@@ -876,6 +891,30 @@ export default function App() {
     });
     const rec = recalc(base, s.reconciliation, s.accountType);
     return {...s, editedTransactions: base, reconciliation: rec, confidenceScore: calcConfidence(rec)};
+  }));
+
+  // JOB 1 — Reset whole statement: discard all human edits and return to as-loaded reconciled state.
+  // Reverts edited transactions, opening/closing balance edits, and account-type switches.
+  // Does NOT revert the deterministic two-anchor opening fix (baseReconciliation already has it baked in).
+  const resetStatement = sid => setStmts(prev => prev.map(s => {
+    if (s.id !== sid || !s.baseReconciliation) return s;
+    const rec = recalc(s.transactions, s.baseReconciliation, s.baseAccountType);
+    return { ...s, editedTransactions: null, accountType: s.baseAccountType,
+      openingBalance: s.baseReconciliation.openingBalance,
+      closingBalance: s.baseReconciliation.closingBalance,
+      reconciliation: rec, confidenceScore: calcConfidence(rec) };
+  }));
+
+  // JOB 1 — Reset one row: replace a visible edited row with its original AI-extracted version.
+  // Deleted rows are not accessible here; use resetStatement to restore them.
+  const resetRow = (sid, tid) => setStmts(prev => prev.map(s => {
+    if (s.id !== sid) return s;
+    const orig = s.transactions.find(t => t.id === tid);
+    if (!orig) return s;
+    const current = s.editedTransactions || s.transactions;
+    const updated = current.map(t => t.id === tid ? orig : t);
+    const rec = recalc(updated, s.reconciliation, s.accountType);
+    return { ...s, editedTransactions: updated, reconciliation: rec, confidenceScore: calcConfidence(rec) };
   }));
 
   const approve = id => {
@@ -1257,6 +1296,10 @@ export default function App() {
                   {!fastTrack && txList.length > 0 && rec && (
                     <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                   )}
+                  {!fastTrack && s.editedTransactions && canEdit && (
+                    <button onClick={() => { if (window.confirm('Reset all edits and return to the original AI extraction?')) resetStatement(s.id); }}
+                      style={{...btn('outline'),borderColor:C.amb,color:C.amb}}>↺ Reset to original</button>
+                  )}
                 </>}
                 {s.status==='approved' && <>
                   <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('success')}>↓ Re-download CSV</button>
@@ -1622,8 +1665,8 @@ export default function App() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:14,minWidth:1040}}>
               <thead>
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
-                  {['#','Date','Type','Description','Payee','Debit','Credit','Nominal','Notes','⚑','✕'].map((h,i) => (
-                    <th key={i} style={{padding:'12px 12px',textAlign:[5,6].includes(i)?'right':'left',
+                  {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Nominal','Notes','⚑','✕','↺'].map((h,i) => (
+                    <th key={i} style={{padding:'12px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
                       color:C.t2,fontWeight:600,fontSize:12,textTransform:'uppercase',letterSpacing:'0.05em',
                       whiteSpace:'nowrap',borderBottom:`1px solid ${C.bdr}`,fontFamily:'Inter,sans-serif'}}>
                       {h}
@@ -1680,6 +1723,23 @@ export default function App() {
                         onClick={() => canEdit && startEdit(s.id,t.id,'credit',t.credit)}>
                         {isEd(t.id,'credit') ? <EI field="credit" type="number"/> : fmtN(t.credit)}
                       </td>
+                      {(() => {
+                        const expBal  = rec?.expectedBalances?.[t.id];
+                        const prtBal  = t.balance;
+                        const matched = prtBal != null && expBal != null && Math.abs(prtBal - expBal) < 0.01;
+                        const broken  = prtBal != null && expBal != null && !matched;
+                        return (
+                          <td style={{...td,textAlign:'right',fontFamily:'JetBrains Mono,monospace',width:100,
+                            color: broken ? C.amb : prtBal != null ? C.t1 : C.t3}}>
+                            <span>{prtBal != null ? fmtBal(prtBal) : (expBal != null ? fmtBal(expBal) : '—')}</span>
+                            {prtBal != null && expBal != null && (
+                              <span style={{fontSize:9,marginLeft:4,color:broken?C.amb:C.grn}}>
+                                {broken ? `≠${fmtBal(expBal)}` : '✓'}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })()}
                       <td style={{...td,width:112}} onClick={() => canEdit && startEdit(s.id,t.id,'nominalCode',t.nominalCode)}>
                         {isEd(t.id,'nominalCode') ? <EI field="nominalCode"/>
                           : t.codeSource==='remembered'
@@ -1711,6 +1771,12 @@ export default function App() {
                       <td style={{...td,textAlign:'center',width:30}}>
                         {canEdit && <button onClick={() => deleteTx(s.id,t.id)}
                           style={{background:'none',border:'none',cursor:'pointer',color:C.t3,fontSize:12,padding:'1px 3px'}}>✕</button>}
+                      </td>
+                      <td style={{...td,textAlign:'center',width:30}}>
+                        {canEdit && s.editedTransactions && (
+                          <button onClick={() => resetRow(s.id,t.id)} title="Reset this row to original AI extraction"
+                            style={{background:'none',border:'none',cursor:'pointer',color:C.amb,fontSize:13,padding:'1px 3px'}}>↺</button>
+                        )}
                       </td>
                     </tr>
                   );
