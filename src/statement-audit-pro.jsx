@@ -313,6 +313,74 @@ const dlFile = (content, name) => {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 };
 
+const buildAuditWorkbook = (s, rec) => {
+  const tx = s.editedTransactions || s.transactions || [];
+  const wb = XLSX.utils.book_new();
+
+  // \u2500\u2500 Sheet 1: Audit Review \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  const ar = [];
+  ar.push(['Bank', s.bankName||'', 'Account', s.accountName||'']);
+  ar.push(['Period', s.period ? `${s.period.from} \u2013 ${s.period.to}` : '', 'Account type', (ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current).label]);
+  ar.push([]);
+  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Nominal code','Notes','Flags']);
+  tx.forEach((t, i) => {
+    const flags = [t.flagged?'\u2691':'', t.ambiguous?'Check':'', t.wrapped?'Joined':''].filter(Boolean).join(', ');
+    ar.push([i+1, t.date, t.paymentType, t.description||'', t.payee||'',
+      t.debit!=null?t.debit:'', t.credit!=null?t.credit:'',
+      t.balance!=null?t.balance:'', t.nominalCode||'', t.notes||'', flags]);
+  });
+  ar.push([]);
+  const stOut  = rec?.statementPaymentsOut || 0;
+  const stIn   = rec?.statementPaymentsIn  || 0;
+  const csvDeb = rec?.csvDebitTotal  || 0;
+  const csvCrd = rec?.csvCreditTotal || 0;
+  ar.push(['','','','','CSV totals',         csvDeb||'', csvCrd||'']);
+  ar.push(['','','','','Statement figures',   stOut||'',  stIn||'']);
+  const outGap = +(Math.abs(csvDeb - stOut)).toFixed(2);
+  const inGap  = +(Math.abs(csvCrd - stIn)).toFixed(2);
+  ar.push(['','','','','Variance',            outGap||'', inGap||'']);
+  ar.push([]);
+  ar.push(['Opening balance', rec?.openingBalance??'', 'Closing (statement)', rec?.closingBalance??'']);
+  ar.push(['Calculated closing', rec?.calculatedClosing??'', 'Balance variance', rec?.balVar??'']);
+  ar.push([]);
+  const statusText = rec?.reconciled
+    ? 'RECONCILED'
+    : `NOT RECONCILED \u2014 variance \u00A3${rec?.variance?.toFixed(2)??'?'}`;
+  ar.push(['STATUS', statusText]);
+  if (!rec?.reconciled && outGap >= 0.02 && Math.abs(outGap - inGap) < 0.02)
+    ar.push(['NOTE', `Equal-and-opposite gap of \u00A3${outGap.toFixed(2)} on both sides \u2014 likely a transaction entered in the wrong direction.`]);
+
+  const ws1 = XLSX.utils.aoa_to_sheet(ar);
+  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:18},{wch:28},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Audit Review');
+
+  // \u2500\u2500 Sheet 2: Import (clean) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  const importLabel = s.platform === 'xero' ? 'Xero Import (clean)' : 'QBO Import (clean)';
+  const ir = s.platform === 'xero'
+    ? [['Date','Amount','Payee','Description','Reference','Cheque Number','Analysis Code'],
+       ...tx.map(t => {
+         const amt = t.credit!=null ? t.credit : t.debit!=null ? -t.debit : '';
+         return [t.date, amt, t.payee||'', t.description||'', t.paymentType, '', t.nominalCode||''];
+       })]
+    : [['Date','Payment Type','Description','Payee','Debit','Credit','Nominal Code','Notes'],
+       ...tx.map(t => [t.date, t.paymentType, t.description||'', t.payee||'', t.debit??'', t.credit??'', t.nominalCode||'', t.notes||''])];
+  const ws2 = XLSX.utils.aoa_to_sheet(ir);
+  ws2['!cols'] = [{wch:12},{wch:14},{wch:42},{wch:26},{wch:13},{wch:13},{wch:18},{wch:28}];
+  XLSX.utils.book_append_sheet(wb, ws2, importLabel);
+
+  return wb;
+};
+
+const dlWorkbook = (s, rec) => {
+  const wb = buildAuditWorkbook(s, rec);
+  const bank = (s.bankName||'Bank').replace(/\s+/g,'_');
+  const d = str => str.split('/').reverse().join('-');
+  const name = s.period?.from
+    ? `${bank}_${d(s.period.from)}_to_${d(s.period.to)}_Audit.xlsx`
+    : `${bank}_Audit.xlsx`;
+  XLSX.writeFile(wb, name);
+};
+
 // Splits matches into cross-statement (genuine double-count — block the gate, red)
 // and same-statement (a legitimate same-day repeat — soft amber "verify", does NOT block).
 const findDupes = stmts => {
@@ -1118,7 +1186,10 @@ export default function App() {
                     : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
                   )}
                 </>}
-                {s.status==='approved' && <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('success')}>↓ Re-download</button>}
+                {s.status==='approved' && <>
+                  <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('success')}>↓ Re-download CSV</button>
+                  <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                </>}
               </div>
             </div>
           </div>
@@ -1222,6 +1293,33 @@ export default function App() {
                     );
                   })}
                 </div>
+                {(rec.statementPaymentsOut > 0 || rec.statementPaymentsIn > 0) && (() => {
+                  const sOut = rec.statementPaymentsOut || 0;
+                  const sIn  = rec.statementPaymentsIn  || 0;
+                  const cDeb = rec.csvDebitTotal  || 0;
+                  const cCrd = rec.csvCreditTotal || 0;
+                  const oGap = +(Math.abs(cDeb - sOut)).toFixed(2);
+                  const iGap = +(Math.abs(cCrd - sIn)).toFixed(2);
+                  return (
+                    <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.bdr}`}}>
+                      <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8,fontWeight:600}}>Statement figures vs. your CSV</div>
+                      <div style={{display:'grid',gridTemplateColumns:'auto 1fr 1fr 1fr',gap:'5px 18px',alignItems:'center'}}>
+                        <div/>
+                        <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Statement</div>
+                        <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Your CSV</div>
+                        <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Gap</div>
+                        <div style={{fontSize:12,color:C.t2,whiteSpace:'nowrap'}}>Payments out</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1}}>{fmtCcy(sOut)}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:oGap>=0.02?C.red:C.grn}}>{fmtCcy(cDeb)}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:oGap>=0.02?C.red:C.t3}}>{oGap>=0.02?fmtCcy(oGap):'—'}</div>
+                        <div style={{fontSize:12,color:C.t2,whiteSpace:'nowrap'}}>Payments in</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1}}>{fmtCcy(sIn)}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:iGap>=0.02?C.amb:C.grn}}>{fmtCcy(cCrd)}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:iGap>=0.02?C.amb:C.t3}}>{iGap>=0.02?fmtCcy(iGap):'—'}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:10}}>
                   <span style={{width:24,height:24,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',
                     fontSize:14,fontWeight:700,color:'#fff',background:rec.reconciled?C.grn:(rec.openingLikelyOff?C.amb:C.red)}}>{rec.reconciled?'✓':'!'}</span>
@@ -1286,6 +1384,8 @@ export default function App() {
               <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
                 <button onClick={() => { dlFile(buildCSV(s), makeName(s)); approve(s.id); }}
                   style={{...btn('primary'),fontSize:15,padding:'12px 22px'}}>⚡ Approve &amp; Export</button>
+                <button onClick={() => dlWorkbook(s, rec)}
+                  style={{...btn('outline'),fontSize:13,padding:'10px 18px',borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                 <span onClick={openDetail} style={{fontSize:13,color:C.blu,cursor:'pointer',fontWeight:600}}>Review in detail →</span>
               </div>
             </div>
@@ -1370,6 +1470,13 @@ export default function App() {
                   {s.crossCheck?.status === 'count_mismatch' && (() => {
                     const diff = Math.abs((s.crossCheck.llmCount ?? 0) - (s.crossCheck.textCount ?? 0));
                     return <div>• Text layer found {s.crossCheck.textCount} transactions, AI found {s.crossCheck.llmCount} — {diff} row{diff !== 1 ? 's' : ''} may be missing. Check all pages of the statement were uploaded and try re-running.</div>;
+                  })()}
+                  {(() => {
+                    const oGap = +(Math.abs((rec.csvDebitTotal||0) - (rec.statementPaymentsOut||0))).toFixed(2);
+                    const iGap = +(Math.abs((rec.csvCreditTotal||0) - (rec.statementPaymentsIn||0))).toFixed(2);
+                    if (oGap >= 0.02 && Math.abs(oGap - iGap) < 0.02)
+                      return <div>• Payments Out and Payments In are both off by <strong>£{oGap.toFixed(2)}</strong> — equal-and-opposite gaps are the signature of a transaction entered in the wrong direction. Look for a row where the amount is close to £{oGap.toFixed(2)}.</div>;
+                    return null;
                   })()}
                   {!rec.flipSuggestions?.length && !rec.balanceBreaks?.length && !rec.accountTypeLikelyWrong && !rec.openingLikelyOff && !rec.integrityChecked && (
                     <div>• No running balance was read from this statement, so no single row can be pinpointed — check each transaction's money in/out is in the right column, and that no row is missing.</div>
