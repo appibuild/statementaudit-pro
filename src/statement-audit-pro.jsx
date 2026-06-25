@@ -212,7 +212,7 @@ const recalc = (txList, prev, acType) => {
       const expected = +(txList[prevIdx].balance + seg).toFixed(2);
       const gap = +(txList[j].balance - expected).toFixed(2);
       if (Math.abs(gap) >= 0.01) {
-        balanceBreaks.push({ fromDate: txList[prevIdx].date, toDate: txList[j].date, gap });
+        let brHint = null;
         if (j === prevIdx + 1) {
           // Single-transaction span: the balance delta is direct proof of the correct direction.
           // If actualMv + delta ≈ 0 the recorded direction opposes the balance evidence.
@@ -229,11 +229,15 @@ const recalc = (txList, prev, acType) => {
               fromDate: txList[prevIdx].date, toDate: txList[j].date,
               msg: `Balance ${fmtBal(txList[prevIdx].balance)} → ${fmtBal(txList[j].balance)} (${sign}) — recorded as ${wrong}, should be ${right}.`,
             });
+          } else {
+            // Correct direction but wrong amount, or the printed balance has an OCR error.
+            brHint = `Single row — transaction is £${+(Math.abs(actualMv)).toFixed(2)} but balance only moved by £${+(Math.abs(delta)).toFixed(2)}. Check the amount, or whether the printed running balance has an error.`;
           }
         } else {
           const flip = findFlip(txList.slice(prevIdx + 1, j + 1), gap, txList[prevIdx].date, txList[j].date);
           if (flip) flipSuggestions.push(flip);
         }
+        balanceBreaks.push({ fromDate: txList[prevIdx].date, toDate: txList[j].date, gap, hint: brHint });
       }
       prevIdx = j;
     }
@@ -258,11 +262,13 @@ const recalc = (txList, prev, acType) => {
   const dateOrderWarning = txList.length > 1 &&
     txList.some((t, i) => i > 0 && pDate(t.date) < pDate(txList[i-1].date));
 
-  // #13 — Data quality: rows where both debit+credit are null (no amount) or both non-null (double-entry).
+  // #13 — Data quality: no amount, double-entry, or negative value returned by the AI.
   const dataIssues = txList
     .map((t, i) => ({ idx: i, tid: t.id, date: t.date,
       issue: (t.debit == null && t.credit == null) ? 'no-amount'
-           : (t.debit != null && t.credit != null) ? 'both-columns' : null }))
+           : (t.debit != null && t.credit != null) ? 'both-columns'
+           : ((t.debit != null && t.debit < 0) || (t.credit != null && t.credit < 0)) ? 'negative-value'
+           : null }))
     .filter(x => x.issue != null);
 
   // #9 — Exact-amount candidate search (no per-row balance column only).
@@ -277,12 +283,31 @@ const recalc = (txList, prev, acType) => {
         .map(t => t.id)
     : [];
 
+  // Pair-sum search: when no single transaction matches the gap, check if two same-side
+  // transactions together account for it (e.g. two £15 debits causing a £30 mirrored variance).
+  const pairCandidates = (mirroredCandidates.length === 0 && stmtOutGap >= 0.02
+      && Math.abs(stmtOutGap - stmtInGap) < 0.02 && txList.length <= 200)
+    ? (() => {
+        const side = deb > stOut ? 'debit' : 'credit';
+        const pairs = [];
+        for (let a = 0; a < txList.length; a++) {
+          for (let b = a + 1; b < txList.length; b++) {
+            const sa = (side === 'debit' ? txList[a].debit : txList[a].credit) || 0;
+            const sb = (side === 'debit' ? txList[b].debit : txList[b].credit) || 0;
+            if (sa > 0 && sb > 0 && Math.abs(sa + sb - stmtOutGap) < 0.01)
+              pairs.push([txList[a].id, txList[b].id]);
+          }
+        }
+        return pairs;
+      })()
+    : [];
+
   return { ...prev, csvDebitTotal:deb, csvCreditTotal:crd, transactionCount:txList.length,
     calculatedClosing:calc, variance, txVar, balVar, derivedOpening, openingLikelyOff,
     accountTypeLikelyWrong, suggestedType,
     trueOpeningFromTop, openingAnchorsAgree, balanceBreaks, flipSuggestions, integrityChecked: idxFirstBal !== -1,
     reconciled: variance < 0.02,
-    dateOrderWarning, dataIssues, mirroredCandidates };
+    dateOrderWarning, dataIssues, mirroredCandidates, pairCandidates };
 };
 
 // Confidence score — a points checklist (NOT a probability). Start at 100 and deduct:
@@ -1466,7 +1491,8 @@ export default function App() {
               <div style={{padding:'6px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:11,color:C.amb}}>
                 ⚠ {rec.dataIssues.length} row{rec.dataIssues.length!==1?' have':' has'} a data quality issue —
                 {rec.dataIssues.filter(d=>d.issue==='no-amount').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='no-amount').length} with no debit or credit set`}
-                {rec.dataIssues.filter(d=>d.issue==='both-columns').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='both-columns').length} with both debit and credit filled`} — highlighted in amber below.
+                {rec.dataIssues.filter(d=>d.issue==='both-columns').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='both-columns').length} with both debit and credit filled`}
+                {rec.dataIssues.filter(d=>d.issue==='negative-value').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='negative-value').length} with a negative amount`} — highlighted in amber below.
               </div>
             )}
             {rec && !rec.reconciled && !rec.openingLikelyOff && !(rec.balanceBreaks?.length) && (
@@ -1482,7 +1508,7 @@ export default function App() {
                   return (
                     <div key={i} style={{color:C.t1,fontSize:11,marginTop:2}}>
                       <strong style={{fontFamily:'JetBrains Mono,monospace'}}>£{Math.abs(b.gap).toFixed(2)}</strong> unaccounted between <strong>{b.fromDate}</strong> and <strong>{b.toDate==='closing'?'the closing balance':b.toDate}</strong>
-                      {flip ? ' — likely sign flip highlighted in amber below. Accept the suggestion to correct it.' : ' — check this stretch against the statement.'}
+                      {flip ? ' — likely sign flip highlighted in amber below. Accept the suggestion to correct it.' : (b.hint || ' — check this stretch against the statement.')}
                     </div>
                   );
                 })}
@@ -1539,12 +1565,22 @@ export default function App() {
                     const candTxs = candIds.map(id => txList.find(t => t.id === id)).filter(Boolean);
                     return (
                       <>
-                        <div>• Payments Out and Payments In are both off by <strong>£{oGap.toFixed(2)}</strong> — equal-and-opposite gaps are the signature of a transaction entered in the wrong direction.{candTxs.length === 0 ? ` Look for a row where the amount is close to £${oGap.toFixed(2)}.` : ''}</div>
+                        <div>• Payments Out and Payments In are both off by <strong>£{oGap.toFixed(2)}</strong> — equal-and-opposite gaps are the signature of a transaction entered in the wrong direction.{candTxs.length === 0 && !(rec.pairCandidates||[]).length ? ` Look for a row where the amount is close to £${oGap.toFixed(2)}.` : ''}</div>
                         {candTxs.length > 0 && (
                           <div>• Candidate row{candTxs.length>1?'s':''}: {candTxs.map(t => {
                             const n = txList.indexOf(t) + 1;
                             return `#${n} (${t.date} · ${t.payee||t.description||'—'} · £${oGap.toFixed(2)})`;
                           }).join(', ')} — check {candTxs.length>1?'each row\'s':'this row\'s'} debit/credit direction.</div>
+                        )}
+                        {candTxs.length === 0 && (rec.pairCandidates||[]).length > 0 && (
+                          <div>• No single row matches £{oGap.toFixed(2)} — but these pairs together do:{' '}
+                            {(rec.pairCandidates||[]).slice(0,3).map(([ida,idb]) => {
+                              const a = txList.find(t=>t.id===ida);
+                              const b = txList.find(t=>t.id===idb);
+                              if (!a || !b) return null;
+                              return `#${txList.indexOf(a)+1} (${a.date} · £${(a.debit||a.credit||0).toFixed(2)}) + #${txList.indexOf(b)+1} (${b.date} · £${(b.debit||b.credit||0).toFixed(2)})`;
+                            }).filter(Boolean).join('; ')}. Both rows in each pair may be in the wrong column.
+                          </div>
                         )}
                       </>
                     );
