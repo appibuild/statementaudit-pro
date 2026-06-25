@@ -322,20 +322,34 @@ const recalc = (txList, prev, acType) => {
 };
 
 // Confidence score — a points checklist (NOT a probability). Start at 100 and deduct:
-//   −40 if the statement does not reconcile (variance ≥ £0.02)
-//   −15 if the closing balance could not be read off the statement (maths only half-checked)
-//   Joined-from-2-lines (wrapped) rows: no penalty.
-// "Worth a check" (ambiguous) rows are NOT scored here — they are a hard gate on the
-// one-click path, handled by greenLit below. Clamped to 0–100.
-const calcConfidence = rec => {
+//   −40 variance ≥ £0.02 (not reconciled)
+//   −15 no closing balance (maths only half-checked)
+//   −10 count mismatch between AI extraction and text layer
+//   −10 any balance-walk integrity breaks; −5 per break beyond the first (cap −25 total)
+//   −5  date order warning (breaks make the balance walk unreliable)
+//   −5  data quality issues (no-amount, both-columns, negative-value rows)
+//   −5  ambiguous rows present (also a hard gate in greenLit)
+//   Clamped to 0–100.
+const calcConfidence = (rec, txList, crossCheck) => {
   if (!rec) return null;
   let score = 100;
-  if (!rec.reconciled) score -= 40;
-  if (rec.closingBalance == null) score -= 15;
+  if (!rec.reconciled)                           score -= 40;
+  if (rec.closingBalance == null)                score -= 15;
+  if (crossCheck?.status === 'count_mismatch')   score -= 10;
+  const breaks = rec.balanceBreaks?.length || 0;
+  if (breaks > 0) {
+    score -= 10;
+    score -= Math.min(15, (breaks - 1) * 5);
+  }
+  if (rec.dateOrderWarning)                      score -= 5;
+  if ((rec.dataIssues?.length || 0) > 0)        score -= 5;
+  if ((txList || []).some(t => t.ambiguous))     score -= 5;
   return Math.max(0, Math.min(100, score));
 };
 
 // Fast-track green light — all four must hold (Option A hard rule on ambiguous lines).
+// score>=95 with the new granular formula means: reconciled, closing present, no count mismatch,
+// no balance breaks, no date/data issues. Ambiguous rows deduct −5 AND are gated explicitly.
 // The duplicate check is passed in live at display time, never baked into the stored score.
 const greenLit = (score, rec, txList, hasDupe) =>
   score != null && score >= 95 &&
@@ -684,7 +698,7 @@ export default function App() {
         baseReconciliation: rec0,
         baseAccountType: stmt.accountType,
         reconciliation: rec0,
-        confidenceScore: calcConfidence(rec0),
+        confidenceScore: calcConfidence(rec0, transactions, api._textExtract?.crossCheck),
         crossCheck: api._textExtract?.crossCheck ?? null,
         rawResponse: null,
       });
@@ -740,10 +754,11 @@ export default function App() {
       const prevRec = isStmtFig
         ? { ...(s.reconciliation || {}), [field]: num ?? 0 }
         : { ...(s.reconciliation || {}), [field]: num, openingAdjusted: false, printedOpening: null };
-      const rec = recalc(getTx(s), prevRec, s.accountType);
+      const txList = getTx(s);
+      const rec = recalc(txList, prevRec, s.accountType);
       return isStmtFig
-        ? { ...s, reconciliation: rec, confidenceScore: calcConfidence(rec) }
-        : { ...s, [field]: num, reconciliation: rec, confidenceScore: calcConfidence(rec) };
+        ? { ...s, reconciliation: rec, confidenceScore: calcConfidence(rec, txList, s.crossCheck) }
+        : { ...s, [field]: num, reconciliation: rec, confidenceScore: calcConfidence(rec, txList, s.crossCheck) };
     }));
     setBalEdit(null);
   };
@@ -753,12 +768,13 @@ export default function App() {
   // becomes the variance. Setting both to the CSV totals drops txVar to £0.
   const matchStmtToCSV = sid => setStmts(prev => prev.map(s => {
     if (s.id !== sid) return s;
-    const rec = recalc(getTx(s), {
+    const txList = getTx(s);
+    const rec = recalc(txList, {
       ...s.reconciliation,
       statementPaymentsOut: +(s.reconciliation.csvDebitTotal  || 0).toFixed(2),
       statementPaymentsIn:  +(s.reconciliation.csvCreditTotal || 0).toFixed(2),
     }, s.accountType);
-    return { ...s, reconciliation: rec, confidenceScore: calcConfidence(rec) };
+    return { ...s, reconciliation: rec, confidenceScore: calcConfidence(rec, txList, s.crossCheck) };
   }));
 
   // One-click: accept the opening balance the app worked out from the closing balance.
@@ -768,15 +784,17 @@ export default function App() {
     const num     = s.reconciliation.derivedOpening;
     const printed = s.reconciliation.openingBalance;
     const prevRec = { ...s.reconciliation, openingBalance: num, printedOpening: printed, openingAdjusted: true };
-    const rec = recalc(getTx(s), prevRec, s.accountType);
-    return { ...s, openingBalance: num, reconciliation: rec, confidenceScore: calcConfidence(rec) };
+    const txList = getTx(s);
+    const rec = recalc(txList, prevRec, s.accountType);
+    return { ...s, openingBalance: num, reconciliation: rec, confidenceScore: calcConfidence(rec, txList, s.crossCheck) };
   }));
 
   // One-click: switch the account type and re-reconcile straight away (no re-extraction).
   const applyAccountType = (sid, type) => setStmts(prev => prev.map(s => {
     if (s.id !== sid) return s;
-    const rec = recalc(getTx(s), s.reconciliation, type);
-    return { ...s, accountType: type, reconciliation: rec, confidenceScore: calcConfidence(rec) };
+    const txList = getTx(s);
+    const rec = recalc(txList, s.reconciliation, type);
+    return { ...s, accountType: type, reconciliation: rec, confidenceScore: calcConfidence(rec, txList, s.crossCheck) };
   }));
 
   const commitEdit = () => {
@@ -790,7 +808,7 @@ export default function App() {
       const extra   = field === 'nominalCode' ? { codeSource:'edited', rememberCode:true } : {};
       const updated = base.map(t => t.id === tid ? {...t, [field]:val, ...extra} : t);
       const rec     = recalc(updated, s.reconciliation, s.accountType);
-      return {...s, editedTransactions:updated, reconciliation:rec, confidenceScore:calcConfidence(rec)};
+      return {...s, editedTransactions:updated, reconciliation:rec, confidenceScore:calcConfidence(rec, updated, s.crossCheck)};
     }));
     setEditCell(null);
   };
@@ -895,7 +913,7 @@ export default function App() {
     if (s.id !== sid) return s;
     const base = (s.editedTransactions || s.transactions || []).filter(t => t.id !== tid);
     const rec  = recalc(base, s.reconciliation, s.accountType);
-    return {...s, editedTransactions:base, reconciliation:rec, confidenceScore:calcConfidence(rec)};
+    return {...s, editedTransactions:base, reconciliation:rec, confidenceScore:calcConfidence(rec, base, s.crossCheck)};
   }));
 
   // One-click: swap a transaction's debit↔credit when the balance cross-check pinpoints it
@@ -908,7 +926,7 @@ export default function App() {
                              : {...t, debit:  +t.credit.toFixed(2), credit: null};
     });
     const rec = recalc(base, s.reconciliation, s.accountType);
-    return {...s, editedTransactions: base, reconciliation: rec, confidenceScore: calcConfidence(rec)};
+    return {...s, editedTransactions: base, reconciliation: rec, confidenceScore: calcConfidence(rec, base, s.crossCheck)};
   }));
 
   // JOB 1 — Reset whole statement: discard all human edits and return to as-loaded reconciled state.
@@ -920,7 +938,7 @@ export default function App() {
     return { ...s, editedTransactions: null, accountType: s.baseAccountType,
       openingBalance: s.baseReconciliation.openingBalance,
       closingBalance: s.baseReconciliation.closingBalance,
-      reconciliation: rec, confidenceScore: calcConfidence(rec) };
+      reconciliation: rec, confidenceScore: calcConfidence(rec, s.transactions, s.crossCheck) };
   }));
 
   // JOB 1 — Reset one row: replace a visible edited row with its original AI-extracted version.
@@ -932,7 +950,7 @@ export default function App() {
     const current = s.editedTransactions || s.transactions;
     const updated = current.map(t => t.id === tid ? orig : t);
     const rec = recalc(updated, s.reconciliation, s.accountType);
-    return { ...s, editedTransactions: updated, reconciliation: rec, confidenceScore: calcConfidence(rec) };
+    return { ...s, editedTransactions: updated, reconciliation: rec, confidenceScore: calcConfidence(rec, updated, s.crossCheck) };
   }));
 
   const approve = id => {
