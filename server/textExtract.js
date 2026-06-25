@@ -28,6 +28,8 @@ const DATE_UK = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
 const DATE_MONTH = /^\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}$/i;
 // Short month-name without year: 03 Jul | 14 Feb (Nationwide, NatWest monthly view)
 const DATE_SHORT = /^\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*$/i;
+// Short month-name with 2-digit year: 01 Jun 23 | 16 Jun 24 (Lloyds CLASSIC, Nationwide FlexAccount)
+const DATE_SHORT_YEAR = /^\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{2}$/i;
 
 // Rows whose text matches these are layout/header rows — skip them
 const SKIP_RE   = /balance\s+(carried|brought|from)\s+|brought\s+forward|opening\s+balance|closing\s+balance|account\s+summary/i;
@@ -101,6 +103,15 @@ function normaliseDate(s, statementYear) {
       return `${m[1].padStart(2,'0')}/${mon}/${m[3]}`;
     }
   }
+  if (DATE_SHORT_YEAR.test(s)) {
+    const m = s.match(/(\d{1,2})\s+([a-zA-Z]+)\s+(\d{2})/);
+    if (m) {
+      const mon = (MONTHS[m[2].slice(0,3).toLowerCase()] || 1).toString().padStart(2, '0');
+      const yr2 = parseInt(m[3], 10);
+      const yr  = yr2 < 50 ? 2000 + yr2 : 1900 + yr2;
+      return `${m[1].padStart(2,'0')}/${mon}/${yr}`;
+    }
+  }
   if (DATE_SHORT.test(s)) {
     const m = s.match(/(\d{1,2})\s+([a-zA-Z]+)/);
     if (m) {
@@ -118,7 +129,7 @@ function normaliseDate(s, statementYear) {
 
 function isDate(text) {
   const t = text.trim();
-  return DATE_UK.test(t) || DATE_MONTH.test(t) || DATE_SHORT.test(t);
+  return DATE_UK.test(t) || DATE_MONTH.test(t) || DATE_SHORT_YEAR.test(t) || DATE_SHORT.test(t);
 }
 
 function isMoney(text) {
@@ -129,7 +140,11 @@ function isMoney(text) {
 // Items within `tolerance` points vertically are treated as the same line.
 function groupIntoRows(items, tolerance = 4) {
   if (!items.length) return [];
-  const sorted = [...items].sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
+  // Sort by page first so items from different pages never merge into the same row
+  const sorted = [...items].sort((a, b) => {
+    if (a.page !== b.page) return a.page - b.page;
+    return a.y !== b.y ? a.y - b.y : a.x - b.x;
+  });
   const rows = [];
   let current = [sorted[0]];
   for (let i = 1; i < sorted.length; i++) {
