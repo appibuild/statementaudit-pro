@@ -594,6 +594,8 @@ export default function App() {
   const [showShortcuts,     setShowShortcuts]     = useState(false);
   const [showHelp,          setShowHelp]          = useState(false);
   const [helpQuery,         setHelpQuery]         = useState('');
+  const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false);
+  const [recCollapsed,      setRecCollapsed]      = useState(false);
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
   const stmtsRef          = useRef([]);
@@ -1435,9 +1437,27 @@ export default function App() {
     return (
       <div style={{display:'flex',height:'100%',gap:0}}>
         {/* Sidebar */}
-        <div style={{width:210,flexShrink:0,borderRight:`1px solid ${C.bdr}`,overflowY:'auto',padding:'10px 8px',background:C.surf}}>
+        <div style={{width:sidebarCollapsed?40:210,flexShrink:0,borderRight:`1px solid ${C.bdr}`,background:C.surf,
+          display:'flex',flexDirection:'column',transition:'width 0.18s',overflow:'hidden',position:'relative'}}>
+          <button onClick={() => setSidebarCollapsed(v => !v)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{position:'absolute',top:8,right:6,zIndex:2,background:C.card,border:`1px solid ${C.bdr}`,
+              borderRadius:6,cursor:'pointer',color:C.t3,fontSize:13,padding:'3px 6px',lineHeight:1,flexShrink:0}}>
+            {sidebarCollapsed ? '▶' : '◀'}
+          </button>
+          {sidebarCollapsed ? (
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:40,gap:8}}>
+              <div style={{fontSize:10,fontWeight:700,color:C.t3,writingMode:'vertical-rl',letterSpacing:'0.08em',textTransform:'uppercase',transform:'rotate(180deg)'}}>
+                Statements
+              </div>
+              {reviewable.length > 0 && (
+                <span style={{background:C.blu,color:'#fff',borderRadius:10,fontSize:10,fontWeight:700,padding:'1px 6px'}}>{reviewable.length}</span>
+              )}
+            </div>
+          ) : (
+          <div style={{flex:1,overflowY:'auto',padding:'10px 8px',display:'flex',flexDirection:'column',gap:0}}>
           {/* Project selector — inline rename on ✎ click */}
-          <div style={{marginBottom:8}}>
+          <div style={{marginBottom:8,paddingRight:28}}>
             <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
               {renamingProjectId === activeProjectId
                 ? <input autoFocus value={renameProjectVal}
@@ -1496,6 +1516,8 @@ export default function App() {
               </div>
             );
           })}
+          </div>
+          )} {/* end !sidebarCollapsed */}
         </div>
 
         {/* Main panel */}
@@ -1523,7 +1545,12 @@ export default function App() {
                   </select>
                   <button onClick={() => processOne(s.id)} disabled={running}
                     style={{...btn('outline',running),padding:'4px 11px',fontSize:11}}>↻ Re-run</button>
-                  <button onClick={() => setShowPdf(v => !v)}
+                  <button onClick={() => {
+                      const next = !showPdf;
+                      setShowPdf(next);
+                      if (next) { setSidebarCollapsed(true); setRecCollapsed(true); }
+                      else { setSidebarCollapsed(false); setRecCollapsed(false); }
+                    }}
                     style={{...btn(showPdf?'success':'outline'),padding:'4px 11px',fontSize:11}}>📄 {showPdf?'Hide PDF':'Show PDF'}</button>
                   <button onClick={() => setShowNominal(v => !v)}
                     style={{...btn(showNominal?'success':'outline'),padding:'4px 11px',fontSize:11}}>🔢 {showNominal?'Hide Nominal':'Nominal codes'}</button>
@@ -1616,9 +1643,32 @@ export default function App() {
 
           {/* Reconciliation strip */}
           {rec && (
-            <div style={{flexShrink:0,marginBottom:12}}>
-              <div style={{fontSize:13,fontWeight:600,color:C.t3,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>The numbers — these must add up before you approve</div>
-              <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'18px 20px'}}>
+            <div style={{flexShrink:0,marginBottom:recCollapsed?6:12}}>
+              <div onClick={() => setRecCollapsed(v => !v)}
+                style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:recCollapsed?0:8,
+                  padding:recCollapsed?'7px 14px':'3px 0',
+                  background:recCollapsed?C.card:'transparent',
+                  border:recCollapsed?`1px solid ${C.bdr}`:'none',
+                  borderRadius:recCollapsed?9:0}}>
+                <span style={{fontSize:10,color:C.t3,flexShrink:0}}>{recCollapsed?'▶':'▼'}</span>
+                <span style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',whiteSpace:'nowrap'}}>
+                  The numbers
+                </span>
+                {recCollapsed && (<>
+                  <span style={{fontSize:11,color:C.t3}}>·</span>
+                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.t2,whiteSpace:'nowrap'}}>Open {fmtBal(rec.openingBalance)}</span>
+                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.red,whiteSpace:'nowrap'}}>Out {fmtCcy(rec.csvDebitTotal)}</span>
+                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.grn,whiteSpace:'nowrap'}}>In {fmtCcy(rec.csvCreditTotal)}</span>
+                  <span style={{fontSize:11,color:C.t3}}>·</span>
+                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.t2,whiteSpace:'nowrap'}}>Close {fmtBal(rec.closingBalance)}</span>
+                  <span style={{marginLeft:'auto',fontSize:12,fontWeight:700,whiteSpace:'nowrap',
+                    color:rec.reconciled?C.grn:C.red}}>
+                    {rec.reconciled ? '✓ Reconciles' : `⚠ £${rec.variance?.toFixed(2)} variance`}
+                  </span>
+                </>)}
+                {!recCollapsed && <span style={{fontSize:11,fontWeight:400,color:C.t3,textTransform:'none',letterSpacing:0,marginLeft:4}}>— click to collapse</span>}
+              </div>
+              {!recCollapsed && <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'18px 20px'}}>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'16px 22px'}}>
                   {[
                     {label:'Transactions',          val:txList.length,                                                 color:C.t1, od:false},
@@ -1758,6 +1808,7 @@ export default function App() {
                   return null;
                 })()}
               </div>
+              } {/* end !recCollapsed */}
             </div>
           )}
 
@@ -1941,7 +1992,7 @@ export default function App() {
               <thead>
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
                   {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
-                    ...(showNominal?['Nominal']:[]),'Notes','📎','⚑','✕','↺'].map((h,i) => (
+                    ...(showNominal?['Nominal']:[]),'Notes','Rcpt','⚑','✕','↺'].map((h,i) => (
                     <th key={i} style={{padding:'12px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
                       color:C.t2,fontWeight:600,fontSize:12,textTransform:'uppercase',letterSpacing:'0.05em',
                       whiteSpace:'nowrap',borderBottom:`1px solid ${C.bdr}`,fontFamily:'Inter,sans-serif'}}>
@@ -2045,15 +2096,15 @@ export default function App() {
                         {isEd(t.id,'notes') ? <EI field="notes"/>
                           : <span title={t.notes} style={{color:t.notes?C.t1:C.t3}}>{t.notes||'—'}</span>}
                       </td>
-                      <td style={{...td,textAlign:'center',width:30}}>
+                      <td style={{...td,textAlign:'center',width:34}}>
                         {t.receipt
                           ? <button onClick={() => window.open(t.receipt.url, '_blank')}
-                              title={`Receipt: ${t.receipt.filename}`}
-                              style={{background:'none',border:'none',cursor:'pointer',color:C.grn,fontSize:14,padding:'1px 3px'}}>📎</button>
+                              title={`Receipt attached: ${t.receipt.filename} — click to view`}
+                              style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:5,cursor:'pointer',color:C.grn,fontSize:13,padding:'2px 5px'}}>📎</button>
                           : canEdit
                             ? <button onClick={() => { setReceiptTarget({sid:s.id,tid:t.id}); receiptInputRef.current?.click(); }}
-                                title="Attach receipt"
-                                style={{background:'none',border:'none',cursor:'pointer',color:C.t4,fontSize:14,padding:'1px 3px'}}>📎</button>
+                                title="Attach a receipt (PDF or image)"
+                                style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',color:C.t3,fontSize:13,padding:'2px 5px',opacity:0.5}}>+</button>
                             : null}
                       </td>
                       <td style={{...td,textAlign:'center',width:30}}>
@@ -2078,9 +2129,14 @@ export default function App() {
             )}
             </div>
             {showPdf && (
-              <div style={{flex:1,minWidth:0,borderRadius:9,border:`1px solid ${C.bdr}`,overflow:'hidden',background:C.card,display:'flex',flexDirection:'column'}}>
+              <div style={{flex:'0 0 50%',minWidth:0,borderRadius:9,border:`1px solid ${C.bdr}`,overflow:'hidden',background:C.card,display:'flex',flexDirection:'column'}}>
+                <div style={{padding:'6px 10px',borderBottom:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,background:C.surf}}>
+                  <span style={{fontSize:11,fontWeight:600,color:C.t2}}>{s.bankName||s.filename} — Original PDF</span>
+                  <button onClick={() => { setShowPdf(false); setSidebarCollapsed(false); setRecCollapsed(false); }}
+                    style={{background:'none',border:'none',cursor:'pointer',color:C.t3,fontSize:16,padding:'0 2px',lineHeight:1}}>×</button>
+                </div>
                 {pdfUrl ? (
-                  <object data={pdfUrl} type="application/pdf" style={{width:'100%',height:'100%',border:'none'}}>
+                  <object data={pdfUrl} type="application/pdf" style={{width:'100%',flex:1,border:'none'}}>
                     <div style={{padding:20,fontSize:13,color:C.t2}}>Can't show the PDF inline here. <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{color:C.blu,fontWeight:600}}>Open it in a new tab →</a></div>
                   </object>
                 ) : <div style={{padding:20,fontSize:13,color:C.t3}}>Loading PDF…</div>}
