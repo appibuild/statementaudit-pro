@@ -358,22 +358,24 @@ const greenLit = (score, rec, txList, hasDupe) =>
   !hasDupe;
 
 const buildQBO = txList => {
-  const h = 'Date,Payment Type,Description,Payee,Debit,Credit,Nominal Code,Notes';
+  const h = 'Date,Payment Type,Description,Payee,Debit,Credit,Category,Nominal Code,Notes';
   return [h, ...txList.map(t => {
     const d = (t.description||'').replace(/"/g,'""');
     const p = (t.payee||'').replace(/"/g,'""');
     const n = (t.notes||'').replace(/"/g,'""');
-    return `${t.date},${t.paymentType},"${d}","${p}",${t.debit??''},${t.credit??''},${t.nominalCode||''},"${n}"`;
+    const c = (t.category||'').replace(/"/g,'""');
+    return `${t.date},${t.paymentType},"${d}","${p}",${t.debit??''},${t.credit??''},"${c}",${t.nominalCode||''},"${n}"`;
   })].join('\r\n');
 };
 
 const buildXero = txList => {
-  const h = 'Date,Amount,Payee,Description,Reference,Cheque Number,Analysis Code';
+  const h = 'Date,Amount,Payee,Description,Reference,Cheque Number,Analysis Code,Category';
   return [h, ...txList.map(t => {
     const amt = t.credit != null ? t.credit : t.debit != null ? -t.debit : '';
     const p = (t.payee||'').replace(/"/g,'""');
     const d = (t.description||'').replace(/"/g,'""');
-    return `${t.date},${amt},"${p}","${d}",${t.paymentType},,${t.nominalCode||''}`;
+    const c = (t.category||'').replace(/"/g,'""');
+    return `${t.date},${amt},"${p}","${d}",${t.paymentType},,${t.nominalCode||''},"${c}"`;
   })].join('\r\n');
 };
 
@@ -416,14 +418,14 @@ const buildAuditWorkbook = (s, rec) => {
   ar.push(['Bank', s.bankName||'', 'Account', s.accountName||'']);
   ar.push(['Period', s.period ? `${s.period.from} \u2013 ${s.period.to}` : '', 'Account type', (ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current).label]);
   ar.push([]);
-  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Nominal code','Notes','Flags']);
+  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Category','Nominal code','Notes','Flags']);
   const expBals = rec?.expectedBalances || {};
   tx.forEach((t, i) => {
     const flags = [t.flagged?'\u2691':'', t.ambiguous?'Check':'', t.wrapped?'Joined':''].filter(Boolean).join(', ');
     ar.push([i+1, t.date, t.paymentType, t.description||'', t.payee||'',
       t.debit!=null?t.debit:'', t.credit!=null?t.credit:'',
       t.balance!=null?t.balance:'', expBals[t.id]!=null?expBals[t.id]:'',
-      t.nominalCode||'', t.notes||'', flags]);
+      t.category||'', t.nominalCode||'', t.notes||'', flags]);
   });
   ar.push([]);
   const stOut  = rec?.statementPaymentsOut || 0;
@@ -447,7 +449,7 @@ const buildAuditWorkbook = (s, rec) => {
     ar.push(['NOTE', `Equal-and-opposite gap of \u00A3${outGap.toFixed(2)} on both sides \u2014 likely a transaction entered in the wrong direction.`]);
 
   const ws1 = XLSX.utils.aoa_to_sheet(ar);
-  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:16},{wch:18},{wch:28},{wch:12}];
+  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:16},{wch:20},{wch:18},{wch:28},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Audit Review');
 
   // \u2500\u2500 Sheet 2: Import (clean) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -458,10 +460,10 @@ const buildAuditWorkbook = (s, rec) => {
          const amt = t.credit!=null ? t.credit : t.debit!=null ? -t.debit : '';
          return [t.date, amt, t.payee||'', t.description||'', t.paymentType, '', t.nominalCode||''];
        })]
-    : [['Date','Payment Type','Description','Payee','Debit','Credit','Nominal Code','Notes'],
-       ...tx.map(t => [t.date, t.paymentType, t.description||'', t.payee||'', t.debit??'', t.credit??'', t.nominalCode||'', t.notes||''])];
+    : [['Date','Payment Type','Description','Payee','Debit','Credit','Category','Nominal Code','Notes'],
+       ...tx.map(t => [t.date, t.paymentType, t.description||'', t.payee||'', t.debit??'', t.credit??'', t.category||'', t.nominalCode||'', t.notes||''])];
   const ws2 = XLSX.utils.aoa_to_sheet(ir);
-  ws2['!cols'] = [{wch:12},{wch:14},{wch:42},{wch:26},{wch:13},{wch:13},{wch:18},{wch:28}];
+  ws2['!cols'] = [{wch:12},{wch:14},{wch:42},{wch:26},{wch:13},{wch:13},{wch:20},{wch:18},{wch:28}];
   XLSX.utils.book_append_sheet(wb, ws2, importLabel);
 
   return wb;
@@ -519,6 +521,12 @@ const normKey = (payee, description) => {
   return s.toUpperCase().replace(/\s+/g, ' ');
 };
 
+const CATEGORIES = [
+  'Bills & Utilities','Groceries','Eating Out','Transport',
+  'Shopping','Entertainment','Healthcare','Insurance',
+  'Salary / Income','Bank Charges','Transfers','Subscriptions','Other',
+];
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function App() {
   const [stmts,    setStmts]    = useState([]);
@@ -540,19 +548,40 @@ export default function App() {
   const [payeeMemory, setPayeeMemory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sa_payeeMemory') || '{}'); } catch { return {}; }
   });
+  const [categoryMemory, setCategoryMemory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_categoryMemory') || '{}'); } catch { return {}; }
+  });
+  const [projects, setProjects] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_projects') || 'null') || [{id:'default',name:'Default Project'}]; }
+    catch { return [{id:'default',name:'Default Project'}]; }
+  });
+  const [activeProjectId, setActiveProjectId] = useState(() =>
+    localStorage.getItem('sa_activeProject') || 'default'
+  );
+  const [showNominal, setShowNominal] = useState(() =>
+    localStorage.getItem('sa_showNominal') === 'true'
+  );
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
-  const stmtsRef       = useRef([]);
-  const fileInputRef   = useRef(null);
-  const rulesInputRef  = useRef(null);
-  const qboInputRef    = useRef(null);
-  const payeeMemoryRef = useRef({});
+  const stmtsRef          = useRef([]);
+  const fileInputRef      = useRef(null);
+  const rulesInputRef     = useRef(null);
+  const qboInputRef       = useRef(null);
+  const payeeMemoryRef    = useRef({});
+  const categoryMemoryRef = useRef({});
 
   useEffect(() => { stmtsRef.current = stmts; }, [stmts]);
   useEffect(() => {
     payeeMemoryRef.current = payeeMemory;
     localStorage.setItem('sa_payeeMemory', JSON.stringify(payeeMemory));
   }, [payeeMemory]);
+  useEffect(() => {
+    categoryMemoryRef.current = categoryMemory;
+    localStorage.setItem('sa_categoryMemory', JSON.stringify(categoryMemory));
+  }, [categoryMemory]);
+  useEffect(() => { localStorage.setItem('sa_projects',      JSON.stringify(projects));  }, [projects]);
+  useEffect(() => { localStorage.setItem('sa_activeProject', activeProjectId);           }, [activeProjectId]);
+  useEffect(() => { localStorage.setItem('sa_showNominal',   String(showNominal));       }, [showNominal]);
 
   useEffect(() => {
     const l = document.createElement('link');
@@ -608,6 +637,7 @@ export default function App() {
       const room = Math.max(0, 20 - prev.length);
       return [...prev, ...pdfs.slice(0, room).map(file => ({
         id:uid(), file, filename:file.name, status:'queued',
+        projectId: activeProjectId,
         accountType:'current', platform:'qbo',
         bankName:'', accountName:'', period:null,
         openingBalance:null, closingBalance:null,
@@ -657,7 +687,8 @@ export default function App() {
       const transactions = (r.transactions||[]).map((t,i) => {
         const debit  = t.debit  != null ? +parseFloat(t.debit).toFixed(2)  : null;
         const credit = t.credit != null ? +parseFloat(t.credit).toFixed(2) : null;
-        const remembered = payeeMemoryRef.current[normKey(t.payee, t.description)];
+        const remembered    = payeeMemoryRef.current[normKey(t.payee, t.description)];
+        const rememberedCat = categoryMemoryRef.current[normKey(t.payee, t.description)];
         // LAYER-2-HOOK: model-inferred suggestion for unrecognised payees.
         // Build only when real-user data proves new-client unfamiliarity (not re-coding) is the bottleneck.
         return {
@@ -665,6 +696,7 @@ export default function App() {
           nominalCode: remembered || (debit != null ? 'Misc Expense' : 'Misc Revenue'),
           codeSource: remembered ? 'remembered' : 'holding',
           rememberCode: false,
+          category: rememberedCat || '',
           wrapped: t.wrapped ?? false, ambiguous: t.ambiguous ?? false,
           debit, credit,
           balance: t.balance != null && t.balance !== '' && !isNaN(parseFloat(t.balance)) ? +parseFloat(t.balance).toFixed(2) : null,
@@ -963,12 +995,34 @@ export default function App() {
       setPayeeMemory(updatedMemory);
       autoBackupRules(updatedMemory); // auto-download to Downloads — no user action needed
     }
+    const toCatRemember = getTx(stmt).filter(t => t.category && t.category !== '');
+    if (toCatRemember.length) {
+      const updCat = {...categoryMemoryRef.current};
+      toCatRemember.forEach(t => { updCat[normKey(t.payee, t.description)] = t.category; });
+      setCategoryMemory(updCat);
+    }
     updateS(id, {status:'approved'});
     const nextStmt = stmtsRef.current.find(s => s.status === 'review' && s.id !== id);
     if (nextStmt) setActiveId(nextStmt.id);
     else setTab('export');
   };
   const reject = id => updateS(id, {status:'rejected'});
+
+  // ── Projects ────────────────────────────────────────────────────────────
+  const addProject = () => {
+    const name = window.prompt('New project name:');
+    if (!name?.trim()) return;
+    const id = uid();
+    setProjects(prev => [...prev, {id, name: name.trim()}]);
+    setActiveProjectId(id);
+  };
+  const renameProject = id => {
+    const current = projects.find(p => p.id === id);
+    const name = window.prompt('Rename project:', current?.name || '');
+    if (!name?.trim()) return;
+    setProjects(prev => prev.map(p => p.id === id ? {...p, name: name.trim()} : p));
+  };
+  const moveStmt = (sid, projectId) => setStmts(prev => prev.map(s => s.id === sid ? {...s, projectId} : s));
 
   // ── Search ─────────────────────────────────────────────────────────────
   const searchResults = useMemo(() => {
@@ -1198,7 +1252,10 @@ export default function App() {
   // AUDIT
   // ─────────────────────────────────────────────────────────────────────
   const renderAudit = () => {
-    const reviewable = stmts.filter(s => ['review','approved','rejected'].includes(s.status));
+    const reviewable = stmts.filter(s =>
+      ['review','approved','rejected'].includes(s.status) &&
+      (s.projectId || 'default') === activeProjectId
+    );
     if (!reviewable.length) return (
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:14,color:C.t2}}>
         <div style={{fontSize:40}}>🔍</div>
@@ -1254,12 +1311,42 @@ export default function App() {
         {opts.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     );
+    const EC = ({tid}) => {
+      const dlId = `cat-dl-${tid}`;
+      return (
+        <>
+          <input autoFocus type="text" value={editVal} list={dlId}
+            onChange={e => setEditVal(e.target.value)}
+            onKeyDown={e => { if(e.key==='Enter') commitEdit(); if(e.key==='Escape') setEditCell(null); }}
+            onBlur={commitEdit}
+            style={{background:C.bg,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 6px',
+              color:C.t1,fontSize:12,width:'100%',outline:'none'}}/>
+          <datalist id={dlId}>{CATEGORIES.map(c => <option key={c} value={c}/>)}</datalist>
+        </>
+      );
+    };
 
     return (
       <div style={{display:'flex',height:'100%',gap:0}}>
         {/* Sidebar */}
-        <div style={{width:195,flexShrink:0,borderRight:`1px solid ${C.bdr}`,overflowY:'auto',padding:'10px 8px',background:C.surf}}>
-          <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',padding:'4px 8px 10px',fontWeight:600}}>Statements</div>
+        <div style={{width:210,flexShrink:0,borderRight:`1px solid ${C.bdr}`,overflowY:'auto',padding:'10px 8px',background:C.surf,display:'flex',flexDirection:'column',gap:0}}>
+          {/* Project selector */}
+          <div style={{marginBottom:8,padding:'0 2px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+              <select value={activeProjectId} onChange={e => setActiveProjectId(e.target.value)}
+                style={{flex:1,minWidth:0,background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:6,
+                  padding:'5px 7px',color:C.t1,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'Inter,sans-serif'}}>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button onClick={() => renameProject(activeProjectId)} title="Rename project"
+                style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',
+                  color:C.t2,fontSize:12,padding:'4px 7px',lineHeight:1}}>✏</button>
+            </div>
+            <button onClick={addProject}
+              style={{width:'100%',background:'none',border:`1px solid ${C.bdr}`,borderRadius:6,
+                cursor:'pointer',color:C.t3,fontSize:11,padding:'4px 0',fontFamily:'Inter,sans-serif'}}>+ New Project</button>
+          </div>
+          <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',padding:'4px 8px 6px',fontWeight:600}}>Statements</div>
           {reviewable.map(x => {
             const cfg   = STATUS_CFG[x.status];
             const isA   = x.id === s.id;
@@ -1285,6 +1372,15 @@ export default function App() {
                   {x.reconciliation && !x.reconciliation.reconciled && <span style={{fontSize:11,color:C.amb}}>⚑</span>}
                   <ConfidenceBadge score={x.confidenceScore}/>
                 </div>
+                {projects.length > 1 && isA && (
+                  <select value={x.projectId || 'default'}
+                    onChange={e => { e.stopPropagation(); moveStmt(x.id, e.target.value); }}
+                    onClick={e => e.stopPropagation()}
+                    style={{marginTop:5,width:'100%',background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:4,
+                      padding:'2px 5px',color:C.t2,fontSize:10,outline:'none',cursor:'pointer'}}>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                )}
               </div>
             );
           })}
@@ -1317,6 +1413,8 @@ export default function App() {
                     style={{...btn('outline',running),padding:'4px 11px',fontSize:11}}>↻ Re-run</button>
                   <button onClick={() => setShowPdf(v => !v)}
                     style={{...btn(showPdf?'success':'outline'),padding:'4px 11px',fontSize:11}}>📄 {showPdf?'Hide PDF':'Show PDF'}</button>
+                  <button onClick={() => setShowNominal(v => !v)}
+                    style={{...btn(showNominal?'success':'outline'),padding:'4px 11px',fontSize:11}}>🔢 {showNominal?'Hide Nominal':'Nominal codes'}</button>
                 </div>
               </div>
               <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
@@ -1730,7 +1828,8 @@ export default function App() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:14,minWidth:1040}}>
               <thead>
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
-                  {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Nominal','Notes','⚑','✕','↺'].map((h,i) => (
+                  {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
+                    ...(showNominal?['Nominal']:[]),'Notes','⚑','✕','↺'].map((h,i) => (
                     <th key={i} style={{padding:'12px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
                       color:C.t2,fontWeight:600,fontSize:12,textTransform:'uppercase',letterSpacing:'0.05em',
                       whiteSpace:'nowrap',borderBottom:`1px solid ${C.bdr}`,fontFamily:'Inter,sans-serif'}}>
@@ -1805,7 +1904,12 @@ export default function App() {
                           </td>
                         );
                       })()}
-                      <td style={{...td,width:112}} onClick={() => canEdit && startEdit(s.id,t.id,'nominalCode',t.nominalCode)}>
+                      <td style={{...td,width:130}} onClick={() => canEdit && startEdit(s.id,t.id,'category',t.category||'')}>
+                        {isEd(t.id,'category')
+                          ? <EC tid={t.id}/>
+                          : <span style={{color:t.category?C.t1:C.t3,fontSize:12}} title={t.category||'Click to categorise'}>{t.category||'—'}</span>}
+                      </td>
+                      {showNominal && <td style={{...td,width:112}} onClick={() => canEdit && startEdit(s.id,t.id,'nominalCode',t.nominalCode)}>
                         {isEd(t.id,'nominalCode') ? <EI field="nominalCode"/>
                           : t.codeSource==='remembered'
                             ? <span style={{display:'flex',alignItems:'center',gap:3}}>
@@ -1824,7 +1928,7 @@ export default function App() {
                                       title={t.rememberCode?'Will save on approval — click to cancel':'Click to remember for next import'}>📌</span>
                                   </span>
                                 : <span style={{color:t.nominalCode?C.t1:C.t3}}>{t.nominalCode||'—'}</span>}
-                      </td>
+                      </td>}
                       <td style={{...td,maxWidth:130}} onClick={() => canEdit && startEdit(s.id,t.id,'notes',t.notes)}>
                         {isEd(t.id,'notes') ? <EI field="notes"/>
                           : <span title={t.notes} style={{color:t.notes?C.t1:C.t3}}>{t.notes||'—'}</span>}
