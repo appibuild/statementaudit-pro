@@ -734,6 +734,11 @@ export default function App() {
   const [showShortcuts,     setShowShortcuts]     = useState(false);
   const [showHelp,          setShowHelp]          = useState(false);
   const [helpQuery,         setHelpQuery]         = useState('');
+  const [showFeedback,      setShowFeedback]      = useState(false);
+  const [feedbackText,      setFeedbackText]      = useState('');
+  const [feedbackEmail,     setFeedbackEmail]     = useState('');
+  const [feedbackSent,      setFeedbackSent]      = useState(false);
+  const [feedbackSending,   setFeedbackSending]   = useState(false);
   const [showActivity,      setShowActivity]      = useState(false);
   const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false);
   const [recCollapsed,      setRecCollapsed]      = useState(false);
@@ -1327,6 +1332,33 @@ export default function App() {
     } else {
       setTrialCodeError(true);
     }
+  };
+
+  const submitFeedback = async () => {
+    if (!feedbackText.trim()) return;
+    setFeedbackSending(true);
+    const formId = import.meta.env.VITE_FORMSPREE_ID;
+    if (formId) {
+      try {
+        await fetch(`https://formspree.io/f/${formId}`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json', 'Accept':'application/json'},
+          body: JSON.stringify({
+            message:  feedbackText,
+            email:    feedbackEmail || 'Not provided',
+            _subject: 'StatementAudit Pro — User Feedback',
+          }),
+        });
+        setFeedbackSent(true);
+      } catch {
+        window.location.href = `mailto:csmm1964@gmail.com?subject=StatementAudit%20Pro%20Feedback&body=${encodeURIComponent(feedbackText)}`;
+        setFeedbackSent(true);
+      }
+    } else {
+      window.location.href = `mailto:csmm1964@gmail.com?subject=StatementAudit%20Pro%20Feedback&body=${encodeURIComponent(feedbackText)}`;
+      setFeedbackSent(true);
+    }
+    setFeedbackSending(false);
   };
 
   // ── Projects ────────────────────────────────────────────────────────────
@@ -2806,6 +2838,13 @@ export default function App() {
               color:showHelp?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
             ? Help
           </button>
+          <button onClick={() => { setShowFeedback(v => !v); setFeedbackSent(false); }}
+            title="Give feedback"
+            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+              background:showFeedback?C.bluDim:'transparent',border:`1px solid ${showFeedback?C.bluBrd:'transparent'}`,
+              color:showFeedback?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
+            💬 Feedback
+          </button>
           <button onClick={() => setShowShortcuts(v => !v)}
             title="Keyboard shortcuts"
             style={{padding:'9px 12px',borderRadius:10,background:'transparent',border:`1px solid transparent`,
@@ -3218,6 +3257,85 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* Give feedback popover */}
+      {showFeedback && (
+        <div onClick={() => setShowFeedback(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:900,
+            display:'flex',alignItems:'flex-start',justifyContent:'flex-end',paddingTop:64,paddingRight:24}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{width:380,background:'#fff',borderRadius:16,boxShadow:'0 16px 48px rgba(0,0,0,0.22)',
+              border:`1px solid ${C.bdr}`,overflow:'hidden'}}>
+            {/* Header */}
+            <div style={{padding:'20px 20px 14px',borderBottom:`1px solid ${C.bdr}`,
+              display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{fontSize:15,fontWeight:700,color:C.t1,flex:1,paddingRight:8}}>
+                {feedbackSent ? 'Thanks for your feedback!' : 'Share your thoughts about StatementAudit Pro'}
+              </div>
+              <button onClick={() => setShowFeedback(false)}
+                style={{background:'none',border:'none',fontSize:18,color:C.t3,cursor:'pointer',
+                  lineHeight:1,padding:'0 0 0 4px',flexShrink:0}}>×</button>
+            </div>
+            {feedbackSent ? (
+              <div style={{padding:'32px 20px',textAlign:'center'}}>
+                <div style={{fontSize:40,marginBottom:12}}>✓</div>
+                <div style={{fontSize:14,color:C.t2,lineHeight:1.6,marginBottom:20}}>
+                  We've received your message — thank you!<br/>
+                  Your feedback helps shape what we build next.
+                </div>
+                <button onClick={() => { setShowFeedback(false); setFeedbackText(''); setFeedbackEmail(''); setFeedbackSent(false); }}
+                  style={{padding:'10px 24px',background:C.blu,color:'#fff',border:'none',borderRadius:8,
+                    fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div style={{padding:'16px 20px 20px'}}>
+                {/* Textarea */}
+                <textarea
+                  value={feedbackText}
+                  onChange={e => setFeedbackText(e.target.value)}
+                  placeholder="Reactions and suggestions welcome! Thanks!"
+                  rows={6}
+                  style={{width:'100%',boxSizing:'border-box',resize:'vertical',padding:'12px',
+                    fontSize:13,color:C.t1,border:`1px solid ${C.bdr}`,borderRadius:9,
+                    outline:'none',fontFamily:'Inter,sans-serif',lineHeight:1.6,
+                    background:C.surf,transition:'border-color 0.15s'}}
+                  onFocus={e => e.target.style.borderColor=C.bluBrd}
+                  onBlur={e => e.target.style.borderColor=C.bdr}
+                />
+                {/* Optional email */}
+                <input
+                  value={feedbackEmail}
+                  onChange={e => setFeedbackEmail(e.target.value)}
+                  placeholder="Your email (optional — so we can follow up)"
+                  type="email"
+                  style={{width:'100%',boxSizing:'border-box',marginTop:8,padding:'9px 12px',
+                    fontSize:12,color:C.t1,border:`1px solid ${C.bdr}`,borderRadius:8,
+                    outline:'none',fontFamily:'Inter,sans-serif',background:C.surf,
+                    transition:'border-color 0.15s'}}
+                  onFocus={e => e.target.style.borderColor=C.bluBrd}
+                  onBlur={e => e.target.style.borderColor=C.bdr}
+                />
+                {/* Footer row */}
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:14}}>
+                  <div style={{fontSize:11,color:C.t4,lineHeight:1.4,maxWidth:200}}>
+                    Sent directly to the product team.
+                  </div>
+                  <button onClick={submitFeedback}
+                    disabled={!feedbackText.trim() || feedbackSending}
+                    style={{padding:'10px 22px',background:feedbackText.trim()?C.blu:'#C8D0DC',
+                      color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,
+                      cursor:feedbackText.trim()?'pointer':'default',transition:'background 0.15s',
+                      flexShrink:0}}>
+                    {feedbackSending ? 'Sending…' : 'Send'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Trial access code gate — full-screen, highest z-index */}
       {showTrialGate && (
