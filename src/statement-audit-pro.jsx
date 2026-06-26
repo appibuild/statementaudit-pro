@@ -479,6 +479,27 @@ const dlWorkbook = (s, rec) => {
   XLSX.writeFile(wb, name);
 };
 
+const fmtTime = ts => {
+  if (!ts) return '';
+  const diff = (Date.now() - ts) / 60000;
+  if (diff < 1)    return 'just now';
+  if (diff < 60)   return `${Math.round(diff)}m ago`;
+  if (diff < 1440) return `${Math.floor(diff/60)}h ago`;
+  return new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+};
+
+const confidenceHint = (score, rec, txList, crossCheck) => {
+  if (!score || score >= 95 || !rec) return null;
+  if (!rec.reconciled)                         return `Variance £${(rec.variance||0).toFixed(2)}`;
+  if (crossCheck?.status === 'count_mismatch') return `Row count gap (${crossCheck.textCount} vs ${crossCheck.llmCount})`;
+  if (rec.balanceBreaks?.length)               return `Balance break after ${rec.balanceBreaks[0].fromDate}`;
+  if (rec.closingBalance == null)              return 'Closing balance not confirmed';
+  if (rec.dateOrderWarning)                    return 'Date order issue';
+  if ((rec.dataIssues?.length||0) > 0)         return `${rec.dataIssues.length} data issue${rec.dataIssues.length>1?'s':''}`;
+  if ((txList||[]).some(t => t.ambiguous))     return 'Some rows need checking';
+  return null;
+};
+
 // Splits matches into cross-statement (genuine double-count — block the gate, red)
 // and same-statement (a legitimate same-day repeat — soft amber "verify", does NOT block).
 const findDupes = stmts => {
@@ -570,6 +591,9 @@ export default function App() {
   const [renamingProjectId, setRenamingProjectId] = useState(null);
   const [renameProjectVal,  setRenameProjectVal]  = useState('');
   const [receiptTarget,     setReceiptTarget]     = useState(null);
+  const [showShortcuts,     setShowShortcuts]     = useState(false);
+  const [showHelp,          setShowHelp]          = useState(false);
+  const [helpQuery,         setHelpQuery]         = useState('');
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
   const stmtsRef          = useRef([]);
@@ -602,6 +626,30 @@ export default function App() {
     document.head.appendChild(l);
     return () => document.head.removeChild(l);
   }, []);
+
+  // Keyboard shortcuts: A=approve, R=reject, ←→=navigate, ?=shortcuts overlay
+  useEffect(() => {
+    const handler = e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const tag = document.activeElement?.tagName;
+      if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+      if (e.key === '?') { setShowShortcuts(v => !v); return; }
+      if (tab !== 'audit') return;
+      const all = stmtsRef.current.filter(s => ['review','approved','rejected'].includes(s.status));
+      const stmt = all.find(x => x.id === activeId) || all[0];
+      if (!stmt) return;
+      const idx = all.findIndex(x => x.id === stmt.id);
+      if (e.key === 'ArrowLeft'  && idx > 0)            { e.preventDefault(); setActiveId(all[idx-1].id); }
+      if (e.key === 'ArrowRight' && idx < all.length-1) { e.preventDefault(); setActiveId(all[idx+1].id); }
+      if ((e.key==='a'||e.key==='A') && stmt.status==='review' && stmt.reconciliation?.reconciled) {
+        dlFile(buildCSV(stmt), makeName(stmt));
+        approve(stmt.id);
+      }
+      if ((e.key==='r'||e.key==='R') && stmt.status==='review') reject(stmt.id);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [tab, activeId]);
 
   // Auto-select first reviewable statement when switching to audit tab
   useEffect(() => {
@@ -744,6 +792,7 @@ export default function App() {
         reconciliation: rec0,
         confidenceScore: calcConfidence(rec0, transactions, api._textExtract?.crossCheck),
         crossCheck: api._textExtract?.crossCheck ?? null,
+        extractedAt: Date.now(),
         rawResponse: null,
       });
     } catch(err) { updateS(id, { status:'error', error:err.message, rawResponse: capturedRaw || null }); }
@@ -1013,7 +1062,7 @@ export default function App() {
       toCatRemember.forEach(t => { updCat[normKey(t.payee, t.description)] = t.category; });
       setCategoryMemory(updCat);
     }
-    updateS(id, {status:'approved'});
+    updateS(id, {status:'approved', approvedAt: Date.now()});
     const nextStmt = stmtsRef.current.find(s => s.status === 'review' && s.id !== id);
     if (nextStmt) setActiveId(nextStmt.id);
     else setTab('export');
@@ -1092,16 +1141,21 @@ export default function App() {
       background:`${col}16`,color:col}}>{type}</span>;
   };
 
-  // Green ⚡ badge for a clean statement (≥95); amber NN/100 otherwise.
-  const ConfidenceBadge = ({score, size='sm'}) => {
+  // Green ⚡ badge for a clean statement (≥95); amber NN/100 otherwise. Optional hint shows top fix.
+  const ConfidenceBadge = ({score, size='sm', hint}) => {
     if (score == null) return null;
     const hi = score >= 95;
     const big = size === 'lg';
-    return <span style={{display:'inline-flex',alignItems:'center',gap:4,
-      fontSize:big?13:10,fontWeight:700,padding:big?'4px 11px':'2px 8px',borderRadius:big?7:4,
-      letterSpacing:'0.04em',fontFamily:'Inter,sans-serif',
-      color:hi?C.grn:C.amb,background:hi?C.grnDim:C.ambDim,border:`1px solid ${hi?C.grnBrd:C.ambBrd}`}}>
-      {hi ? <>⚡ {big?'Passes every check':'High conf'}</> : `${score}/100`}
+    return <span title={!hi && hint && !big ? hint : undefined}
+      style={{display:'inline-flex',alignItems:'center',gap:4,
+        fontSize:big?13:10,fontWeight:700,padding:big?'4px 11px':'2px 8px',borderRadius:big?7:4,
+        letterSpacing:'0.04em',fontFamily:'Inter,sans-serif',
+        color:hi?C.grn:C.amb,background:hi?C.grnDim:C.ambDim,border:`1px solid ${hi?C.grnBrd:C.ambBrd}`}}>
+      {hi
+        ? <>⚡ {big?'Passes every check':'High conf'}</>
+        : big && hint
+          ? <>{score}/100 <span style={{fontWeight:400,fontSize:11,opacity:0.85}}>— {hint}</span></>
+          : `${score}/100`}
     </span>;
   };
 
@@ -1427,6 +1481,10 @@ export default function App() {
                   {hasDp && <span style={{fontSize:11,fontWeight:700,color:C.red}}>DUPE</span>}
                   {x.reconciliation && !x.reconciliation.reconciled && <span style={{fontSize:11,color:C.amb}}>⚑</span>}
                   <ConfidenceBadge score={x.confidenceScore}/>
+                  {(() => { const rc = getTx(x).filter(t => t.receipt).length; return rc > 0 ? <span title={`${rc} receipt${rc>1?'s':''} attached`} style={{fontSize:10,color:C.grn}}>📎{rc}</span> : null; })()}
+                </div>
+                <div style={{fontSize:10,color:C.t4,marginTop:3}}>
+                  {x.approvedAt ? `Approved ${fmtTime(x.approvedAt)}` : x.extractedAt ? `Extracted ${fmtTime(x.extractedAt)}` : ''}
                 </div>
                 {isA && projects.length > 1 && (
                   <select value={x.projectId||'default'} onClick={e => e.stopPropagation()}
@@ -1449,7 +1507,7 @@ export default function App() {
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
                   <div style={{fontSize:17,fontWeight:700,color:C.t1,fontFamily:'Inter,sans-serif'}}>{s.bankName||s.filename}</div>
                   <Pill status={s.status}/>
-                  <ConfidenceBadge score={score}/>
+                  <ConfidenceBadge score={score} hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                   <span style={{fontSize:10,fontWeight:700,color:atCfg.color,background:`${atCfg.color}14`,border:`1px solid ${atCfg.color}28`,padding:'2px 7px',borderRadius:3}}>{atCfg.label}</span>
                   <span style={{fontSize:10,fontWeight:700,color:platColor,background:`${platColor}14`,border:`1px solid ${platColor}28`,padding:'2px 7px',borderRadius:3}}>{platLabel}</span>
                 </div>
@@ -1709,7 +1767,7 @@ export default function App() {
           {fastTrack && (
             <div style={{flexShrink:0,marginBottom:12,background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:12,padding:'18px 20px'}}>
               <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:6}}>
-                <ConfidenceBadge score={score} size="lg"/>
+                <ConfidenceBadge score={score} size="lg" hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                 <span style={{fontSize:15,fontWeight:600,color:C.t1}}>This statement passes every check — reconciled, nothing flagged as unsure, no duplicates.</span>
               </div>
               <div style={{fontSize:13,color:C.t2,marginBottom:14,fontFamily:'JetBrains Mono,monospace'}}>
@@ -2379,6 +2437,19 @@ export default function App() {
               </button>
             );
           })}
+          <button onClick={() => setShowHelp(v => !v)}
+            title="Help & guides"
+            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+              background:showHelp?C.bluDim:'transparent',border:`1px solid ${showHelp?C.bluBrd:'transparent'}`,
+              color:showHelp?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
+            ? Help
+          </button>
+          <button onClick={() => setShowShortcuts(v => !v)}
+            title="Keyboard shortcuts"
+            style={{padding:'9px 12px',borderRadius:10,background:'transparent',border:`1px solid transparent`,
+              color:C.t3,cursor:'pointer',fontSize:16,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
+            ⌨
+          </button>
         </nav>
       </div>
 
@@ -2390,6 +2461,123 @@ export default function App() {
         {tab==='export' && renderExport()}
       </div>
       {renderQboImportModal()}
+
+      {/* Keyboard shortcuts overlay */}
+      {showShortcuts && (
+        <div onClick={() => setShowShortcuts(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:900,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:14,padding:'28px 32px',width:360,maxWidth:'90vw',boxShadow:'0 12px 40px rgba(0,0,0,0.3)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <div style={{fontSize:16,fontWeight:700,color:C.t1}}>Keyboard shortcuts</div>
+              <button onClick={() => setShowShortcuts(false)} style={{background:'none',border:'none',color:C.t3,fontSize:18,cursor:'pointer',padding:0}}>×</button>
+            </div>
+            {[
+              ['A','Approve & export current statement'],
+              ['R','Reject current statement'],
+              ['← →','Navigate between statements'],
+              ['?','Toggle this overlay'],
+            ].map(([k,d]) => (
+              <div key={k} style={{display:'flex',alignItems:'center',gap:12,padding:'7px 0',borderBottom:`1px solid ${C.bdr}`}}>
+                <kbd style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:5,padding:'2px 9px',fontSize:13,fontWeight:600,color:C.t1,fontFamily:'JetBrains Mono,monospace',minWidth:32,textAlign:'center',flexShrink:0}}>{k}</kbd>
+                <span style={{fontSize:13,color:C.t2}}>{d}</span>
+              </div>
+            ))}
+            <div style={{fontSize:11,color:C.t4,marginTop:14}}>Shortcuts active in Review tab when no input is focused.</div>
+          </div>
+        </div>
+      )}
+
+      {/* Help / Guide panel */}
+      {showHelp && (() => {
+        const HELP = [
+          { section:'Getting started', items:[
+            { q:'How do I upload a statement?', a:'Go to the Upload tab. Set your Account Type (Current, Savings, Credit Card, etc.) and Export To (QBO or Xero), then drag and drop one or more PDF bank statements onto the upload area. Files are added to the Queue immediately.' },
+            { q:'Which banks are supported?', a:'StatementAudit Pro works with any UK bank that produces PDF statements — Barclays, HSBC, Lloyds, NatWest, Santander, Starling, Monzo, Halifax, Bank of Scotland, Nationwide, and more. If a statement fails, try Re-run.' },
+            { q:'What is Account Type for?', a:'Account Type tells the AI which rules to apply when reading the statement (e.g. credit cards use a different debit/credit convention). Choose the type that matches the account before processing.' },
+          ]},
+          { section:'Processing (Queue)', items:[
+            { q:'What does "Process All" do?', a:'It sends every queued file to the AI extraction engine one by one. Each PDF is read, transactions extracted, and automatically reconciled against the opening/closing balances printed on the statement.' },
+            { q:'A file shows an error — what do I do?', a:'Click Re-run on that file. If it errors again, check that the PDF is a real bank statement (not a letter or certificate). Multi-page PDFs should be uploaded as a single merged file.' },
+            { q:'Can I change Account Type after processing?', a:'Yes — select the new type from the dropdown in the Queue row, then click Re-run to re-extract with the corrected rules.' },
+          ]},
+          { section:'Reviewing statements', items:[
+            { q:'What does the confidence score mean?', a:'The score (0–100) reflects how cleanly the statement reconciles. 95+ (green ⚡) means it passes every check. Lower scores show the top issue as a tooltip — hover the badge to see it. Fix the flagged issue and Re-run to improve the score.' },
+            { q:'What is the ⚑ flag on a transaction?', a:'It means the AI was uncertain about that row — ambiguous description, split amounts, or a date that looked wrong. Review it manually. You can edit the amount, description, or category inline.' },
+            { q:'How do I edit a transaction?', a:'Click directly on any cell in the transaction table while the statement is in Review status. Changes are saved automatically and the reconciliation recalculates.' },
+            { q:'How do I attach a receipt to a transaction?', a:'Click the 📎 icon in the receipt column of any transaction row and select a PDF or image file. The receipt opens in a new tab when you click the icon again.' },
+            { q:'What is Approve & Export?', a:"It downloads the transactions as a formatted CSV (QBO or Xero) and marks the statement as Approved. The statement moves to the Export tab. Use the keyboard shortcut A to approve the current statement." },
+          ]},
+          { section:'Exporting', items:[
+            { q:'How do I import into QuickBooks Online?', a:"In QBO, go to Banking → Upload → drag the downloaded CSV file. Match the columns to QBO's format. StatementAudit Pro exports in QBO-native column order." },
+            { q:'How do I import into Xero?', a:'In Xero, go to Accounting → Bank accounts → Import a statement. Upload the CSV. The Xero Pre-coded export includes nominal codes if you have assigned them.' },
+            { q:'Can I merge multiple statements into one export?', a:'Yes — on the Export tab, use the "Merge & Export" button to combine all approved statements from the current project into a single QBO or Xero file.' },
+          ]},
+          { section:'Troubleshooting', items:[
+            { q:'Reconciliation fails — variance shows a small amount', a:'Check for a transaction the AI missed (common with faint print or rotated text). Edit the opening or closing balance if the statement PDF shows a different figure. Re-run after any change.' },
+            { q:'Wrong transactions or amounts extracted', a:'Edit cells directly in the Review table. If the problem is systematic (wrong account type), change the type in the Queue and Re-run.' },
+            { q:'Confidence score stays low after fixing issues', a:'After editing, click Re-run to re-extract and recalculate. Edits alone do not trigger a rescore — a full re-run does.' },
+          ]},
+        ];
+        const q = helpQuery.toLowerCase().trim();
+        const filtered = HELP.map(sec => ({
+          ...sec,
+          items: sec.items.filter(i => !q || i.q.toLowerCase().includes(q) || i.a.toLowerCase().includes(q)),
+        })).filter(sec => sec.items.length > 0);
+        return (
+          <div onClick={() => setShowHelp(false)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:900,display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
+            <div onClick={e => e.stopPropagation()}
+              style={{width:440,maxWidth:'95vw',height:'100vh',background:C.card,borderLeft:`1px solid ${C.bdr}`,
+                display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
+              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.blu}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div>
+                    <div style={{fontSize:18,fontWeight:700,color:'#fff'}}>StatementAudit Help</div>
+                    <div style={{fontSize:12,color:'rgba(255,255,255,0.7)',marginTop:2}}>Guides &amp; FAQs</div>
+                  </div>
+                  <button onClick={() => setShowHelp(false)}
+                    style={{background:'rgba(255,255,255,0.15)',border:'none',color:'#fff',fontSize:20,cursor:'pointer',
+                      width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                </div>
+                <input value={helpQuery} onChange={e => setHelpQuery(e.target.value)}
+                  placeholder="Search questions, keywords or topics…"
+                  style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',
+                    borderRadius:8,padding:'8px 12px',color:'#fff',fontSize:13,outline:'none'}}/>
+              </div>
+              <div style={{flex:1,overflowY:'auto',padding:'16px 24px'}}>
+                {filtered.length === 0
+                  ? <div style={{fontSize:13,color:C.t3,textAlign:'center',marginTop:40}}>No results for "{helpQuery}"</div>
+                  : filtered.map(sec => (
+                    <div key={sec.section} style={{marginBottom:20}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:10}}>{sec.section}</div>
+                      {sec.items.map(item => (
+                        <details key={item.q} style={{marginBottom:6}}>
+                          <summary style={{fontSize:13,fontWeight:600,color:C.t1,cursor:'pointer',padding:'9px 12px',
+                            background:C.surf,borderRadius:8,border:`1px solid ${C.bdr}`,listStyle:'none',
+                            display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                            {item.q}
+                            <span style={{fontSize:11,color:C.t4,flexShrink:0,marginLeft:8}}>▾</span>
+                          </summary>
+                          <div style={{fontSize:13,color:C.t2,lineHeight:1.6,padding:'10px 12px',
+                            background:C.card,borderRadius:'0 0 8px 8px',border:`1px solid ${C.bdr}`,borderTop:'none'}}>
+                            {item.a}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  ))
+                }
+              </div>
+              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+                <div style={{fontSize:12,color:C.t3,textAlign:'center'}}>
+                  Need more help? Email <a href="mailto:support@statementaudit.pro" style={{color:C.blu}}>support@statementaudit.pro</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
