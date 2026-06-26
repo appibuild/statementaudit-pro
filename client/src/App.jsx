@@ -529,7 +529,7 @@ const confidenceHint = (score, rec, txList, crossCheck) => {
 // Then paste the client IDs into the two empty strings below.
 const CLOUD_CFG = {
   google: {
-    clientId: '',
+    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
     authUrl:  'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
     scope:    'https://www.googleapis.com/auth/drive.appdata openid email profile',
@@ -537,7 +537,7 @@ const CLOUD_CFG = {
     color:    '#4285F4',
   },
   microsoft: {
-    clientId: '',
+    clientId: import.meta.env.VITE_MICROSOFT_CLIENT_ID || '',
     authUrl:  'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
     scope:    'Files.ReadWrite.AppFolder User.Read offline_access',
@@ -2907,7 +2907,7 @@ export default function App() {
                   )}
 
                   {/* How it works */}
-                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'14px 16px'}}>
+                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'14px 16px',marginBottom:16}}>
                     <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>How it works</div>
                     {[
                       ['☁', 'Approved statements auto-save as JSON to a private app folder'],
@@ -2921,6 +2921,57 @@ export default function App() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Setup instructions — expandable per provider */}
+                  {[
+                    { provider:'google', label:'Google Drive', color:'#4285F4', icon:'📁', steps:[
+                      'Go to console.cloud.google.com and sign in.',
+                      'Click "Select a project" → New Project → name it (e.g. StatementAudit Pro) → Create.',
+                      'Left menu: APIs & Services → Library → search "Google Drive API" → Enable.',
+                      'APIs & Services → OAuth consent screen → External → fill in App name + your email → Save and Continue through all steps.',
+                      'APIs & Services → Credentials → + Create Credentials → OAuth client ID.',
+                      'Application type: Web application. Under "Authorised redirect URIs" add your exact app URL (e.g. https://your-app.onrender.com) — no trailing slash.',
+                      'Click Create. Copy the Client ID (ends in .apps.googleusercontent.com).',
+                      'In Render dashboard → your service → Environment → add variable VITE_GOOGLE_CLIENT_ID = (paste Client ID) → Save. Render rebuilds automatically.',
+                    ]},
+                    { provider:'microsoft', label:'OneDrive', color:'#0078D4', icon:'🗂', steps:[
+                      'Go to portal.azure.com and sign in with your Microsoft account.',
+                      'Search "App registrations" in the top bar → + New registration.',
+                      'Name: StatementAudit Pro. Supported account types: "Accounts in any organizational directory and personal Microsoft accounts (e.g. Skype, Xbox)".',
+                      'Redirect URI: select Web from the dropdown and enter your exact app URL (e.g. https://your-app.onrender.com) → Register.',
+                      'On the Overview page, copy the Application (client) ID (a GUID like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).',
+                      'Left menu: API permissions → + Add a permission → Microsoft Graph → Delegated permissions → search and tick Files.ReadWrite.AppFolder and User.Read → Add permissions.',
+                      'If a "Grant admin consent" button appears, click it (required for organisation accounts; not needed for personal Microsoft accounts).',
+                      'In Render dashboard → your service → Environment → add variable VITE_MICROSOFT_CLIENT_ID = (paste the GUID) → Save. Render rebuilds automatically.',
+                    ]},
+                  ].map(({ provider, label, color, icon, steps }) => (
+                    <details key={provider} style={{marginBottom:10,borderRadius:10,border:`1px solid ${C.bdr}`,overflow:'hidden'}}>
+                      <summary style={{padding:'11px 14px',background:C.surf,cursor:'pointer',
+                        display:'flex',alignItems:'center',gap:8,fontSize:13,fontWeight:600,color:C.t1,listStyle:'none',userSelect:'none'}}>
+                        <span style={{fontSize:15}}>{icon}</span>
+                        <span style={{flex:1}}>Setup: {label}</span>
+                        <span style={{fontSize:10,color:C.t3,fontWeight:400}}>click to expand ▾</span>
+                      </summary>
+                      <div style={{padding:'12px 14px',background:C.card}}>
+                        <div style={{fontSize:11,color:C.t3,marginBottom:10,lineHeight:1.5}}>
+                          One-time setup in your {label === 'Google Drive' ? 'Google Cloud Console' : 'Azure Portal'}.
+                          Takes about 5 minutes.
+                        </div>
+                        {steps.map((step, i) => (
+                          <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:9}}>
+                            <span style={{width:20,height:20,borderRadius:'50%',background:color,color:'#fff',
+                              fontSize:10,fontWeight:700,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',
+                              marginTop:1}}>{i+1}</span>
+                            <span style={{fontSize:12,color:C.t2,lineHeight:1.55}}>{step}</span>
+                          </div>
+                        ))}
+                        <div style={{marginTop:10,padding:'8px 10px',background:C.bluDim,border:`1px solid ${C.bluBrd}`,
+                          borderRadius:7,fontSize:11,color:C.blu,lineHeight:1.5}}>
+                          After saving the Render env variable, wait ~2 minutes for the rebuild, then the Connect button will work.
+                        </div>
+                      </div>
+                    </details>
+                  ))}
                 </>
               ) : (
                 <>
@@ -3002,6 +3053,18 @@ export default function App() {
             { q:'How do I import into QuickBooks Online?', a:'In QBO, go to Banking → Upload → drag the downloaded CSV file. Match the columns to QBO\'s format. StatementAudit Pro exports in QBO-native column order.' },
             { q:'How do I import into Xero?', a:'In Xero, go to Accounting → Bank accounts → Import a statement. Upload the CSV. The Xero Pre-coded export includes nominal codes if you\'ve assigned them.' },
             { q:'Can I merge multiple statements into one export?', a:'Yes — on the Export tab, use the "Merge & Export" button to combine all approved statements from the current project into a single QBO or Xero file.' },
+          ]},
+          { section:'Cloud Storage Setup', items:[
+            { q:'What do I need to do before the Connect buttons work?',
+              a:'Both Google Drive and OneDrive require a one-time app registration so they know which app is requesting access to files. You\'ll create a free OAuth client ID in Google Cloud Console (for Drive) or Azure Portal (for OneDrive), then add it as a Render environment variable. The full numbered steps are in the ☁ Cloud panel — click the relevant "Setup" accordion. Total time: about 5 minutes per provider.' },
+            { q:'How do I set up Google Drive — step by step?',
+              a:'1. Go to console.cloud.google.com → New Project → name it StatementAudit Pro → Create. 2. APIs & Services → Library → enable the Google Drive API. 3. APIs & Services → OAuth consent screen → External → fill in App name + email → Save. 4. APIs & Services → Credentials → + Create Credentials → OAuth client ID → Web application. 5. Under Authorised redirect URIs add your exact Render URL (e.g. https://your-app.onrender.com — no trailing slash). 6. Create → copy the Client ID (ends in .apps.googleusercontent.com). 7. In Render: your service → Environment → add VITE_GOOGLE_CLIENT_ID = (paste ID) → Save. Render rebuilds in ~2 minutes and the Connect Google Drive button becomes active.' },
+            { q:'How do I set up OneDrive — step by step?',
+              a:'1. Go to portal.azure.com → search "App registrations" → + New registration. 2. Name: StatementAudit Pro. Account types: "Accounts in any organizational directory and personal Microsoft accounts". 3. Redirect URI: Web → your exact Render URL (e.g. https://your-app.onrender.com). 4. Register → copy the Application (client) ID from the Overview page (it\'s a GUID). 5. API permissions → + Add a permission → Microsoft Graph → Delegated → tick Files.ReadWrite.AppFolder and User.Read → Add permissions. 6. Click "Grant admin consent" if shown (needed for organisation accounts, not personal). 7. In Render: your service → Environment → add VITE_MICROSOFT_CLIENT_ID = (paste GUID) → Save. Rebuild completes in ~2 minutes.' },
+            { q:'Where do I find my Render app URL to use as the redirect URI?',
+              a:'In your Render dashboard, open the service → the URL shown at the top (e.g. https://statementaudit-pro.onrender.com) is what you paste as the redirect URI in both Google Cloud and Azure. Use the exact URL — no trailing slash, and make sure it starts with https://. If you later add a custom domain, you\'ll need to add that URL as an additional redirect URI in both consoles.' },
+            { q:'Do I need to set up both providers, or can I choose just one?',
+              a:'You only need to set up the one you want to use — there\'s no requirement to configure both. OneDrive tends to be the better choice for UK accountants already in the Microsoft 365 ecosystem (Excel, SharePoint, Teams). Google Drive works well if your team uses Google Workspace. Both work identically from the app\'s point of view.' },
           ]},
           { section:'Audit Workbook', items:[
             { q:'What is the Audit Workbook and what does it contain?',
