@@ -624,6 +624,7 @@ export default function App() {
   const [showShortcuts,     setShowShortcuts]     = useState(false);
   const [showHelp,          setShowHelp]          = useState(false);
   const [helpQuery,         setHelpQuery]         = useState('');
+  const [showActivity,      setShowActivity]      = useState(false);
   const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false);
   const [recCollapsed,      setRecCollapsed]      = useState(false);
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
@@ -674,7 +675,7 @@ export default function App() {
       if (e.key === 'ArrowLeft'  && idx > 0)            { e.preventDefault(); setActiveId(all[idx-1].id); }
       if (e.key === 'ArrowRight' && idx < all.length-1) { e.preventDefault(); setActiveId(all[idx+1].id); }
       if ((e.key==='a'||e.key==='A') && stmt.status==='review' && stmt.reconciliation?.reconciled) {
-        dlFile(buildCSV(stmt), makeName(stmt));
+        exportStmt(stmt);
         approve(stmt.id);
       }
       if ((e.key==='r'||e.key==='R') && stmt.status==='review') reject(stmt.id);
@@ -1126,7 +1127,8 @@ export default function App() {
     }));
   };
 
-  const reject = id => updateS(id, {status:'rejected'});
+  const reject = id => updateS(id, {status:'rejected', rejectedAt: Date.now()});
+  const exportStmt = stmt => { dlFile(buildCSV(stmt), makeName(stmt)); updateS(stmt.id, {exportedAt: Date.now()}); };
 
   // ── Search ─────────────────────────────────────────────────────────────
   const searchResults = useMemo(() => {
@@ -1593,7 +1595,7 @@ export default function App() {
                 {canEdit && <>
                   <button onClick={() => reject(s.id)} style={btn('danger')}>✕ Reject</button>
                   {!fastTrack && (rec?.reconciled
-                    ? <button onClick={() => { dlFile(buildCSV(s), makeName(s)); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
+                    ? <button onClick={() => { exportStmt(s); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
                     : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
@@ -1605,7 +1607,7 @@ export default function App() {
                   )}
                 </>}
                 {s.status==='approved' && <>
-                  <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('success')}>↓ Re-download CSV</button>
+                  <button onClick={() => exportStmt(s)} style={btn('success')}>↓ Re-download CSV</button>
                   <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                 </>}
               </div>
@@ -1856,7 +1858,7 @@ export default function App() {
                 {s.period && <> · {s.period.from} — {s.period.to}</>} · {txList.length} txn
               </div>
               <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-                <button onClick={() => { dlFile(buildCSV(s), makeName(s)); approve(s.id); }}
+                <button onClick={() => { exportStmt(s); approve(s.id); }}
                   style={{...btn('primary'),fontSize:15,padding:'12px 22px'}}>⚡ Approve &amp; Export</button>
                 <button onClick={() => dlWorkbook(s, rec)}
                   style={{...btn('outline'),fontSize:13,padding:'10px 18px',borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
@@ -2399,7 +2401,7 @@ export default function App() {
                     border:`1px solid ${rec?.reconciled?C.grnBrd:C.ambBrd}`}}>
                     {rec?.reconciled?'✓ Reconciled':'⚑ Variance'}
                   </span>
-                  <button onClick={() => dlFile(buildCSV(s), makeName(s))} style={btn('primary')}>↓ Download</button>
+                  <button onClick={() => exportStmt(s)} style={btn('primary')}>↓ Download</button>
                   {s.platform==='xero' && (
                     <button onClick={() => dlFile(buildXeroPrecoded(getTx(s)), makeName(s,'PRECODED'))} style={btn('outline')}>↓ Pre-coded</button>
                   )}
@@ -2528,6 +2530,13 @@ export default function App() {
               </button>
             );
           })}
+          <button onClick={() => setShowActivity(v => !v)}
+            title="Activity log"
+            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+              background:showActivity?C.bluDim:'transparent',border:`1px solid ${showActivity?C.bluBrd:'transparent'}`,
+              color:showActivity?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
+            ⧖ Activity
+          </button>
           <button onClick={() => setShowHelp(v => !v)}
             title="Help & guides"
             style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
@@ -2552,6 +2561,70 @@ export default function App() {
         {tab==='export' && renderExport()}
       </div>
       {renderQboImportModal()}
+
+      {/* Activity log panel */}
+      {showActivity && (() => {
+        const EVENT_CFG = {
+          extracted: {label:'Extracted',  color:C.blu,  icon:'⟳'},
+          approved:  {label:'Approved',   color:C.grn,  icon:'✓'},
+          exported:  {label:'Exported',   color:C.grn,  icon:'↓'},
+          rejected:  {label:'Rejected',   color:C.red,  icon:'✕'},
+        };
+        const events = stmts.flatMap(stmt => [
+          stmt.extractedAt && {ts:stmt.extractedAt, type:'extracted', stmt},
+          stmt.approvedAt  && {ts:stmt.approvedAt,  type:'approved',  stmt},
+          stmt.exportedAt  && {ts:stmt.exportedAt,  type:'exported',  stmt},
+          stmt.rejectedAt  && {ts:stmt.rejectedAt,  type:'rejected',  stmt},
+        ].filter(Boolean)).sort((a,b) => b.ts - a.ts);
+        return (
+          <div onClick={() => setShowActivity(false)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:900,display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
+            <div onClick={e => e.stopPropagation()}
+              style={{width:400,maxWidth:'95vw',height:'100vh',background:C.card,borderLeft:`1px solid ${C.bdr}`,display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
+              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.surf}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div>
+                    <div style={{fontSize:17,fontWeight:700,color:C.t1}}>Activity Log</div>
+                    <div style={{fontSize:12,color:C.t3,marginTop:2}}>This session only — {events.length} event{events.length!==1?'s':''}</div>
+                  </div>
+                  <button onClick={() => setShowActivity(false)}
+                    style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:8,color:C.t3,fontSize:18,cursor:'pointer',width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                </div>
+              </div>
+              <div style={{flex:1,overflowY:'auto',padding:'12px 24px'}}>
+                {events.length === 0 ? (
+                  <div style={{textAlign:'center',color:C.t3,fontSize:13,marginTop:40}}>No activity yet — process a statement to get started.</div>
+                ) : events.map((ev,i) => {
+                  const cfg = EVENT_CFG[ev.type];
+                  const proj = projects.find(p => p.id === (ev.stmt.projectId||'default'));
+                  return (
+                    <div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'10px 0',borderBottom:`1px solid ${C.bdr}`}}>
+                      <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#fff',background:cfg.color,marginTop:1}}>{cfg.icon}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:C.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                          {ev.stmt.bankName||ev.stmt.filename}
+                        </div>
+                        <div style={{fontSize:11,color:C.t3,marginTop:1}}>
+                          {cfg.label}
+                          {ev.stmt.period && ` · ${ev.stmt.period.from} – ${ev.stmt.period.to}`}
+                          {proj && projects.length > 1 && ` · ${proj.name}`}
+                        </div>
+                      </div>
+                      <div style={{fontSize:11,color:C.t3,flexShrink:0,whiteSpace:'nowrap'}}>{fmtTime(ev.ts)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+                <div style={{fontSize:11,color:C.t4,textAlign:'center',lineHeight:1.5}}>
+                  Activity is stored in your browser session.<br/>
+                  Google Drive sync coming — your data, your storage.
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Keyboard shortcuts overlay */}
       {showShortcuts && (
