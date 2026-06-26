@@ -1866,14 +1866,22 @@ export default function App() {
                   {!fastTrack && txList.length > 0 && rec && (
                     <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                   )}
-                  {!fastTrack && s.editedTransactions && canEdit && (
-                    <button onClick={() => { if (window.confirm('Reset all edits and return to the original AI extraction?')) resetStatement(s.id); }}
-                      style={{...btn('outline'),borderColor:C.amb,color:C.amb}}>↺ Reset to original</button>
+                  {!fastTrack && canEdit && (
+                    <button
+                      onClick={() => { if (s.editedTransactions && window.confirm('Reset all edits and return to the original AI extraction?')) resetStatement(s.id); }}
+                      disabled={!s.editedTransactions}
+                      title={s.editedTransactions ? 'Undo all inline edits and restore the original AI extraction' : 'No edits to reset'}
+                      style={{...btn('outline'),borderColor:s.editedTransactions?C.amb:C.bdr,color:s.editedTransactions?C.amb:C.t4,
+                        cursor:s.editedTransactions?'pointer':'default'}}>↺ Reset edits</button>
                   )}
                 </>}
                 {s.status==='approved' && <>
                   <button onClick={() => exportStmt(s)} style={btn('success')}>↓ Re-download CSV</button>
                   <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                  <button
+                    onClick={() => { if (window.confirm('Return this statement to Review? You can re-approve it at any time without re-running.')) updateS(s.id, {status:'review', approvedAt:undefined}); }}
+                    title="Return to Review without re-running — all data and edits are kept"
+                    style={{...btn('outline'),borderColor:C.amb,color:C.amb}}>↺ Roll back to Review</button>
                 </>}
               </div>
             </div>
