@@ -418,14 +418,14 @@ const buildAuditWorkbook = (s, rec) => {
   ar.push(['Bank', s.bankName||'', 'Account', s.accountName||'']);
   ar.push(['Period', s.period ? `${s.period.from} \u2013 ${s.period.to}` : '', 'Account type', (ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current).label]);
   ar.push([]);
-  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Category','Nominal code','Notes','Flags']);
+  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Category','Nominal code','Notes','Flags','Receipt file']);
   const expBals = rec?.expectedBalances || {};
   tx.forEach((t, i) => {
     const flags = [t.flagged?'\u2691':'', t.ambiguous?'Check':'', t.wrapped?'Joined':''].filter(Boolean).join(', ');
     ar.push([i+1, t.date, t.paymentType, t.description||'', t.payee||'',
       t.debit!=null?t.debit:'', t.credit!=null?t.credit:'',
       t.balance!=null?t.balance:'', expBals[t.id]!=null?expBals[t.id]:'',
-      t.category||'', t.nominalCode||'', t.notes||'', flags]);
+      t.category||'', t.nominalCode||'', t.notes||'', flags, t.receipt?.filename||'']);
   });
   ar.push([]);
   const stOut  = rec?.statementPaymentsOut || 0;
@@ -449,7 +449,7 @@ const buildAuditWorkbook = (s, rec) => {
     ar.push(['NOTE', `Equal-and-opposite gap of \u00A3${outGap.toFixed(2)} on both sides \u2014 likely a transaction entered in the wrong direction.`]);
 
   const ws1 = XLSX.utils.aoa_to_sheet(ar);
-  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:16},{wch:20},{wch:18},{wch:28},{wch:12}];
+  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:16},{wch:20},{wch:18},{wch:28},{wch:12},{wch:32}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Audit Review');
 
   // \u2500\u2500 Sheet 2: Import (clean) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -466,6 +466,23 @@ const buildAuditWorkbook = (s, rec) => {
   ws2['!cols'] = [{wch:12},{wch:14},{wch:42},{wch:26},{wch:13},{wch:13},{wch:20},{wch:18},{wch:28}];
   XLSX.utils.book_append_sheet(wb, ws2, importLabel);
 
+  // ── Sheet 3: Receipts ──────────────────────────────────────────────────
+  const withReceipts = tx.filter(t => t.receipt);
+  const rr = [['#','Date','Payee / Description','Debit (out)','Credit (in)','Receipt filename','Note']];
+  if (withReceipts.length === 0) {
+    rr.push(['','','No receipts were attached this session','','','','']);
+  } else {
+    withReceipts.forEach((t, i) => {
+      rr.push([i+1, t.date, t.payee||t.description||'', t.debit!=null?t.debit:'', t.credit!=null?t.credit:'',
+        t.receipt.filename, 'Save the file alongside this workbook using the same name']);
+    });
+    rr.push([]);
+    rr.push(['','','','','','','Receipt files are saved locally — not embedded in QBO/Xero exports.']);
+  }
+  const ws3 = XLSX.utils.aoa_to_sheet(rr);
+  ws3['!cols'] = [{wch:4},{wch:12},{wch:40},{wch:13},{wch:13},{wch:36},{wch:60}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Receipts');
+
   return wb;
 };
 
@@ -477,6 +494,19 @@ const dlWorkbook = (s, rec) => {
     ? `${bank}_${d(s.period.from)}_to_${d(s.period.to)}_Audit.xlsx`
     : `${bank}_Audit.xlsx`;
   XLSX.writeFile(wb, name);
+};
+
+const dlReceipt = (receipt, tx, stmt) => {
+  const a = document.createElement('a');
+  a.href = receipt.url;
+  const ext = receipt.filename.includes('.') ? receipt.filename.split('.').pop() : 'pdf';
+  const bank = (stmt.bankName || 'Bank').replace(/[^a-zA-Z0-9]/g,'_');
+  const date = (tx.date || '').replace(/\//g,'-');
+  const desc = (tx.payee || tx.description || 'receipt').replace(/[^a-zA-Z0-9]/g,'_').slice(0,20);
+  a.download = `${bank}_${date}_${desc}_receipt.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 };
 
 const fmtTime = ts => {
@@ -1992,7 +2022,7 @@ export default function App() {
               <thead>
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
                   {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
-                    ...(showNominal?['Nominal']:[]),'Notes','Rcpt','⚑','✕','↺'].map((h,i) => (
+                    ...(showNominal?['Nominal']:[]),'Notes','Receipt','⚑','✕','↺'].map((h,i) => (
                     <th key={i} style={{padding:'12px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
                       color:C.t2,fontWeight:600,fontSize:12,textTransform:'uppercase',letterSpacing:'0.05em',
                       whiteSpace:'nowrap',borderBottom:`1px solid ${C.bdr}`,fontFamily:'Inter,sans-serif'}}>
@@ -2096,16 +2126,21 @@ export default function App() {
                         {isEd(t.id,'notes') ? <EI field="notes"/>
                           : <span title={t.notes} style={{color:t.notes?C.t1:C.t3}}>{t.notes||'—'}</span>}
                       </td>
-                      <td style={{...td,textAlign:'center',width:34}}>
-                        {t.receipt
-                          ? <button onClick={() => window.open(t.receipt.url, '_blank')}
-                              title={`Receipt attached: ${t.receipt.filename} — click to view`}
-                              style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:5,cursor:'pointer',color:C.grn,fontSize:13,padding:'2px 5px'}}>📎</button>
-                          : canEdit
-                            ? <button onClick={() => { setReceiptTarget({sid:s.id,tid:t.id}); receiptInputRef.current?.click(); }}
-                                title="Attach a receipt (PDF or image)"
-                                style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',color:C.t3,fontSize:13,padding:'2px 5px',opacity:0.5}}>+</button>
-                            : null}
+                      <td style={{...td,textAlign:'center',width:60}}>
+                        {t.receipt ? (
+                          <div style={{display:'flex',gap:3,justifyContent:'center'}}>
+                            <button onClick={() => window.open(t.receipt.url,'_blank')}
+                              title={`View: ${t.receipt.filename}`}
+                              style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:5,cursor:'pointer',color:C.grn,fontSize:12,padding:'2px 6px',fontWeight:600}}>📎 View</button>
+                            <button onClick={() => dlReceipt(t.receipt, t, s)}
+                              title={`Save: ${t.receipt.filename}`}
+                              style={{background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:5,cursor:'pointer',color:C.blu,fontSize:12,padding:'2px 6px',fontWeight:600}}>↓ Save</button>
+                          </div>
+                        ) : canEdit ? (
+                          <button onClick={() => { setReceiptTarget({sid:s.id,tid:t.id}); receiptInputRef.current?.click(); }}
+                            title="Attach a receipt (PDF or image) — saved locally, listed in Audit Workbook"
+                            style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',color:C.t3,fontSize:11,padding:'2px 8px'}}>+ Attach</button>
+                        ) : null}
                       </td>
                       <td style={{...td,textAlign:'center',width:30}}>
                         <button onClick={() => toggleFlag(s.id,t.id)}
@@ -2467,7 +2502,7 @@ export default function App() {
             alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:19}}>£</div>
           <div>
             <div style={{fontSize:19,fontWeight:700,color:C.t1,letterSpacing:'-0.01em'}}>StatementAudit Pro</div>
-            <div style={{fontSize:13,color:C.t3}}>Bank statements → QuickBooks &amp; Xero</div>
+            <div style={{fontSize:13,color:C.t3}}>Bank statement audit &amp; reconciliation → QuickBooks, Xero &amp; Excel</div>
           </div>
         </div>
         <nav style={{display:'flex',gap:8}}>
