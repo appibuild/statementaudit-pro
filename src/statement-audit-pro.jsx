@@ -561,12 +561,22 @@ export default function App() {
   const [showNominal, setShowNominal] = useState(() =>
     localStorage.getItem('sa_showNominal') === 'true'
   );
+  const [uploadDefaultType, setUploadDefaultType] = useState(() =>
+    localStorage.getItem('sa_defaultType') || 'current'
+  );
+  const [uploadDefaultPlatform, setUploadDefaultPlatform] = useState(() =>
+    localStorage.getItem('sa_defaultPlatform') || 'qbo'
+  );
+  const [renamingProjectId, setRenamingProjectId] = useState(null);
+  const [renameProjectVal,  setRenameProjectVal]  = useState('');
+  const [receiptTarget,     setReceiptTarget]     = useState(null);
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
   const stmtsRef          = useRef([]);
   const fileInputRef      = useRef(null);
   const rulesInputRef     = useRef(null);
   const qboInputRef       = useRef(null);
+  const receiptInputRef   = useRef(null);
   const payeeMemoryRef    = useRef({});
   const categoryMemoryRef = useRef({});
 
@@ -579,9 +589,11 @@ export default function App() {
     categoryMemoryRef.current = categoryMemory;
     localStorage.setItem('sa_categoryMemory', JSON.stringify(categoryMemory));
   }, [categoryMemory]);
-  useEffect(() => { localStorage.setItem('sa_projects',      JSON.stringify(projects));  }, [projects]);
-  useEffect(() => { localStorage.setItem('sa_activeProject', activeProjectId);           }, [activeProjectId]);
-  useEffect(() => { localStorage.setItem('sa_showNominal',   String(showNominal));       }, [showNominal]);
+  useEffect(() => { localStorage.setItem('sa_projects',         JSON.stringify(projects));  }, [projects]);
+  useEffect(() => { localStorage.setItem('sa_activeProject',    activeProjectId);           }, [activeProjectId]);
+  useEffect(() => { localStorage.setItem('sa_showNominal',      String(showNominal));       }, [showNominal]);
+  useEffect(() => { localStorage.setItem('sa_defaultType',      uploadDefaultType);         }, [uploadDefaultType]);
+  useEffect(() => { localStorage.setItem('sa_defaultPlatform',  uploadDefaultPlatform);     }, [uploadDefaultPlatform]);
 
   useEffect(() => {
     const l = document.createElement('link');
@@ -638,14 +650,14 @@ export default function App() {
       return [...prev, ...pdfs.slice(0, room).map(file => ({
         id:uid(), file, filename:file.name, status:'queued',
         projectId: activeProjectId,
-        accountType:'current', platform:'qbo',
+        accountType: uploadDefaultType, platform: uploadDefaultPlatform,
         bankName:'', accountName:'', period:null,
         openingBalance:null, closingBalance:null,
         transactions:[], editedTransactions:null, reconciliation:null, crossCheck:null, error:null, rawResponse:null,
       }))];
     });
     setTab('queue');
-  }, []);
+  }, [activeProjectId, uploadDefaultType, uploadDefaultPlatform]);
 
   // ── Claude API ─────────────────────────────────────────────────────────
   const processOne = useCallback(async id => {
@@ -1014,12 +1026,24 @@ export default function App() {
     setActiveProjectId(id);
   };
   const renameProject = id => {
-    const current = projects.find(p => p.id === id);
-    const name = window.prompt('Rename project:', current?.name || '');
-    if (!name?.trim()) return;
-    setProjects(prev => prev.map(p => p.id === id ? {...p, name: name.trim()} : p));
+    setRenameProjectVal(projects.find(p => p.id === id)?.name || '');
+    setRenamingProjectId(id);
+  };
+  const commitRename = () => {
+    if (renameProjectVal.trim()) setProjects(prev => prev.map(p => p.id === renamingProjectId ? {...p, name: renameProjectVal.trim()} : p));
+    setRenamingProjectId(null);
   };
   const moveStmt = (sid, projectId) => setStmts(prev => prev.map(s => s.id === sid ? {...s, projectId} : s));
+
+  const attachReceipt = (sid, tid, file) => {
+    const url = URL.createObjectURL(file);
+    setStmts(prev => prev.map(s => {
+      if (s.id !== sid) return s;
+      const current = s.editedTransactions || s.transactions || [];
+      const updated = current.map(t => t.id === tid ? {...t, receipt:{url, filename:file.name}} : t);
+      return {...s, editedTransactions: updated};
+    }));
+  };
 
   const reject = id => updateS(id, {status:'rejected'});
 
@@ -1086,6 +1110,28 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────────────
   const renderUpload = () => (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:24}}>
+      {/* Pre-upload configuration */}
+      <div style={{display:'flex',gap:16,alignItems:'flex-end',justifyContent:'center',flexWrap:'wrap'}}>
+        <div>
+          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Account Type</div>
+          <select value={uploadDefaultType} onChange={e => setUploadDefaultType(e.target.value)}
+            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
+              color:ACCOUNT_TYPES[uploadDefaultType]?.color||C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
+              fontFamily:'Inter,sans-serif',fontWeight:500}}>
+            {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Export To</div>
+          <select value={uploadDefaultPlatform} onChange={e => setUploadDefaultPlatform(e.target.value)}
+            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
+              color:uploadDefaultPlatform==='xero'?'#13B5EA':'#2CA01C',fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
+              fontFamily:'Inter,sans-serif',fontWeight:500}}>
+            <option value="qbo">QuickBooks Online</option>
+            <option value="xero">Xero</option>
+          </select>
+        </div>
+      </div>
       <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
         onDrop={e=>{e.preventDefault();setDragging(false);addFiles(e.dataTransfer.files);}}
         onClick={() => fileInputRef.current?.click()}
@@ -1105,7 +1151,7 @@ export default function App() {
         <span style={{...btn('primary'),display:'inline-block'}}>Browse Files</span>
       </div>
       <div style={{fontSize:12,color:C.t3,textAlign:'center',lineHeight:1.7,maxWidth:460}}>
-        Set account type and export platform per file in the Queue.<br/>
+        Defaults apply to all uploaded files — override per file in the Queue if needed.<br/>
         Every statement requires human approval before CSV is generated.
       </div>
       {/* Data handling notice — required before external customers */}
@@ -1258,8 +1304,14 @@ export default function App() {
     if (!reviewable.length) return (
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:14,color:C.t2}}>
         <div style={{fontSize:40}}>🔍</div>
-        <div style={{fontSize:16,color:C.t1}}>No statements ready for review</div>
-        <div style={{fontSize:13}}>Process statements in the Queue first</div>
+        <div style={{fontSize:16,color:C.t1}}>No statements in this project yet</div>
+        <div style={{fontSize:13,textAlign:'center',lineHeight:1.7,maxWidth:320}}>
+          {cnts.queued > 0
+            ? `${cnts.queued} file${cnts.queued!==1?'s':''} waiting in the Queue — process them to start reviewing`
+            : cnts.processing > 0
+              ? `${cnts.processing} file${cnts.processing!==1?'s':''} processing now — results will appear here`
+              : 'Process statements in the Queue first, or switch projects using the sidebar dropdown'}
+        </div>
         <button onClick={() => setTab('queue')} style={btn('primary')}>Go to Queue</button>
       </div>
     );
@@ -1330,13 +1382,20 @@ export default function App() {
       <div style={{display:'flex',height:'100%',gap:0}}>
         {/* Sidebar */}
         <div style={{width:210,flexShrink:0,borderRight:`1px solid ${C.bdr}`,overflowY:'auto',padding:'10px 8px',background:C.surf}}>
-          {/* Project selector */}
+          {/* Project selector — inline rename on ✎ click */}
           <div style={{marginBottom:8}}>
             <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
-              <select value={activeProjectId} onChange={e => setActiveProjectId(e.target.value)}
-                style={{flex:1,background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:5,padding:'4px 6px',color:C.t1,fontSize:11,outline:'none',cursor:'pointer'}}>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              {renamingProjectId === activeProjectId
+                ? <input autoFocus value={renameProjectVal}
+                    onChange={e => setRenameProjectVal(e.target.value)}
+                    onKeyDown={e => { if(e.key==='Enter') commitRename(); if(e.key==='Escape') setRenamingProjectId(null); }}
+                    onBlur={commitRename}
+                    style={{flex:1,background:C.card,border:`1px solid ${C.grn}`,borderRadius:5,padding:'4px 6px',color:C.t1,fontSize:11,outline:'none'}}/>
+                : <select value={activeProjectId} onChange={e => setActiveProjectId(e.target.value)}
+                    style={{flex:1,background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:5,padding:'4px 6px',color:C.t1,fontSize:11,outline:'none',cursor:'pointer'}}>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+              }
               <button onClick={() => renameProject(activeProjectId)}
                 style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,color:C.t3,fontSize:11,cursor:'pointer',padding:'3px 6px'}}>✎</button>
             </div>
@@ -1824,7 +1883,7 @@ export default function App() {
               <thead>
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
                   {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
-                    ...(showNominal?['Nominal']:[]),'Notes','⚑','✕','↺'].map((h,i) => (
+                    ...(showNominal?['Nominal']:[]),'Notes','📎','⚑','✕','↺'].map((h,i) => (
                     <th key={i} style={{padding:'12px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
                       color:C.t2,fontWeight:600,fontSize:12,textTransform:'uppercase',letterSpacing:'0.05em',
                       whiteSpace:'nowrap',borderBottom:`1px solid ${C.bdr}`,fontFamily:'Inter,sans-serif'}}>
@@ -1929,6 +1988,17 @@ export default function App() {
                           : <span title={t.notes} style={{color:t.notes?C.t1:C.t3}}>{t.notes||'—'}</span>}
                       </td>
                       <td style={{...td,textAlign:'center',width:30}}>
+                        {t.receipt
+                          ? <button onClick={() => window.open(t.receipt.url, '_blank')}
+                              title={`Receipt: ${t.receipt.filename}`}
+                              style={{background:'none',border:'none',cursor:'pointer',color:C.grn,fontSize:14,padding:'1px 3px'}}>📎</button>
+                          : canEdit
+                            ? <button onClick={() => { setReceiptTarget({sid:s.id,tid:t.id}); receiptInputRef.current?.click(); }}
+                                title="Attach receipt"
+                                style={{background:'none',border:'none',cursor:'pointer',color:C.t4,fontSize:14,padding:'1px 3px'}}>📎</button>
+                            : null}
+                      </td>
+                      <td style={{...td,textAlign:'center',width:30}}>
                         <button onClick={() => toggleFlag(s.id,t.id)}
                           style={{background:'none',border:'none',cursor:'pointer',color:t.flagged?C.amb:C.t3,fontSize:13,padding:'1px 3px'}}>⚑</button>
                       </td>
@@ -1961,6 +2031,13 @@ export default function App() {
           </div>
           )}
         </div>
+      <input ref={receiptInputRef} type="file" accept="application/pdf,image/*"
+        style={{display:'none'}}
+        onChange={e => {
+          const file = e.target.files?.[0];
+          if (file && receiptTarget) { attachReceipt(receiptTarget.sid, receiptTarget.tid, file); setReceiptTarget(null); }
+          e.target.value = '';
+        }}/>
       </div>
     );
   };
