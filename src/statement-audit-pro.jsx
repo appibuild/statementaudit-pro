@@ -14,6 +14,16 @@ const C = {
   t1:'#0F1B2D', t2:'#475467', t3:'#7B8698', t4:'#C8D0DC',
 };
 
+// ── Trial / demo mode ────────────────────────────────────────────────────────
+// Activate by setting these env vars in Render (no source edit required):
+//   VITE_TRIAL_MODE=true
+//   VITE_TRIAL_LIMIT=3          (optional, default 3)
+//   VITE_TRIAL_ACCESS_CODE=XXX  (optional — gates the app behind a code)
+// Owner reset: visit ?reset=<your-access-code> to clear the trial counter.
+const TRIAL_MODE  = import.meta.env.VITE_TRIAL_MODE  === 'true';
+const TRIAL_LIMIT = Math.max(1, parseInt(import.meta.env.VITE_TRIAL_LIMIT  || '3', 10));
+const TRIAL_CODE  = (import.meta.env.VITE_TRIAL_ACCESS_CODE || '').trim();
+
 const ACCOUNT_TYPES = {
   current: { label:'Current Account', color:C.blu, types:['DD','BP','SO','VIS','CR','TFR','CHQ','FEE'] },
   savings: { label:'Savings Account',  color:C.grn, types:['DEP','WDR','INT','TFR','NOT','BON','FEE'] },
@@ -398,9 +408,10 @@ const makeName = (s, suffix='') => {
   const bank = (s.bankName||'Bank').replace(/\s+/g,'_');
   const plat = (s.platform||'qbo').toUpperCase();
   const sfx  = suffix ? `_${suffix}` : '';
-  if (!s.period?.from) return `${bank}_${plat}${sfx}.csv`;
+  const pfx  = TRIAL_MODE ? 'TRIAL_' : '';
+  if (!s.period?.from) return `${pfx}${bank}_${plat}${sfx}.csv`;
   const d = str => str.split('/').reverse().join('-');
-  return `${bank}_${d(s.period.from)}_to_${d(s.period.to)}_${plat}${sfx}.csv`;
+  return `${pfx}${bank}_${d(s.period.from)}_to_${d(s.period.to)}_${plat}${sfx}.csv`;
 };
 
 const dlFile = (content, name) => {
@@ -621,10 +632,11 @@ const cloudGetUser = async (provider, token) => {
 const dlWorkbook = (s, rec) => {
   const wb = buildAuditWorkbook(s, rec);
   const bank = (s.bankName||'Bank').replace(/\s+/g,'_');
+  const pfx  = TRIAL_MODE ? 'TRIAL_' : '';
   const d = str => str.split('/').reverse().join('-');
   const name = s.period?.from
-    ? `${bank}_${d(s.period.from)}_to_${d(s.period.to)}_Audit.xlsx`
-    : `${bank}_Audit.xlsx`;
+    ? `${pfx}${bank}_${d(s.period.from)}_to_${d(s.period.to)}_Audit.xlsx`
+    : `${pfx}${bank}_Audit.xlsx`;
   XLSX.writeFile(wb, name);
 };
 
@@ -725,6 +737,11 @@ export default function App() {
   const [showActivity,      setShowActivity]      = useState(false);
   const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false);
   const [recCollapsed,      setRecCollapsed]      = useState(false);
+  const [trialUsed,      setTrialUsed]      = useState(() => TRIAL_MODE ? parseInt(localStorage.getItem('sa_trialUsed') || '0', 10) : 0);
+  const [showTrialGate,  setShowTrialGate]  = useState(() => TRIAL_MODE && !!TRIAL_CODE && localStorage.getItem('sa_trialUnlocked') !== TRIAL_CODE);
+  const [trialCodeInput, setTrialCodeInput] = useState('');
+  const [trialCodeError, setTrialCodeError] = useState(false);
+  const [showTrialCap,   setShowTrialCap]   = useState(false);
   const [cloudProvider, setCloudProvider] = useState(() => localStorage.getItem('sa_cloudProvider') || 'none');
   const [cloudToken,    setCloudToken]    = useState(() => localStorage.getItem('sa_cloudToken')    || null);
   const [cloudUser,     setCloudUser]     = useState(() => { try { return JSON.parse(localStorage.getItem('sa_cloudUser')); } catch { return null; } });
@@ -807,6 +824,21 @@ export default function App() {
     setPdfUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [showPdf, activeId]);
+
+  // Trial: handle ?reset=<code> URL param — lets the owner clear the trial counter
+  useEffect(() => {
+    if (!TRIAL_MODE) return;
+    const p = new URLSearchParams(window.location.search);
+    const r = p.get('reset');
+    if (r && (r === TRIAL_CODE || r === 'owner')) {
+      localStorage.removeItem('sa_trialUsed');
+      localStorage.removeItem('sa_trialUnlocked');
+      setTrialUsed(0);
+      setShowTrialCap(false);
+      if (TRIAL_CODE) setShowTrialGate(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle OAuth redirect — exchange code for token on return from Google / OneDrive
   useEffect(() => {
@@ -897,6 +929,10 @@ export default function App() {
     const stmt = stmtsRef.current.find(s => s.id === id);
     if (!stmt || stmt.status === 'processing') return;
     if (stmt.status === 'approved' && !window.confirm('Re-running will reset this approved statement to For Review and clear all edits. Continue?')) return;
+    if (TRIAL_MODE && stmt.status !== 'approved') {
+      const used = parseInt(localStorage.getItem('sa_trialUsed') || '0', 10);
+      if (used >= TRIAL_LIMIT) { setShowTrialCap(true); return; }
+    }
     updateS(id, { status:'processing', error:null, rawResponse:null });
     let capturedRaw = ''; // session-only React state — never persisted; cleared on re-run and on success
     try {
@@ -980,6 +1016,12 @@ export default function App() {
         extractedAt: Date.now(),
         rawResponse: null,
       });
+      if (TRIAL_MODE) {
+        const next = parseInt(localStorage.getItem('sa_trialUsed') || '0', 10) + 1;
+        localStorage.setItem('sa_trialUsed', String(next));
+        setTrialUsed(next);
+        if (next >= TRIAL_LIMIT) setShowTrialCap(true);
+      }
     } catch(err) { updateS(id, { status:'error', error:err.message, rawResponse: capturedRaw || null }); }
   }, []);
 
@@ -1275,6 +1317,16 @@ export default function App() {
     localStorage.removeItem('sa_cloudProvider');
     localStorage.removeItem('sa_cloudToken');
     localStorage.removeItem('sa_cloudUser');
+  };
+
+  const checkTrialCode = () => {
+    if (trialCodeInput.trim() === TRIAL_CODE) {
+      localStorage.setItem('sa_trialUnlocked', TRIAL_CODE);
+      setShowTrialGate(false);
+      setTrialCodeError(false);
+    } else {
+      setTrialCodeError(true);
+    }
   };
 
   // ── Projects ────────────────────────────────────────────────────────────
@@ -2688,6 +2740,25 @@ export default function App() {
             <div style={{fontSize:19,fontWeight:700,color:C.t1,letterSpacing:'-0.01em'}}>StatementAudit Pro</div>
             <div style={{fontSize:13,color:C.t3}}>Bank statement audit &amp; reconciliation → QuickBooks, Xero &amp; Excel</div>
           </div>
+          {TRIAL_MODE && (
+            <div style={{marginLeft:8,display:'flex',alignItems:'center',gap:8,padding:'5px 12px',
+              borderRadius:8,background:trialUsed >= TRIAL_LIMIT ? C.redDim : C.ambDim,
+              border:`1px solid ${trialUsed >= TRIAL_LIMIT ? C.redBrd : C.ambBrd}`}}>
+              <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.07em',textTransform:'uppercase',
+                color: trialUsed >= TRIAL_LIMIT ? C.red : C.amb}}>TRIAL</span>
+              <span style={{fontSize:12,color:C.t2}}>
+                {trialUsed >= TRIAL_LIMIT
+                  ? 'Limit reached — contact us to upgrade'
+                  : `${TRIAL_LIMIT - trialUsed} of ${TRIAL_LIMIT} statement${TRIAL_LIMIT !== 1 ? 's' : ''} remaining`}
+              </span>
+              {trialUsed >= TRIAL_LIMIT && (
+                <button onClick={() => setShowTrialCap(true)}
+                  style={{fontSize:11,fontWeight:600,color:C.red,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline'}}>
+                  Upgrade →
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <nav style={{display:'flex',gap:8}}>
           {navItems.map(n => {
@@ -3147,6 +3218,91 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* Trial access code gate — full-screen, highest z-index */}
+      {showTrialGate && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,27,45,0.94)',zIndex:9999,
+          display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div style={{background:C.card,borderRadius:18,padding:'40px 44px',width:400,maxWidth:'100%',
+            boxShadow:'0 32px 80px rgba(0,0,0,0.5)',border:`1px solid ${C.bdr}`,textAlign:'center'}}>
+            <div style={{width:52,height:52,borderRadius:14,background:C.blu,display:'flex',alignItems:'center',
+              justifyContent:'center',color:'#fff',fontWeight:700,fontSize:24,margin:'0 auto 20px'}}>£</div>
+            <div style={{fontSize:22,fontWeight:700,color:C.t1,marginBottom:6}}>StatementAudit Pro</div>
+            <div style={{fontSize:13,color:C.t3,marginBottom:28,lineHeight:1.5}}>
+              This is a private demo — enter your access code to continue.
+            </div>
+            <input
+              value={trialCodeInput}
+              onChange={e => { setTrialCodeInput(e.target.value.toUpperCase()); setTrialCodeError(false); }}
+              onKeyDown={e => e.key === 'Enter' && checkTrialCode()}
+              placeholder="ENTER CODE"
+              autoFocus
+              style={{width:'100%',boxSizing:'border-box',padding:'13px 16px',fontSize:17,
+                fontWeight:700,letterSpacing:'0.12em',textAlign:'center',
+                border:`2px solid ${trialCodeError ? C.red : C.bdr}`,borderRadius:10,outline:'none',
+                color:C.t1,fontFamily:'JetBrains Mono,monospace',marginBottom:trialCodeError?6:14,
+                background:C.surf,transition:'border-color 0.15s'}}
+            />
+            {trialCodeError && (
+              <div style={{fontSize:12,color:C.red,marginBottom:12}}>
+                Incorrect code — check with your contact.
+              </div>
+            )}
+            <button onClick={checkTrialCode}
+              style={{width:'100%',padding:'13px',background:C.blu,color:'#fff',border:'none',
+                borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:20,
+                transition:'opacity 0.15s'}}
+              onMouseEnter={e => e.currentTarget.style.opacity='0.88'}
+              onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+              Continue →
+            </button>
+            <div style={{fontSize:12,color:C.t4}}>
+              No code?{' '}
+              <a href="mailto:csmm1964@gmail.com?subject=StatementAudit Pro — Demo Access Request"
+                style={{color:C.blu,textDecoration:'none',fontWeight:500}}>
+                Request demo access →
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trial cap modal */}
+      {showTrialCap && (
+        <div onClick={() => setShowTrialCap(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:9998,
+            display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{background:C.card,borderRadius:18,padding:'36px 40px',width:420,maxWidth:'100%',
+              boxShadow:'0 24px 64px rgba(0,0,0,0.4)',border:`1px solid ${C.bdr}`,textAlign:'center'}}>
+            <div style={{fontSize:40,marginBottom:14}}>🎯</div>
+            <div style={{fontSize:20,fontWeight:700,color:C.t1,marginBottom:8}}>Trial Complete</div>
+            <div style={{fontSize:13,color:C.t2,lineHeight:1.7,marginBottom:24}}>
+              You've processed {TRIAL_LIMIT} statement{TRIAL_LIMIT !== 1 ? 's' : ''} — enough to see the full workflow.
+              <br/>
+              Get in touch to unlock full access.
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:20}}>
+              <a href="mailto:csmm1964@gmail.com?subject=StatementAudit Pro — Full Access Request"
+                style={{display:'block',padding:'13px',background:C.blu,color:'#fff',borderRadius:10,
+                  fontSize:14,fontWeight:700,textDecoration:'none',transition:'opacity 0.15s'}}
+                onMouseEnter={e => e.currentTarget.style.opacity='0.88'}
+                onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+                Request full access →
+              </a>
+              <button onClick={() => setShowTrialCap(false)}
+                style={{padding:'11px',background:'none',border:`1px solid ${C.bdr}`,borderRadius:10,
+                  fontSize:13,color:C.t2,cursor:'pointer'}}>
+                Continue browsing (review &amp; export only)
+              </button>
+            </div>
+            <div style={{fontSize:11,color:C.t4,lineHeight:1.5}}>
+              All {TRIAL_LIMIT} processed statements remain available to review and export.
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
