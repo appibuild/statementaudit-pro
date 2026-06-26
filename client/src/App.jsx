@@ -520,6 +520,104 @@ const confidenceHint = (score, rec, txList, crossCheck) => {
   return null;
 };
 
+// ── Cloud storage: Google Drive + OneDrive (BYOC) ────────────────────────────
+// SETUP REQUIRED before Connect buttons work:
+//   Google  → console.cloud.google.com → APIs & Services → Credentials
+//             Create OAuth 2.0 Client ID (Web) → add your Render URL as redirect URI
+//   OneDrive → portal.azure.com → App registrations → New registration
+//             Add redirect URI, grant Files.ReadWrite.AppFolder + User.Read
+// Then paste the client IDs into the two empty strings below.
+const CLOUD_CFG = {
+  google: {
+    clientId: '',
+    authUrl:  'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    scope:    'https://www.googleapis.com/auth/drive.appdata openid email profile',
+    label:    'Google Drive',
+    color:    '#4285F4',
+  },
+  microsoft: {
+    clientId: '',
+    authUrl:  'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    scope:    'Files.ReadWrite.AppFolder User.Read offline_access',
+    label:    'OneDrive',
+    color:    '#0078D4',
+  },
+};
+
+const generatePKCE = async () => {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  const verifier = btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  return { verifier, challenge };
+};
+
+const cloudSaveStmt = async (provider, token, stmt) => {
+  const filename = `sa_stmt_${stmt.id}.json`;
+  const tx = (stmt.editedTransactions || stmt.transactions || []).map(t =>
+    ({...t, receipt: t.receipt ? {filename: t.receipt.filename} : undefined})
+  );
+  const body = JSON.stringify({...stmt, editedTransactions:tx, transactions:tx, pdfData:undefined, rawResponse:undefined, file:undefined});
+  if (provider === 'google') {
+    const lst = await fetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${filename}'&fields=files(id)`,
+      {headers:{Authorization:`Bearer ${token}`}}
+    ).then(r => r.json());
+    const fid = lst.files?.[0]?.id;
+    const meta = JSON.stringify({name:filename, ...(fid ? {} : {parents:['appDataFolder']})});
+    const form = new FormData();
+    form.append('metadata', new Blob([meta], {type:'application/json'}));
+    form.append('file',     new Blob([body], {type:'application/json'}));
+    await fetch(
+      fid ? `https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=multipart`
+          : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`,
+      {method: fid ? 'PATCH' : 'POST', headers:{Authorization:`Bearer ${token}`}, body: form}
+    );
+  } else {
+    await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/special/approot:/${filename}:/content`,
+      {method:'PUT', headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'}, body}
+    );
+  }
+};
+
+const cloudLoadAll = async (provider, token) => {
+  try {
+    if (provider === 'google') {
+      const lst = await fetch(
+        `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name+contains+'sa_stmt_'&fields=files(id,name)`,
+        {headers:{Authorization:`Bearer ${token}`}}
+      ).then(r => r.json());
+      return Promise.all((lst.files||[]).map(f =>
+        fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`, {headers:{Authorization:`Bearer ${token}`}}).then(r => r.json())
+      ));
+    } else {
+      const lst = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/special/approot/children?$filter=startswith(name,'sa_stmt_')`,
+        {headers:{Authorization:`Bearer ${token}`}}
+      ).then(r => r.json());
+      return Promise.all((lst.value||[]).map(f =>
+        fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${f.id}/content`, {headers:{Authorization:`Bearer ${token}`}}).then(r => r.json())
+      ));
+    }
+  } catch { return []; }
+};
+
+const cloudGetUser = async (provider, token) => {
+  try {
+    if (provider === 'google') {
+      const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {headers:{Authorization:`Bearer ${token}`}}).then(r => r.json());
+      return {name: r.name, email: r.email};
+    } else {
+      const r = await fetch('https://graph.microsoft.com/v1.0/me', {headers:{Authorization:`Bearer ${token}`}}).then(r => r.json());
+      return {name: r.displayName, email: r.mail || r.userPrincipalName};
+    }
+  } catch { return null; }
+};
+
 const dlWorkbook = (s, rec) => {
   const wb = buildAuditWorkbook(s, rec);
   const bank = (s.bankName||'Bank').replace(/\s+/g,'_');
@@ -627,6 +725,12 @@ export default function App() {
   const [showActivity,      setShowActivity]      = useState(false);
   const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false);
   const [recCollapsed,      setRecCollapsed]      = useState(false);
+  const [cloudProvider, setCloudProvider] = useState(() => localStorage.getItem('sa_cloudProvider') || 'none');
+  const [cloudToken,    setCloudToken]    = useState(() => localStorage.getItem('sa_cloudToken')    || null);
+  const [cloudUser,     setCloudUser]     = useState(() => { try { return JSON.parse(localStorage.getItem('sa_cloudUser')); } catch { return null; } });
+  const [cloudSyncing,  setCloudSyncing]  = useState(false);
+  const [cloudError,    setCloudError]    = useState(null);
+  const [showCloud,     setShowCloud]     = useState(false);
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
   const stmtsRef          = useRef([]);
@@ -703,6 +807,54 @@ export default function App() {
     setPdfUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [showPdf, activeId]);
+
+  // Handle OAuth redirect — exchange code for token on return from Google / OneDrive
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code'), provider = params.get('state');
+    if (!code || (provider !== 'google' && provider !== 'microsoft')) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    const cfg = CLOUD_CFG[provider];
+    const verifier = sessionStorage.getItem('sa_pkce_verifier');
+    if (!verifier || !cfg.clientId) return;
+    sessionStorage.removeItem('sa_pkce_verifier');
+    const redirectUri = window.location.origin + window.location.pathname;
+    fetch(cfg.tokenUrl, {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({client_id:cfg.clientId, grant_type:'authorization_code', code, redirect_uri:redirectUri, code_verifier:verifier}),
+    })
+      .then(r => r.json())
+      .then(async r => {
+        if (!r.access_token) { setCloudError(r.error_description || 'Auth failed'); return; }
+        const user = await cloudGetUser(provider, r.access_token);
+        setCloudProvider(provider); setCloudToken(r.access_token); setCloudUser(user);
+        localStorage.setItem('sa_cloudProvider', provider);
+        localStorage.setItem('sa_cloudToken', r.access_token);
+        localStorage.setItem('sa_cloudUser', JSON.stringify(user));
+        setCloudSyncing(true);
+        cloudLoadAll(provider, r.access_token).then(loaded => {
+          if (loaded.length) setStmts(prev => {
+            const ids = new Set(prev.map(s => s.id));
+            return [...prev, ...loaded.filter(s => s?.id && !ids.has(s.id))];
+          });
+          setCloudSyncing(false);
+          setShowCloud(true);
+        }).catch(() => setCloudSyncing(false));
+      })
+      .catch(err => setCloudError(err.message));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save approved statements to cloud when connected
+  useEffect(() => {
+    if (!cloudToken || cloudProvider === 'none') return;
+    const unsaved = stmts.filter(s => s.status === 'approved' && !s.cloudSaved);
+    unsaved.forEach(stmt => {
+      cloudSaveStmt(cloudProvider, cloudToken, stmt)
+        .then(() => updateS(stmt.id, {cloudSaved: true}))
+        .catch(console.error);
+    });
+  }, [stmts, cloudToken, cloudProvider]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getTx   = s => s.editedTransactions || s.transactions || [];
   const active  = stmts.find(s => s.id === activeId);
@@ -1102,6 +1254,28 @@ export default function App() {
   };
   const reject = id => updateS(id, {status:'rejected', rejectedAt: Date.now()});
   const exportStmt = stmt => { dlFile(buildCSV(stmt), makeName(stmt)); updateS(stmt.id, {exportedAt: Date.now()}); };
+
+  const startCloudAuth = async provider => {
+    const cfg = CLOUD_CFG[provider];
+    if (!cfg.clientId) { setCloudError(`${cfg.label} client ID not yet configured — contact support to enable.`); setShowCloud(true); return; }
+    const { verifier, challenge } = await generatePKCE();
+    sessionStorage.setItem('sa_pkce_verifier', verifier);
+    const redirectUri = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams({
+      client_id: cfg.clientId, response_type: 'code',
+      redirect_uri: redirectUri, scope: cfg.scope,
+      code_challenge: challenge, code_challenge_method: 'S256', state: provider,
+      ...(provider === 'google' ? {access_type:'offline', prompt:'consent'} : {}),
+    });
+    window.location.href = `${cfg.authUrl}?${params}`;
+  };
+
+  const disconnectCloud = () => {
+    setCloudProvider('none'); setCloudToken(null); setCloudUser(null); setCloudError(null);
+    localStorage.removeItem('sa_cloudProvider');
+    localStorage.removeItem('sa_cloudToken');
+    localStorage.removeItem('sa_cloudUser');
+  };
 
   // ── Projects ────────────────────────────────────────────────────────────
   const addProject = () => {
@@ -2545,6 +2719,15 @@ export default function App() {
               color:showActivity?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
             ⧖ Activity
           </button>
+          <button onClick={() => { setShowCloud(v => !v); setCloudError(null); }}
+            title="Cloud storage — Google Drive or OneDrive"
+            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+              background:showCloud?C.bluDim:cloudProvider!=='none'?C.grnDim:'transparent',
+              border:`1px solid ${showCloud?C.bluBrd:cloudProvider!=='none'?C.grnBrd:'transparent'}`,
+              color:showCloud?C.blu:cloudProvider!=='none'?C.grn:C.t2,
+              cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
+            {cloudSyncing ? '↻ Syncing' : cloudProvider !== 'none' ? '☁ Synced' : '☁ Cloud'}
+          </button>
           <button onClick={() => setShowHelp(v => !v)}
             title="Help & guides"
             style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
@@ -2625,8 +2808,8 @@ export default function App() {
               </div>
               <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
                 <div style={{fontSize:11,color:C.t4,textAlign:'center',lineHeight:1.5}}>
-                  Activity is stored in your browser session.<br/>
-                  Google Drive sync coming — your data, your storage.
+                  Activity reflects this browser session.<br/>
+                  {cloudProvider !== 'none' ? `Approved statements auto-save to ${CLOUD_CFG[cloudProvider].label}.` : 'Connect ☁ Cloud to persist statements across devices.'}
                 </div>
               </div>
             </div>
@@ -2656,6 +2839,141 @@ export default function App() {
               </div>
             ))}
             <div style={{fontSize:11,color:C.t4,marginTop:14}}>Shortcuts active in Review tab when no input is focused.</div>
+          </div>
+        </div>
+      )}
+
+      {/* Cloud storage panel */}
+      {showCloud && (
+        <div onClick={() => setShowCloud(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:900,display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{width:420,maxWidth:'95vw',height:'100vh',background:C.card,borderLeft:`1px solid ${C.bdr}`,
+              display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
+            {/* Header */}
+            <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,
+              background: cloudProvider === 'google' ? '#4285F4' : cloudProvider === 'microsoft' ? '#0078D4' : C.blu}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <div style={{fontSize:18,fontWeight:700,color:'#fff'}}>Cloud Storage</div>
+                  <div style={{fontSize:12,color:'rgba(255,255,255,0.75)',marginTop:2}}>
+                    {cloudProvider !== 'none'
+                      ? `Connected to ${CLOUD_CFG[cloudProvider].label}`
+                      : 'Your files, your storage — zero server cost'}
+                  </div>
+                </div>
+                <button onClick={() => setShowCloud(false)}
+                  style={{background:'rgba(255,255,255,0.15)',border:'none',color:'#fff',fontSize:20,cursor:'pointer',
+                    width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{flex:1,overflowY:'auto',padding:'20px 24px'}}>
+              {cloudProvider === 'none' ? (
+                <>
+                  <p style={{fontSize:13,color:C.t2,lineHeight:1.6,marginTop:0,marginBottom:20}}>
+                    Connect your own cloud to save approved statements automatically.
+                    Files are stored in your account — StatementAudit Pro never sees them.
+                  </p>
+
+                  {/* Connect buttons */}
+                  <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:24}}>
+                    <button onClick={() => startCloudAuth('google')}
+                      style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px',borderRadius:10,
+                        border:`1px solid #E3E8EF`,background:'#fff',cursor:'pointer',
+                        fontSize:14,fontWeight:600,color:C.t1,width:'100%',transition:'border-color 0.15s'}}
+                      onMouseEnter={e => e.currentTarget.style.borderColor='#4285F4'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor='#E3E8EF'}>
+                      <span style={{fontSize:20}}>📁</span>
+                      <span>Connect Google Drive</span>
+                      <span style={{marginLeft:'auto',fontSize:11,color:C.t3}}>→</span>
+                    </button>
+                    <button onClick={() => startCloudAuth('microsoft')}
+                      style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px',borderRadius:10,
+                        border:`1px solid #E3E8EF`,background:'#fff',cursor:'pointer',
+                        fontSize:14,fontWeight:600,color:C.t1,width:'100%',transition:'border-color 0.15s'}}
+                      onMouseEnter={e => e.currentTarget.style.borderColor='#0078D4'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor='#E3E8EF'}>
+                      <span style={{fontSize:20}}>🗂</span>
+                      <span>Connect OneDrive</span>
+                      <span style={{marginLeft:'auto',fontSize:11,color:C.t3}}>→</span>
+                    </button>
+                  </div>
+
+                  {cloudError && (
+                    <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,
+                      padding:'10px 14px',fontSize:12,color:C.red,marginBottom:16}}>{cloudError}</div>
+                  )}
+
+                  {/* How it works */}
+                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'14px 16px'}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>How it works</div>
+                    {[
+                      ['☁', 'Approved statements auto-save as JSON to a private app folder'],
+                      ['↩', 'Reconnecting restores all your previous statements'],
+                      ['🔒', 'Files stay in your account — we never store or see them'],
+                      ['👥', 'Share the folder with colleagues for team access'],
+                    ].map(([icon, text]) => (
+                      <div key={text} style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:8}}>
+                        <span style={{fontSize:14,lineHeight:'20px',flexShrink:0}}>{icon}</span>
+                        <span style={{fontSize:13,color:C.t2,lineHeight:1.5}}>{text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Connected state */}
+                  <div style={{background:cloudProvider==='google'?'#E8F0FE':'#E6F2FB',border:`1px solid ${cloudProvider==='google'?'#C2D8FB':'#B8DCFB'}`,
+                    borderRadius:10,padding:'14px 16px',marginBottom:20,display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{width:36,height:36,borderRadius:'50%',background:cloudProvider==='google'?'#4285F4':'#0078D4',
+                      display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff',flexShrink:0}}>
+                      {cloudProvider === 'google' ? '📁' : '🗂'}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:600,color:C.t1}}>{cloudUser?.name || CLOUD_CFG[cloudProvider].label}</div>
+                      <div style={{fontSize:11,color:C.t3,marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{cloudUser?.email || 'Connected'}</div>
+                    </div>
+                    <div style={{fontSize:11,fontWeight:600,color:cloudProvider==='google'?'#4285F4':'#0078D4',flexShrink:0}}>
+                      {cloudSyncing ? '↻ Syncing…' : '✓ Active'}
+                    </div>
+                  </div>
+
+                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'14px 16px',marginBottom:20}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>Storage status</div>
+                    {[
+                      ['Approved & saved', stmts.filter(s => s.cloudSaved).length],
+                      ['Approved, pending save', stmts.filter(s => s.status==='approved' && !s.cloudSaved).length],
+                    ].map(([label, count]) => (
+                      <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:`1px solid ${C.bdr}`}}>
+                        <span style={{fontSize:13,color:C.t2}}>{label}</span>
+                        <span style={{fontSize:13,fontWeight:600,color:C.t1}}>{count}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontSize:12,color:C.t2,lineHeight:1.6}}>
+                    Files are saved to a private app folder in your {CLOUD_CFG[cloudProvider].label}.
+                    To share with a colleague, grant them access to the <strong>StatementAudit Pro</strong> folder in your cloud account.
+                  </div>
+
+                  <button onClick={disconnectCloud}
+                    style={{width:'100%',padding:'10px',borderRadius:8,border:`1px solid ${C.redBrd}`,
+                      background:C.redDim,color:C.red,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                    Disconnect {CLOUD_CFG[cloudProvider].label}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+              <div style={{fontSize:11,color:C.t4,textAlign:'center',lineHeight:1.5}}>
+                Your financial data never passes through our servers.<br/>
+                Google Drive · OneDrive · Your storage, your control.
+              </div>
+            </div>
           </div>
         </div>
       )}
