@@ -1,7 +1,8 @@
 # StatementAudit Pro — Anti-Drift Guardrails
 
-**Created:** 2026-06-17 · **Last updated:** 2026-06-23 (added G7; single-channel transition note) · **Status:** Active. Applies to every session from here.
-**Why this exists:** A review traced the recurring pain to *drift* — and found it was several different kinds, not one. This document names each kind, its root cause, and the mechanical guardrail that prevents it. Board-reviewed (Fried, Hoy, Jarvis, Ogilvy, UK Practice Manager). G7 added 2026-06-23 after the 3B post-mortem. Single-channel transition recorded 2026-06-23 (see end).
+**Created:** 2026-06-17 · **Last updated:** 2026-06-28 (G1 stale-file fix; G6 expanded for Pathway 2 non-negotiables) · **Status:** Active. Applies to every session from here.
+
+**Why this exists:** A review traced the recurring pain to *drift* — and found it was several different kinds, not one. This document names each kind, its root cause, and the mechanical guardrail that prevents it. Board-reviewed (Fried, Hoy, Jarvis, Ogilvy, UK Practice Manager). G7 added 2026-06-23 after the 3B post-mortem. Single-channel transition recorded 2026-06-23. G6 expanded 2026-06-28 after Pathway 2 build (new safety-critical non-negotiables).
 
 ---
 
@@ -23,24 +24,58 @@
 ## The guardrails
 
 ### G1 — Run the check before working (cures code drift)
-At the start of every session: **read `docs/STATEMENTAUDIT_PROJECT_INSTRUCTIONS.md`** (the durable rules and the eight-member board) and run **`bash verify.sh`**. If verify does not print ALL CHECKS PASSED, stop and reconcile against the live build before doing anything else. No exceptions, including "just a quick change." The instructions-read matters most now that this is a **single channel**: if a long session compresses context, re-read this file before any strategic decision or board consultation rather than relying on memory.
+
+At the start of every session: run **`bash verify.sh`** from the repo root and load the most recent dated handover + the expansion brief. If verify does not print ALL CHECKS PASSED, stop and reconcile against the live build before doing anything else. No exceptions, including "just a quick change."
+
+**Current session startup sequence:**
+```bash
+cd statementaudit-pro
+bash verify.sh                        # must be 11/11 green
+```
+Then load:
+- `docs/STATEMENTAUDIT_HANDOVER_2026-06-26.md` — build state and feature record
+- `docs/STATEMENTAUDIT_HANDOVER_2026-06-28_TRANSACTION-MODE-EXPANSION.md` — expansion brief and non-negotiables
+- `src/statement-audit-pro.jsx` — canonical source (currently 3761 lines)
+
+> Note: `docs/STATEMENTAUDIT_PROJECT_INSTRUCTIONS.md` was referenced in the original G1 but does not exist — it was a two-channel artefact. The handover trail above is the current source of truth.
 
 ### G2 — Save back and commit before closing (cures code drift at the source)
+
 A session is not finished until the working code is in `src/` and committed (`git add -A && git commit`). If the line count changed, update `expected_lines:` in `VERSION` in the same commit. The chore that got skipped becomes the definition of "done."
 
 ### G3 — Reconcile documents against the latest handover before trusting them (cures document drift)
+
 Before relying on any summary, brief, or instruction file, check it against the **most recent dated handover**. The handover trail is the primary record; summaries are secondary and may lag. When they conflict, the latest handover wins, and the summary gets corrected.
 
 ### G4 — Diagnose before prescribing; show the evidence (cures narrative drift)
+
 Before proposing any significant change (a new tool, a provider switch, a rebuild, a big refactor), state the problem in one sentence and show the evidence for the *cause*, not just the symptom. Separate proof from guess: "what's wrong" can stand on arithmetic or a live check; "why it happened" needs evidence and is labelled a hypothesis until confirmed. A fix proposed without a named, evidenced cause is on hold until one exists.
 
 ### G5 — Name conflicts out loud (cures all kinds; standing request from Stephen)
+
 When a conflict is found between any two sources, say so explicitly: what conflicts with what, which source is correct and why, and the smallest fix. Never silently reconcile in the background.
 
 ### G6 — Protect the safety-critical things loudest (UK Practice Manager's rule)
-The checks that matter most are the ones guarding client data and trust: the mandatory human approval gate, the reconciliation maths, the foreign-transaction rule, the BOM, the pinned model. `verify.sh` checks these by fingerprint. A change that touches any of them is flagged and confirmed before it lands — never as a side effect of another change. **These checks must travel into the standalone build** (a `verify.sh` equivalent guarding the same fingerprints).
+
+The checks that matter most are the ones guarding client data and trust. `verify.sh` checks the core fingerprints. A change that touches any item on either list below is flagged and confirmed before it lands — never as a side effect of another change.
+
+**Original non-negotiables (checked by verify.sh):**
+- Human approval gate — the only path to any CSV export; no auto-post, ever
+- Reconciliation maths — deterministic arithmetic, no LLM arithmetic
+- Foreign-transaction rule — present in the extraction prompt
+- UTF-8 BOM on every CSV export
+- Model pinned to `claude-sonnet-4-6`, `max_tokens: 32000`
+- Robust `indexOf`/`lastIndexOf` JSON extractor — no assistant prefill
+
+**Pathway 2 non-negotiables (added 2026-06-28 — not currently checked by verify.sh; enforce by code review):**
+- **Per-line coding confirmation gate is safety-critical.** In Pathway 2, each code is a *proposal* the user confirms or corrects — never auto-applied as fact. Friction switches (auto-confirm remembered payees, bulk-confirm) may cut clicks but **no switch may turn the gate off**. A statement can still fail reconciliation after all lines are coded — the coding step sits *in front of* the approval gate, not in place of it.
+- **Pathway 2 Xero export is a single atomic precoded file.** One file, one import. Never build a two-push approach (create transactions separately + import statement file, relying on them meeting inside Xero) — that causes match failures and doubles.
+- **Coding source is deterministic lookup only.** Codes come from payee memory or an imported chart of accounts/items list. Coding is never model-inferred at Layer 1. The lookup stays deterministic even when a chart is loaded.
+- **Pathway 2 scoped to empty periods only (Xero).** The empty-period assertion checkbox is a hard gate, not a UI preference. Precoded lines against a period that already has entries cause Xero duplicates and match failures. Never remove or soften this gate.
+- **QBO Code & Reference is a reference guide, not a precoded import.** QBO's bank CSV import does not apply codes automatically. Do not build a mechanism that implies or claims it does. The exported `_CODED_REF.csv` is for manual reference only.
 
 ### G7 — Tag every handover claim with its evidence; "VERIFIED LIVE" must name the check (cures handover drift)
+
 Every job or finding written into a handover carries a status tag: **`VERIFIED LIVE`** or **`REASONED (unconfirmed)`**.
 - A claim earns `VERIFIED LIVE` only if it states **what** was confirmed and **how**, in the running app — e.g. *"3B verified live: forced a wrong-column row on the 15/04 statement, the one-click suggestion fired, accepting it reconciled to £1,474.89."* A bare "verified" does **not** qualify.
 - An **untagged** claim is treated as **unconfirmed** by default.
@@ -59,7 +94,7 @@ Every job or finding written into a handover carries a status tag: **`VERIFIED L
 **What stays (do not drop these with the channel):**
 - **Verify in the running app.** "Compiles" / "tests pass" is **not** the bar. Today's duplicate-viewer bug passed `verify.sh` while being unreachable in dead code — caught only by clicking the live app. The standalone MUST have a real way to run and click it (local dev run + a deployed URL), and correctness claims must rest on that, not on a successful build.
 - **Separate proof from guess (G4)** and **name the live check** behind any "verified" (the G7 habit), now in commit messages and lightweight dated session notes rather than cross-channel handovers.
-- **Genuine board consultation.** The board is eight personas defined in `PROJECT_INSTRUCTIONS.md`; consult the relevant ones on strategic decisions, **surface real disagreement, and don't let it become a rubber stamp** — if a "consultation" produces no tension, it wasn't really run.
+- **Genuine board consultation.** The board is eight personas defined in prior session records; consult the relevant ones on strategic decisions, **surface real disagreement, and don't let it become a rubber stamp** — if a "consultation" produces no tension, it wasn't really run.
 - **Plan first, minimum change, confirm before any file save or delete.**
 
 **Continuity in a single channel.** Replace cross-channel handovers with: clear commit messages, the existing dated decision records for real decisions, and a short dated session note when a session closes mid-stream. The repo + git history carry continuity; no bridge document is needed.
@@ -74,11 +109,15 @@ Every job or finding written into a handover carries a status tag: **`VERIFIED L
 - **UK Practice Manager:** No drift may silently weaken the approval gate or the maths. The check must scream loudest about those (G6).
 - **David Ogilvy:** Half the drift was language. Write each rule so a tired person reads it once and acts correctly.
 
-**Tension resolved:** Fried (keep it minimal) vs the Practice Manager (check the safety-critical set, even if that's several things). Resolution: minimal in *form* (one mechanical check, run once), but the safety-critical non-negotiables all earn their place in it. No cosmetic checks. **Consistent with this: no new numbered guardrail was added for the single-channel move or the "compiles ≠ reachable" lesson — both are folded into existing rules rather than gold-plating the list.**
+**Tension resolved:** Fried (keep it minimal) vs the Practice Manager (check the safety-critical set, even if that's several things). Resolution: minimal in *form* (one mechanical check, run once), but the safety-critical non-negotiables all earn their place in it. No cosmetic checks. **Consistent with this: the Pathway 2 non-negotiables in G6 are not a new numbered guardrail — they are an extension of the existing G6 list. No gold-plating the structure.**
 
 ## G7 provenance (2026-06-23)
 
 Added after the findFlip / 3B sign-bug post-mortem. Surfaced by Claude Code's own feedback: the failure mode wasn't the two-channel structure but handover quality — a paper claim crossing the channel boundary as inherited fact. Simon Willison's remit (extraction reliability, solo-dev maintainability). Consistent with Ogilvy's note: the tag is a one-glance signal a tired reader acts on correctly.
+
+## G6 Pathway 2 extension provenance (2026-06-28)
+
+Added after completing the two-pathway build (commit `612b251`). The expansion brief (`STATEMENTAUDIT_HANDOVER_2026-06-28_TRANSACTION-MODE-EXPANSION.md`, §7) carried five non-negotiables specific to Pathway 2 that were not represented in the original G6 list. The most failure-prone are the two-push anti-pattern (single atomic import), the coding gate (friction switches must never disable it), and the QBO reference-only boundary. These are named explicitly so a future session can't silently drift them.
 
 ---
 
