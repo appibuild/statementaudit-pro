@@ -25,6 +25,23 @@ Both pathways go through the same approval gate. Numbers must reconcile before a
 
 ## The Review Screen — Feature by Feature
 
+### The Confidence Badge
+
+Displayed on every statement after processing. Shows how cleanly the AI reconciled the extraction.
+
+| Badge | What it means |
+|---|---|
+| **⚡ High conf** (green) | Score ≥ 95 — passes every check: reconciled, row count agrees, no balance breaks, no date issues |
+| **87 · Good** (amber) | Score 80–94 — reconciled but one or more minor checks flagged |
+| **74 · Fair** (amber) | Score 70–79 — reconciled with moderate issues; worth a closer look |
+| **62 · Review** (red) | Score < 70 — significant issues; review all rows before approving |
+
+Hover the badge for a one-line summary of what lowered the score. Click the statement to open the detail view — the large badge there shows the full explanation.
+
+**The approval gate does not require a specific score.** You can approve any statement that reconciles, regardless of confidence. The badge is a guide for how much manual checking to do.
+
+---
+
 ### The Numbers Panel (top of screen)
 
 | Field | What it means |
@@ -177,6 +194,8 @@ The **Expected balance** column is new. It shows what the running balance *shoul
 Pathway 2 is for **empty periods** — months or quarters where no transactions have been entered in Xero yet. It produces a single precoded import file that creates the entries and reconciles them in one pass.
 
 **When it appears:** The **✎ Code & Create** button is shown on Xero statements that have passed the approval gate. It does not appear on QBO statements (QBO's standard CSV import does not support coded imports on lower tiers).
+
+**This is the only route to a precoded export.** The Export tab does not have a separate Pre-coded button. Every precoded file must go through the Code & Create modal so each transaction code is individually confirmed.
 
 ---
 

@@ -76,7 +76,7 @@ Two route options depending on your audience:
 
 **Do:** Click the statement to open the Review view.
 
-**Say (confidence score):** *"This score tells you how cleanly it reconciled. 95 or above means it passed every check — row count, balance continuity, date order, the lot. Hover the badge and it tells you exactly what it found."*
+**Say (confidence score):** *"The badge tells you how cleanly it reconciled — and gives you a word to go with the number. Green with a lightning bolt means it passed every check. Amber with 'Good' means it reconciled but something minor was flagged. 'Fair' or 'Review' means look more closely. Hover and it tells you exactly what to check."*
 
 **Do:** Point to the reconciliation strip.
 

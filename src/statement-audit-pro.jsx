@@ -893,7 +893,7 @@ export default function App() {
           });
           setCloudSyncing(false);
           setShowCloud(true);
-        }).catch(() => setCloudSyncing(false));
+        }).catch(err => { setCloudSyncing(false); setCloudError(err?.message || 'Cloud sync failed — check your connection and try reconnecting.'); });
       })
       .catch(err => setCloudError(err.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1213,7 +1213,11 @@ export default function App() {
         const imported = JSON.parse(ev.target.result);
         if (typeof imported === 'object' && !Array.isArray(imported))
           setPayeeMemory(prev => ({...prev, ...imported}));
-      } catch {}
+        else
+          alert('Rules file not recognised — expected a JSON object. Export your rules first with "↓ Save Rules" and use that file.');
+      } catch {
+        alert('Could not read rules file — the file may be corrupt or the wrong format. Export your rules with "↓ Save Rules" to get a valid backup file.');
+      }
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -1244,7 +1248,10 @@ export default function App() {
           } catch {}
         }
         if (parsed.length) setQboImportRows(parsed);
-      } catch {}
+        else alert('No rules found in this file — it may be empty or a different format. Export rules from QBO: Transactions → Bank Transactions → Rules → Export Rules.');
+      } catch {
+        alert('Could not read QBO rules file — select the .xls file exported directly from QBO (Transactions → Bank Transactions → Rules → Export Rules).');
+      }
     };
     reader.readAsArrayBuffer(file);
     e.target.value = '';
@@ -1525,18 +1532,22 @@ export default function App() {
   // Green ⚡ badge for a clean statement (≥95); amber NN/100 otherwise. Optional hint shows top fix.
   const ConfidenceBadge = ({score, size='sm', hint}) => {
     if (score == null) return null;
-    const hi = score >= 95;
+    const hi  = score >= 95;
     const big = size === 'lg';
+    const tier = score >= 80 ? 'Good' : score >= 70 ? 'Fair' : 'Review';
+    const col  = score >= 70 ? C.amb : C.red;
+    const bg   = score >= 70 ? C.ambDim : C.redDim;
+    const bdr  = score >= 70 ? C.ambBrd : C.redBrd;
     return <span title={!hi && hint && !big ? hint : undefined}
       style={{display:'inline-flex',alignItems:'center',gap:4,
         fontSize:big?13:10,fontWeight:700,padding:big?'4px 11px':'2px 8px',borderRadius:big?7:4,
         letterSpacing:'0.04em',fontFamily:'Inter,sans-serif',
-        color:hi?C.grn:C.amb,background:hi?C.grnDim:C.ambDim,border:`1px solid ${hi?C.grnBrd:C.ambBrd}`}}>
+        color:hi?C.grn:col,background:hi?C.grnDim:bg,border:`1px solid ${hi?C.grnBrd:bdr}`}}>
       {hi
         ? <>⚡ {big?'Passes every check':'High conf'}</>
         : big && hint
           ? <>{score}/100 <span style={{fontWeight:400,fontSize:11,opacity:0.85}}>— {hint}</span></>
-          : `${score}/100`}
+          : `${score} · ${tier}`}
     </span>;
   };
 
@@ -2726,10 +2737,6 @@ export default function App() {
               <button onClick={() => dlFile(buildXero(xeroApproved.flatMap(s=>getTx(s)).sort((a,b)=>pDate(a.date)-pDate(b.date))), 'Merged_Xero.csv')}
                 style={btn('outline')}>↓ Merge Xero ({xeroApproved.length})</button>
             )}
-            {xeroApproved.length > 1 && (
-              <button onClick={() => dlFile(buildXeroPrecoded(xeroApproved.flatMap(s=>getTx(s)).sort((a,b)=>pDate(a.date)-pDate(b.date))), 'Merged_Xero_Precoded.csv')}
-                style={btn('outline')}>↓ Merged Xero (pre-coded)</button>
-            )}
           </div>
         </div>
 
@@ -2773,9 +2780,6 @@ export default function App() {
                     {rec?.reconciled?'✓ Reconciled':'⚑ Variance'}
                   </span>
                   <button onClick={() => exportStmt(s)} style={btn('primary')}>↓ Download</button>
-                  {s.platform==='xero' && (
-                    <button onClick={() => dlFile(buildXeroPrecoded(getTx(s)), makeName(s,'PRECODED'))} style={btn('outline')}>↓ Pre-coded</button>
-                  )}
                 </div>
               </div>
             );
@@ -2802,12 +2806,20 @@ export default function App() {
             </div>
           </div>
           {/* Backup help panel */}
-          <div style={{background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:7,padding:'10px 14px',fontSize:11,color:C.t2,lineHeight:1.6}}>
-            <span style={{fontWeight:600,color:C.amb}}>⚡ Backup your rules — do this now:</span>
-            {' '}Rules are stored in this browser only. A backup file downloads automatically to your Downloads folder each time you Approve.{' '}
-            <strong>Drag that file to OneDrive, Google Drive, or iCloud Drive after each session</strong> — if you clear your browser data or switch devices, the backup is your only recovery.
-            <br/>To restore: click <em>Import Rules (.json)</em> and select your backup file.
-            To bring in rules already set up in QBO: export them from <em>Transactions → Bank Transactions → Rules → Export Rules</em>, then click <em>Import QBO Rules (.xls)</em>.
+          <div style={{background:'#FFF3CD',border:'2px solid #F5A623',borderRadius:8,padding:'12px 16px',lineHeight:1.6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <span style={{fontSize:18,lineHeight:1}}>⚠️</span>
+              <span style={{fontSize:13,fontWeight:700,color:'#92400E'}}>Backup your rules — do this now</span>
+            </div>
+            <div style={{fontSize:12,color:'#78350F',marginBottom:6}}>
+              <strong>Rules live in this browser only.</strong> Clear your browser data or switch devices and they are gone permanently — there is no server copy.
+            </div>
+            <div style={{fontSize:11,color:'#92400E',lineHeight:1.6}}>
+              A backup file downloads automatically each time you Approve.{' '}
+              <strong>Move that file to OneDrive, Google Drive, or iCloud Drive after every session</strong> — it is your only recovery if localStorage is wiped.
+              <br/>To restore: click <em>Import Rules (.json)</em> and select your backup file.
+              To import QBO rules: <em>Transactions → Bank Transactions → Rules → Export Rules</em>, then <em>Import QBO Rules (.xls)</em>.
+            </div>
           </div>
         </div>
 

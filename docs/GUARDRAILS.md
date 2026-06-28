@@ -115,6 +115,10 @@ Every job or finding written into a handover carries a status tag: **`VERIFIED L
 
 Added after the findFlip / 3B sign-bug post-mortem. Surfaced by Claude Code's own feedback: the failure mode wasn't the two-channel structure but handover quality — a paper claim crossing the channel boundary as inherited fact. Simon Willison's remit (extraction reliability, solo-dev maintainability). Consistent with Ogilvy's note: the tag is a one-glance signal a tired reader acts on correctly.
 
+## P2-F1 resolved (2026-06-28, post-audit)
+
+The build-alignment audit found that the Export tab had "↓ Pre-coded" (per-statement) and "↓ Merged Xero (pre-coded)" buttons that called `buildXeroPrecoded` directly, bypassing both the per-line coding confirmation modal and the empty-period assertion. Board + user panel review: unanimous removal. Both buttons have been deleted. The only route to a precoded export is now through the Code & Create modal. Recorded here so future sessions don't re-introduce a convenience shortcut to this path.
+
 ## G6 Pathway 2 extension provenance (2026-06-28)
 
 Added after completing the two-pathway build (commit `612b251`). The expansion brief (`STATEMENTAUDIT_HANDOVER_2026-06-28_TRANSACTION-MODE-EXPANSION.md`, §7) carried five non-negotiables specific to Pathway 2 that were not represented in the original G6 list. The most failure-prone are the two-push anti-pattern (single atomic import), the coding gate (friction switches must never disable it), and the QBO reference-only boundary. These are named explicitly so a future session can't silently drift them.
