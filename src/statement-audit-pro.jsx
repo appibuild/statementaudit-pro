@@ -390,12 +390,18 @@ const buildXero = txList => {
 };
 
 const buildXeroPrecoded = txList => {
-  const h = 'Date,Amount,Payee,Description,Reference,Account Code';
+  // Tax Rate is mandatory for Xero to recognise the import as precoded (coded + reconciled).
+  // Without it Xero silently falls back to plain uncoded statement lines.
+  // Tracking1/Tracking2 are optional; included as empty columns for future use.
+  const h = 'Date,Amount,Payee,Description,Reference,Account Code,Tax Rate,Tracking1,Tracking2';
   return [h, ...txList.map(t => {
-    const amt = t.credit != null ? t.credit : t.debit != null ? -t.debit : '';
-    const p = (t.payee||'').replace(/"/g,'""');
-    const d = (t.description||'').replace(/"/g,'""');
-    return `${t.date},${amt},"${p}","${d}",${t.paymentType},${t.nominalCode||''}`;
+    const amt  = t.credit != null ? t.credit : t.debit != null ? -t.debit : '';
+    const p    = (t.payee||'').replace(/"/g,'""');
+    const d    = (t.description||'').replace(/"/g,'""');
+    const ref  = (t.paymentType||'');
+    const code = (t.nominalCode||'');
+    const tax  = code ? 'No VAT' : '';
+    return `${t.date},${amt},"${p}","${d}",${ref},${code},${tax},,`;
   })].join('\r\n');
 };
 
@@ -753,6 +759,11 @@ export default function App() {
   const [cloudSyncing,  setCloudSyncing]  = useState(false);
   const [cloudError,    setCloudError]    = useState(null);
   const [showCloud,     setShowCloud]     = useState(false);
+  const [showCodingModal, setShowCodingModal] = useState(false);
+  const [codingStmtId,    setCodingStmtId]    = useState(null);
+  const [codingLines,     setCodingLines]     = useState([]);
+  const [autoConfirmMem,  setAutoConfirmMem]  = useState(false);
+  const [emptyPeriodOk,   setEmptyPeriodOk]   = useState(false);
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
   const stmtsRef          = useRef([]);
@@ -1301,6 +1312,48 @@ export default function App() {
   };
   const reject = id => updateS(id, {status:'rejected', rejectedAt: Date.now()});
   const exportStmt = stmt => { dlFile(buildCSV(stmt), makeName(stmt)); updateS(stmt.id, {exportedAt: Date.now()}); };
+
+  const openCodingModal = sid => {
+    const stmt = stmtsRef.current.find(s => s.id === sid);
+    if (!stmt) return;
+    const tx = getTx(stmt);
+    const lines = tx.map(t => {
+      const key = normKey(t.payee, t.description);
+      const memCode = categoryMemoryRef.current[key] || payeeMemoryRef.current[key];
+      return {
+        ...t,
+        code: memCode || (t.credit != null && t.debit == null ? 'Misc Revenue' : 'Misc Expense'),
+        fromMemory: !!memCode,
+        confirmed: false,
+      };
+    });
+    setCodingLines(lines);
+    setCodingStmtId(sid);
+    setAutoConfirmMem(false);
+    setEmptyPeriodOk(false);
+    setShowCodingModal(true);
+  };
+
+  const updateCodingLine = (tid, patch) =>
+    setCodingLines(prev => prev.map(l => l.id === tid ? {...l, ...patch} : l));
+
+  const exportP2 = () => {
+    const stmt = stmtsRef.current.find(s => s.id === codingStmtId);
+    if (!stmt) return;
+    // Save confirmed codes to categoryMemory
+    const updCat = {...categoryMemoryRef.current};
+    codingLines.forEach(l => {
+      if (l.confirmed && l.code) {
+        const key = normKey(l.payee, l.description);
+        if (key) updCat[key] = l.code;
+      }
+    });
+    setCategoryMemory(updCat);
+    dlFile(buildXeroPrecoded(codingLines.map(l => ({...l, nominalCode: l.code}))), makeName(stmt, 'PRECODED'));
+    approve(stmt.id);
+    updateS(stmt.id, {pathway: 'p2'});
+    setShowCodingModal(false);
+  };
 
   const startCloudAuth = async provider => {
     const cfg = CLOUD_CFG[provider];
@@ -1860,7 +1913,14 @@ export default function App() {
                 {canEdit && <>
                   <button onClick={() => reject(s.id)} style={btn('danger')}>✕ Reject</button>
                   {!fastTrack && (rec?.reconciled
-                    ? <button onClick={() => { exportStmt(s); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
+                    ? <>
+                        <button onClick={() => { exportStmt(s); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
+                        {s.platform === 'xero' && (
+                          <button onClick={() => openCodingModal(s.id)}
+                            title="Pathway 2 — confirm a code for each line, then export a single precoded Xero import"
+                            style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>✎ Code &amp; Create</button>
+                        )}
+                      </>
                     : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
@@ -2728,7 +2788,8 @@ export default function App() {
               'Accounting → Bank Accounts → Select account → Import Statement',
               'Upload CSV — Xero reads Date, Amount, Payee, Description',
               'Amount: negative = money out, positive = money in',
-              'Analysis Code column maps to Xero Tracking Categories',
+              'Analysis Code is a bank reference label (e.g. payment type) — it is NOT a chart-of-accounts code',
+              'To post directly to account codes, use the ↓ Pre-coded export — adds Account Code + Tax Rate columns Xero requires',
               'Review matches against rules, accept and post',
             ]},
           ].map(({title,color,steps}) => (
@@ -3392,6 +3453,165 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Pathway 2 — coding confirmation modal */}
+      {showCodingModal && (() => {
+        const stmt = stmts.find(s => s.id === codingStmtId);
+        if (!stmt) return null;
+        const total     = codingLines.length;
+        const confirmed = codingLines.filter(l => l.confirmed).length;
+        const canExport = confirmed === total && emptyPeriodOk && total > 0;
+        return (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.72)',zIndex:9994,
+            display:'flex',alignItems:'flex-start',justifyContent:'center',padding:20,overflowY:'auto'}}>
+            <div style={{background:C.card,borderRadius:16,width:'100%',maxWidth:800,
+              boxShadow:'0 24px 64px rgba(0,0,0,0.5)',border:`1px solid ${C.bdr}`,
+              marginTop:20,marginBottom:20}}>
+
+              {/* Header */}
+              <div style={{padding:'18px 24px',borderBottom:`1px solid ${C.bdr}`,
+                display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div>
+                  <div style={{fontSize:16,fontWeight:700,color:C.t1,marginBottom:2}}>
+                    ✎ Code &amp; Create — {stmt.bankName||'Statement'}
+                  </div>
+                  <div style={{fontSize:12,color:C.t3}}>
+                    Pathway 2 · Confirm a code for every line · Export one precoded Xero import
+                  </div>
+                </div>
+                <button onClick={() => setShowCodingModal(false)}
+                  style={{fontSize:12,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,
+                    borderRadius:6,padding:'4px 12px',cursor:'pointer',marginLeft:16,flexShrink:0}}>
+                  ✕ Cancel
+                </button>
+              </div>
+
+              {/* Controls */}
+              <div style={{padding:'12px 24px',borderBottom:`1px solid ${C.bdr}`,
+                display:'flex',gap:12,alignItems:'stretch',flexWrap:'wrap'}}>
+                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',flex:'1 1 300px',
+                  background:emptyPeriodOk ? C.grnDim : C.redDim,
+                  border:`1px solid ${emptyPeriodOk ? C.grnBrd : C.redBrd}`,
+                  borderRadius:8,padding:'10px 14px'}}>
+                  <input type="checkbox" checked={emptyPeriodOk}
+                    onChange={e => setEmptyPeriodOk(e.target.checked)}
+                    style={{accentColor:C.grn,width:14,height:14,flexShrink:0}}/>
+                  <span style={{fontSize:12,color:emptyPeriodOk ? C.grn : C.red,fontWeight:500,lineHeight:1.4}}>
+                    I confirm this period has no existing transactions in Xero
+                    <span style={{display:'block',fontSize:11,fontWeight:400,marginTop:1,opacity:0.8}}>
+                      Pathway 2 is for empty periods only — avoid duplicate entries
+                    </span>
+                  </span>
+                </label>
+                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',
+                  background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'10px 14px'}}>
+                  <input type="checkbox" checked={autoConfirmMem}
+                    onChange={e => {
+                      const on = e.target.checked;
+                      setAutoConfirmMem(on);
+                      setCodingLines(prev => prev.map(l => l.fromMemory ? {...l, confirmed: on} : l));
+                    }}
+                    style={{accentColor:C.blu,width:14,height:14,flexShrink:0}}/>
+                  <span style={{fontSize:12,color:C.t2,lineHeight:1.4}}>
+                    Auto-confirm remembered payees
+                    <span style={{display:'block',fontSize:11,color:C.t4,marginTop:1}}>
+                      Confirms lines where a code is already remembered
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {/* Transaction table */}
+              <div style={{maxHeight:'52vh',overflowY:'auto'}}>
+                <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 160px 44px',
+                  padding:'7px 24px',background:C.bg,borderBottom:`1px solid ${C.bdr}`,
+                  position:'sticky',top:0,zIndex:1}}>
+                  {['Date','Payee / Description','Amount','Account Code',''].map((h,i) => (
+                    <div key={i} style={{fontSize:10,color:C.t4,fontWeight:700,
+                      textTransform:'uppercase',letterSpacing:'0.06em',
+                      textAlign:i===2?'right':i===4?'center':'left'}}>{h}</div>
+                  ))}
+                </div>
+                {codingLines.map((l, i) => {
+                  const amt   = l.credit != null && l.debit == null ? `+${fmtCcy(l.credit)}`
+                              : l.debit  != null ? `-${fmtCcy(l.debit)}` : '—';
+                  const isPos = l.credit != null && l.debit == null;
+                  return (
+                    <div key={l.id||i}
+                      style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 160px 44px',
+                        padding:'6px 24px',alignItems:'center',
+                        background: l.confirmed ? C.grnDim : i%2===0 ? C.card : C.surf,
+                        borderBottom:`1px solid ${C.bdr}`,transition:'background 0.1s'}}>
+                      <div style={{fontSize:11,color:C.t3,fontFamily:'JetBrains Mono,monospace'}}>{l.date}</div>
+                      <div style={{fontSize:12,color:C.t1,overflow:'hidden',textOverflow:'ellipsis',
+                        whiteSpace:'nowrap',paddingRight:8,display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{overflow:'hidden',textOverflow:'ellipsis',minWidth:0}}>
+                          {l.payee || l.description || '—'}
+                        </span>
+                        {l.fromMemory && (
+                          <span style={{flexShrink:0,fontSize:10,color:C.blu,background:C.bluDim,
+                            border:`1px solid ${C.bluBrd}`,borderRadius:3,padding:'1px 5px'}}>
+                            remembered
+                          </span>
+                        )}
+                      </div>
+                      <div style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',
+                        textAlign:'right',color:isPos ? C.grn : C.red}}>{amt}</div>
+                      <div style={{paddingLeft:8}}>
+                        <input value={l.code}
+                          onChange={e => updateCodingLine(l.id||i, {code: e.target.value, confirmed: false})}
+                          placeholder="e.g. 400"
+                          style={{width:'100%',padding:'4px 8px',background:C.bg,
+                            border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
+                            borderRadius:6,color:C.t1,fontSize:12,
+                            fontFamily:'JetBrains Mono,monospace',outline:'none',boxSizing:'border-box'}}/>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <button
+                          onClick={() => updateCodingLine(l.id||i, {confirmed: !l.confirmed})}
+                          disabled={!l.code.trim()}
+                          title={l.confirmed ? 'Un-confirm' : 'Confirm this code'}
+                          style={{width:28,height:28,borderRadius:6,flexShrink:0,
+                            border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
+                            background: l.confirmed ? C.grn : 'none',
+                            color: l.confirmed ? '#fff' : C.t4,
+                            cursor: l.code.trim() ? 'pointer' : 'default',
+                            fontSize:14,fontWeight:700,
+                            display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          ✓
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,
+                display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+                <div style={{fontSize:13,color: confirmed === total && total > 0 ? C.grn : C.t3}}>
+                  {confirmed} / {total} lines confirmed
+                  {!emptyPeriodOk && total > 0 && (
+                    <span style={{marginLeft:10,fontSize:11,color:C.red}}>· tick the empty-period box above</span>
+                  )}
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={() => setShowCodingModal(false)}
+                    style={{...btn('outline'),padding:'8px 16px',fontSize:13}}>Cancel</button>
+                  <button onClick={exportP2} disabled={!canExport}
+                    title={canExport ? 'Export precoded Xero CSV and approve statement'
+                      : 'Confirm all lines and tick the empty-period box first'}
+                    style={{...btn('primary'),padding:'8px 18px',fontSize:13,
+                      opacity: canExport ? 1 : 0.38, cursor: canExport ? 'pointer' : 'default'}}>
+                    ↓ Export Precoded CSV
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Trial cap modal */}
       {showTrialCap && (
