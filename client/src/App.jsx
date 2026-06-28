@@ -1354,7 +1354,12 @@ export default function App() {
       }
     });
     setCategoryMemory(updCat);
-    dlFile(buildXeroPrecoded(codingLines.map(l => ({...l, nominalCode: l.code}))), makeName(stmt, 'PRECODED'));
+    const codedLines = codingLines.map(l => ({...l, nominalCode: l.code, category: l.code}));
+    if (stmt.platform === 'xero') {
+      dlFile(buildXeroPrecoded(codedLines), makeName(stmt, 'PRECODED'));
+    } else {
+      dlFile(buildQBO(codedLines), makeName(stmt, 'CODED_REF'));
+    }
     approve(stmt.id);
     updateS(stmt.id, {pathway: 'p2'});
     setShowCodingModal(false);
@@ -1945,11 +1950,13 @@ export default function App() {
                   {!fastTrack && (rec?.reconciled
                     ? <>
                         <button onClick={() => { exportStmt(s); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
-                        {s.platform === 'xero' && (
-                          <button onClick={() => openCodingModal(s.id)}
-                            title="Pathway 2 — confirm a code for each line, then export a single precoded Xero import"
-                            style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>✎ Code &amp; Create</button>
-                        )}
+                        <button onClick={() => openCodingModal(s.id)}
+                          title={s.platform === 'xero'
+                            ? 'Pathway 2 — confirm a code for each line, export one precoded Xero import (coded + reconciled in one pass)'
+                            : 'Reference coding — confirm a code for each line, export QBO CSV with reference codes for manual entry'}
+                          style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>
+                          ✎ {s.platform === 'xero' ? 'Code & Create' : 'Code & Reference'}
+                        </button>
                       </>
                     : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
                   )}
@@ -3260,8 +3267,17 @@ export default function App() {
           ]},
           { section:'Exporting', items:[
             { q:'How do I import into QuickBooks Online?', a:'In QBO, go to Banking → Upload → drag the downloaded CSV file. Match the columns to QBO\'s format. StatementAudit Pro exports in QBO-native column order.' },
-            { q:'How do I import into Xero?', a:'In Xero, go to Accounting → Bank accounts → Import a statement. Upload the CSV. The Xero Pre-coded export includes nominal codes if you\'ve assigned them.' },
+            { q:'How do I import into Xero?', a:'Standard import: Accounting → Bank Accounts → select account → Import Statement → upload the CSV. For Pathway 2 (Code & Create), import the _PRECODED.csv file the same way — it lands coded with the account code already applied and reconciles against the bank feed in one pass. Do not import a separate statement file alongside it.' },
             { q:'Can I merge multiple statements into one export?', a:'Yes — on the Export tab, use the "Merge & Export" button to combine all approved statements from the current project into a single QBO or Xero file.' },
+          ]},
+          { section:'Code & Create / Code & Reference', items:[
+            { q:'What is Code & Create?', a:'Code & Create is Pathway 2 for Xero statements. It\'s designed for empty periods — months where no entries exist yet (catch-up or new-client onboarding). You confirm an account code for every transaction line before anything exports. The result is a single precoded CSV that, when imported into Xero, creates the transactions already coded and reconciles them against the bank feed in one pass.' },
+            { q:'What is Code & Reference?', a:'Code & Reference is the QBO equivalent of Code & Create. QBO\'s bank CSV import does not apply codes automatically, so the exported CSV includes the confirmed codes in the Category and Nominal Code columns as a reference guide. Use it alongside QBO: import the CSV into the bank feed as normal, then use the reference codes on screen when manually categorising each transaction in QBO.' },
+            { q:'Can I edit payee names and descriptions in the coding screen?', a:'Yes — both the Payee and Description fields are editable inputs in the coding screen. Edit them before confirming the line. The edited payee and description are written into the exported CSV and will appear in Xero or QBO as entered.' },
+            { q:'What is the empty-period assertion for?', a:'Xero\'s precoded import creates new coded transactions. If the period already has entries, importing again creates duplicates or match failures. The checkbox — "I confirm this period has no existing transactions in Xero" — is a hard gate: the Export button does not activate until it is ticked. Pathway 2 is for empty periods only.' },
+            { q:'How do I load a chart of accounts for code suggestions?', a:'In the Code & Create modal, click Import CSV in the 📋 chart chip. Export your chart from Xero (Accounting → Chart of Accounts → Export) or QBO (Accounting → Chart of Accounts → export). The app reads Code and Name columns — once loaded, every account code input autocompletes with CODE — Name (Type) suggestions. The chart is stored in the browser and persists between sessions. Use Replace to swap to a different client\'s chart.' },
+            { q:'Does confirming a code in the modal save it for future use?', a:'Yes — when you export from the coding screen, every confirmed code is saved back to the app\'s payee memory. Next time you process a statement with the same payees, those lines will show the "remembered" badge and can be auto-confirmed with the "Auto-confirm remembered payees" switch.' },
+            { q:'What happens if I cancel the coding screen without exporting?', a:'Nothing is saved or exported. The statement remains in Review status unchanged. You can re-open the coding screen from the same statement any time.' },
           ]},
           { section:'Cloud Storage Setup', items:[
             { q:'What do I need to do before the Connect buttons work?',
@@ -3490,7 +3506,8 @@ export default function App() {
         if (!stmt) return null;
         const total     = codingLines.length;
         const confirmed = codingLines.filter(l => l.confirmed).length;
-        const canExport = confirmed === total && emptyPeriodOk && total > 0;
+        const isXero    = stmt.platform === 'xero';
+        const canExport = confirmed === total && (!isXero || emptyPeriodOk) && total > 0;
         return (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.72)',zIndex:9994,
             display:'flex',alignItems:'flex-start',justifyContent:'center',padding:20,overflowY:'auto'}}>
@@ -3503,10 +3520,12 @@ export default function App() {
                 display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                 <div>
                   <div style={{fontSize:16,fontWeight:700,color:C.t1,marginBottom:2}}>
-                    ✎ Code &amp; Create — {stmt.bankName||'Statement'}
+                    ✎ {isXero ? 'Code & Create' : 'Code & Reference'} — {stmt.bankName||'Statement'}
                   </div>
                   <div style={{fontSize:12,color:C.t3}}>
-                    Pathway 2 · Confirm a code for every line · Export one precoded Xero import
+                    {isXero
+                      ? 'Pathway 2 · Confirm a code for every line · Export one precoded Xero import'
+                      : 'Reference coding · Confirm a code for every line · Export QBO CSV with reference codes'}
                   </div>
                 </div>
                 <button onClick={() => setShowCodingModal(false)}
@@ -3519,20 +3538,34 @@ export default function App() {
               {/* Controls */}
               <div style={{padding:'12px 24px',borderBottom:`1px solid ${C.bdr}`,
                 display:'flex',gap:12,alignItems:'stretch',flexWrap:'wrap'}}>
-                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',flex:'1 1 300px',
-                  background:emptyPeriodOk ? C.grnDim : C.redDim,
-                  border:`1px solid ${emptyPeriodOk ? C.grnBrd : C.redBrd}`,
-                  borderRadius:8,padding:'10px 14px'}}>
-                  <input type="checkbox" checked={emptyPeriodOk}
-                    onChange={e => setEmptyPeriodOk(e.target.checked)}
-                    style={{accentColor:C.grn,width:14,height:14,flexShrink:0}}/>
-                  <span style={{fontSize:12,color:emptyPeriodOk ? C.grn : C.red,fontWeight:500,lineHeight:1.4}}>
-                    I confirm this period has no existing transactions in Xero
-                    <span style={{display:'block',fontSize:11,fontWeight:400,marginTop:1,opacity:0.8}}>
-                      Pathway 2 is for empty periods only — avoid duplicate entries
+                {isXero ? (
+                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',flex:'1 1 300px',
+                    background:emptyPeriodOk ? C.grnDim : C.redDim,
+                    border:`1px solid ${emptyPeriodOk ? C.grnBrd : C.redBrd}`,
+                    borderRadius:8,padding:'10px 14px'}}>
+                    <input type="checkbox" checked={emptyPeriodOk}
+                      onChange={e => setEmptyPeriodOk(e.target.checked)}
+                      style={{accentColor:C.grn,width:14,height:14,flexShrink:0}}/>
+                    <span style={{fontSize:12,color:emptyPeriodOk ? C.grn : C.red,fontWeight:500,lineHeight:1.4}}>
+                      I confirm this period has no existing transactions in Xero
+                      <span style={{display:'block',fontSize:11,fontWeight:400,marginTop:1,opacity:0.8}}>
+                        Pathway 2 is for empty periods only — avoid duplicate entries
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                ) : (
+                  <div style={{display:'flex',alignItems:'flex-start',gap:8,flex:'1 1 300px',
+                    background:C.bluDim,border:`1px solid ${C.bluBrd}`,
+                    borderRadius:8,padding:'10px 14px'}}>
+                    <span style={{fontSize:18,lineHeight:1,flexShrink:0}}>ℹ</span>
+                    <span style={{fontSize:12,color:C.blu,lineHeight:1.5}}>
+                      <strong>Reference coding for QBO</strong>
+                      <span style={{display:'block',fontWeight:400,marginTop:2}}>
+                        Confirm a code for each line. The exported CSV includes the codes in the Category &amp; Nominal Code columns as a reference guide — use them when manually coding in QBO. QBO does not apply codes automatically on bank CSV import.
+                      </span>
+                    </span>
+                  </div>
+                )}
                 <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',
                   background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'10px 14px'}}>
                   <input type="checkbox" checked={autoConfirmMem}
@@ -3602,21 +3635,31 @@ export default function App() {
                   return (
                     <div key={l.id||i}
                       style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 160px 44px',
-                        padding:'6px 24px',alignItems:'center',
+                        padding:'6px 24px',alignItems:'start',
                         background: l.confirmed ? C.grnDim : i%2===0 ? C.card : C.surf,
                         borderBottom:`1px solid ${C.bdr}`,transition:'background 0.1s'}}>
                       <div style={{fontSize:11,color:C.t3,fontFamily:'JetBrains Mono,monospace'}}>{l.date}</div>
-                      <div style={{fontSize:12,color:C.t1,overflow:'hidden',textOverflow:'ellipsis',
-                        whiteSpace:'nowrap',paddingRight:8,display:'flex',alignItems:'center',gap:6}}>
-                        <span style={{overflow:'hidden',textOverflow:'ellipsis',minWidth:0}}>
-                          {l.payee || l.description || '—'}
-                        </span>
-                        {l.fromMemory && (
-                          <span style={{flexShrink:0,fontSize:10,color:C.blu,background:C.bluDim,
-                            border:`1px solid ${C.bluBrd}`,borderRadius:3,padding:'1px 5px'}}>
-                            remembered
-                          </span>
-                        )}
+                      <div style={{paddingRight:8,display:'flex',flexDirection:'column',gap:3,overflow:'hidden'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:4,minWidth:0}}>
+                          <input value={l.payee||''}
+                            onChange={e => updateCodingLine(l.id||i, {payee: e.target.value})}
+                            placeholder="Payee"
+                            style={{flex:1,minWidth:0,padding:'3px 6px',background:C.bg,
+                              border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t1,fontSize:12,
+                              fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
+                          {l.fromMemory && (
+                            <span style={{flexShrink:0,fontSize:10,color:C.blu,background:C.bluDim,
+                              border:`1px solid ${C.bluBrd}`,borderRadius:3,padding:'1px 5px'}}>
+                              remembered
+                            </span>
+                          )}
+                        </div>
+                        <input value={l.description||''}
+                          onChange={e => updateCodingLine(l.id||i, {description: e.target.value})}
+                          placeholder="Description (optional)"
+                          style={{width:'100%',padding:'3px 6px',background:C.bg,
+                            border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t3,fontSize:11,
+                            fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
                       </div>
                       <div style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',
                         textAlign:'right',color:isPos ? C.grn : C.red}}>{amt}</div>
@@ -3654,7 +3697,7 @@ export default function App() {
                 display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
                 <div style={{fontSize:13,color: confirmed === total && total > 0 ? C.grn : C.t3}}>
                   {confirmed} / {total} lines confirmed
-                  {!emptyPeriodOk && total > 0 && (
+                  {isXero && !emptyPeriodOk && total > 0 && (
                     <span style={{marginLeft:10,fontSize:11,color:C.red}}>· tick the empty-period box above</span>
                   )}
                 </div>
@@ -3662,11 +3705,12 @@ export default function App() {
                   <button onClick={() => setShowCodingModal(false)}
                     style={{...btn('outline'),padding:'8px 16px',fontSize:13}}>Cancel</button>
                   <button onClick={exportP2} disabled={!canExport}
-                    title={canExport ? 'Export precoded Xero CSV and approve statement'
-                      : 'Confirm all lines and tick the empty-period box first'}
+                    title={canExport
+                      ? (isXero ? 'Export precoded Xero CSV and approve statement' : 'Export QBO CSV with reference codes and approve statement')
+                      : (isXero ? 'Confirm all lines and tick the empty-period box first' : 'Confirm all lines first')}
                     style={{...btn('primary'),padding:'8px 18px',fontSize:13,
                       opacity: canExport ? 1 : 0.38, cursor: canExport ? 'pointer' : 'default'}}>
-                    ↓ Export Precoded CSV
+                    {isXero ? '↓ Export Precoded CSV' : '↓ Export with Reference Codes'}
                   </button>
                 </div>
               </div>
