@@ -764,6 +764,9 @@ export default function App() {
   const [codingLines,     setCodingLines]     = useState([]);
   const [autoConfirmMem,  setAutoConfirmMem]  = useState(false);
   const [emptyPeriodOk,   setEmptyPeriodOk]   = useState(false);
+  const [chartAccounts,   setChartAccounts]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_chartAccounts') || '[]'); } catch { return []; }
+  });
   const [qboImportRows, setQboImportRows] = useState(null); // null=closed, array=mapping modal open
 
   const stmtsRef          = useRef([]);
@@ -771,6 +774,7 @@ export default function App() {
   const rulesInputRef     = useRef(null);
   const qboInputRef       = useRef(null);
   const receiptInputRef   = useRef(null);
+  const chartInputRef     = useRef(null);
   const payeeMemoryRef    = useRef({});
   const categoryMemoryRef = useRef({});
 
@@ -788,6 +792,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('sa_showNominal',      String(showNominal));       }, [showNominal]);
   useEffect(() => { localStorage.setItem('sa_defaultType',      uploadDefaultType);         }, [uploadDefaultType]);
   useEffect(() => { localStorage.setItem('sa_defaultPlatform',  uploadDefaultPlatform);     }, [uploadDefaultPlatform]);
+  useEffect(() => { localStorage.setItem('sa_chartAccounts',    JSON.stringify(chartAccounts)); }, [chartAccounts]);
 
   useEffect(() => {
     const l = document.createElement('link');
@@ -1353,6 +1358,31 @@ export default function App() {
     approve(stmt.id);
     updateS(stmt.id, {pathway: 'p2'});
     setShowCodingModal(false);
+  };
+
+  const importChartCSV = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const rows = ev.target.result.split(/\r?\n/)
+        .map(r => r.split(',').map(c => c.trim().replace(/^"(.*)"$/s, '$1')));
+      if (rows.length < 2) return;
+      const hdr = rows[0].map(h => h.replace(/^\*/, '').toLowerCase());
+      const ci = hdr.findIndex(h => h === 'code' || h === 'account number');
+      const ni = hdr.findIndex(h => h === 'name');
+      const ti = hdr.findIndex(h => h === 'type');
+      if (ci < 0 || ni < 0) {
+        alert('Columns "Code" and "Name" not found.\n\nXero: Accounting → Chart of Accounts → Export\nQBO: Accounting → Chart of Accounts → Export → Excel/CSV');
+        return;
+      }
+      const parsed = rows.slice(1)
+        .filter(r => r[ci] && r[ni])
+        .map(r => ({ code: r[ci], name: r[ni], type: ti >= 0 ? r[ti] : '' }));
+      setChartAccounts(parsed);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const startCloudAuth = async provider => {
@@ -3519,7 +3549,40 @@ export default function App() {
                     </span>
                   </span>
                 </label>
+                <div style={{display:'flex',alignItems:'center',gap:8,
+                  background:C.surf,border:`1px solid ${chartAccounts.length?C.bluBrd:C.bdr}`,
+                  borderRadius:8,padding:'10px 14px',flexShrink:0}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,color:chartAccounts.length?C.blu:C.t3,fontWeight:500}}>
+                      {chartAccounts.length ? `📋 ${chartAccounts.length} accounts` : '📋 No chart loaded'}
+                    </div>
+                    <div style={{fontSize:11,color:C.t4,marginTop:1}}>
+                      {chartAccounts.length ? 'Code inputs show autocomplete' : 'Import for code suggestions'}
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:4,flexShrink:0}}>
+                    <button onClick={() => chartInputRef.current?.click()}
+                      style={{...btn('outline'),padding:'3px 9px',fontSize:11}}>
+                      {chartAccounts.length ? 'Replace' : 'Import CSV'}
+                    </button>
+                    {chartAccounts.length > 0 && (
+                      <button onClick={() => setChartAccounts([])}
+                        title="Clear chart"
+                        style={{...btn('outline'),padding:'3px 7px',fontSize:11,
+                          color:C.red,borderColor:C.redBrd}}>✕</button>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              {/* hidden chart file input */}
+              <input ref={chartInputRef} type="file" accept=".csv" onChange={importChartCSV} style={{display:'none'}}/>
+              {/* datalist for account code autocomplete */}
+              <datalist id="sa-chart-datalist">
+                {chartAccounts.map(a => (
+                  <option key={a.code} value={a.code}>{a.code} — {a.name}{a.type ? ` (${a.type})` : ''}</option>
+                ))}
+              </datalist>
 
               {/* Transaction table */}
               <div style={{maxHeight:'52vh',overflowY:'auto'}}>
@@ -3558,7 +3621,7 @@ export default function App() {
                       <div style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',
                         textAlign:'right',color:isPos ? C.grn : C.red}}>{amt}</div>
                       <div style={{paddingLeft:8}}>
-                        <input value={l.code}
+                        <input value={l.code} list="sa-chart-datalist"
                           onChange={e => updateCodingLine(l.id||i, {code: e.target.value, confirmed: false})}
                           placeholder="e.g. 400"
                           style={{width:'100%',padding:'4px 8px',background:C.bg,
