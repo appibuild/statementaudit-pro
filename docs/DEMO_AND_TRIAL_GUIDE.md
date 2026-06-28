@@ -2,6 +2,8 @@
 
 **Audience:** This document is for you (the product owner) — it covers how to run a polished Zoom demo and how to give an accountant trial access without exposing your API key, source code, or infrastructure.
 
+**Updated:** 2026-06-28 — Pathway 2 (Code & Create), trial gate built, chart of accounts import added.
+
 ---
 
 ## 1. Security Posture — What Is and Isn't Visible
@@ -25,11 +27,12 @@ Complete these before the Zoom call starts.
 
 ### 5 minutes before
 - [ ] **Wake the server.** Open your Render URL in a browser tab. Free-tier Render services sleep after 15 minutes of inactivity. Opening it 5 minutes early ensures it's live before your guest sees any loading delay.
-- [ ] **Prepare 2–3 sample PDFs.** Use your own test-account statements (not client data). Keep them in a folder called `Demo Statements` on your desktop for quick drag-and-drop.
+- [ ] **Prepare 2–3 sample PDFs.** Use your own test-account statements (not client data). Keep them in a folder called `Demo Statements` on your desktop for quick drag-and-drop. For Pathway 2, have a Xero statement ready.
 - [ ] **Clear your browser history dropdown.** Right-click the address bar → clear recent suggestions, or use a clean browser profile (Chrome: Profile icon → Add → Guest).
 - [ ] **Close all other tabs** in the window you'll share. The only tab visible should be the app.
 - [ ] **Set browser zoom to 90%.** The app is designed for full-width viewing; 90% gives comfortable margins.
 - [ ] **Hide your bookmarks bar** (Ctrl/Cmd+Shift+B) — a bar full of personal shortcuts is a distraction.
+- [ ] **If demoing trial mode:** confirm `VITE_TRIAL_ACCESS_CODE` is set in Render and you have the current code to hand.
 
 ### Zoom settings
 - **Share a specific window**, not your whole desktop. Go to Share Screen → select the browser window only.
@@ -39,9 +42,13 @@ Complete these before the Zoom call starts.
 
 ---
 
-## 3. Demo Script — 12 Minutes
+## 3. Demo Script — 15 Minutes
 
 Run through this in order. Each section has a talking point to deliver while the screen catches up.
+
+Two route options depending on your audience:
+- **Route A (12 min):** Steps 1–7 — standard Pathway 1 workflow (QBO or Xero, books maintained).
+- **Route B (15 min):** Steps 1–8 — includes Pathway 2 (Xero catch-up/empty period). Best for Xero-heavy practices.
 
 ---
 
@@ -95,11 +102,13 @@ Run through this in order. Each section has a talking point to deliver while the
 
 ---
 
-### Step 5 — Approve & Export (1 min)
+### Step 5 — Approve & Export — Pathway 1 (1 min)
 
-**Do:** Click Approve & Export (or press the A key).
+**Do:** Click **✓ Approve & Export** (or press the A key).
 
 **Say:** *"One click. It downloads the transactions as a formatted CSV in QBO or Xero column order, and marks the statement approved. In QBO you go to Banking → Upload. In Xero: Accounting → Bank accounts → Import. No reformatting, no column mapping."*
+
+**Point out:** Statement moves to Approved. The ↺ Roll back to Review button now appears — you can return it to Review any time without re-running.
 
 ---
 
@@ -111,11 +120,37 @@ Run through this in order. Each section has a talking point to deliver while the
 
 ---
 
-### Step 7 — Close (1 min)
+### Step 7 — Close / Route A ends (1 min)
 
 **Say:** *"That's the full workflow — upload, extract, review, approve, export. For a typical monthly statement it takes under 90 seconds of human time once you've reviewed it. For a full audit pack across multiple accounts, everything merges into one export file from the Export tab."*
 
 **Offer:** *"I can send you a trial link right now — nothing to install, open it in your browser. Upload one of your own statements and see it live."*
+
+---
+
+### Step 8 — Pathway 2: Code & Create (Xero only, 3 min) — Route B only
+
+*Use this step when the audience works with Xero and has catch-up or backfill work — empty periods, new client onboarding, missing months.*
+
+**Do:** Switch the Export To selector to Xero. Process a statement (or use one already approved — roll it back first). Once the statement reconciles, point to the two buttons in the review header: **✓ Approve & Export** and **✎ Code & Create**.
+
+**Say:** *"For Pathway 1 — books are maintained — you click Approve and the import file drops into Xero for matching. But for catch-up work — periods where nothing has been entered yet — there's a second pathway."*
+
+**Do:** Click **✎ Code & Create**.
+
+**Say:** *"This opens a coding confirmation screen. Every transaction is listed with a proposed account code — drawn from the payee memory for recognised merchants, or defaulting to a holding account for new ones. You confirm or correct each code before a single line is exported."*
+
+**Point out:** The "remembered" badge on lines the app already knows. The empty-period assertion checkbox.
+
+**Say:** *"The empty-period tick is a hard requirement — it prevents Pathway 2 from running against a period that already has entries in Xero, which would create duplicates. You're asserting it's a clean slate."*
+
+**Do:** If you've loaded a chart of accounts CSV (Accounting → Chart of Accounts → Export in Xero), show the autocomplete suggestions on a code field.
+
+**Say:** *"If you've imported the client's chart of accounts, every code field autocompletes from their real taxonomy. The app never infers a code — it's a lookup, not a guess. You still confirm every line."*
+
+**Do:** Tick the empty-period box, confirm a few lines, click **↓ Export Precoded CSV**.
+
+**Say:** *"One file. Import it into Xero under Accounting → Bank Accounts → Import and it lands already coded — the account code and tax rate are set, and Xero reconciles it against the bank feed in the same pass. That's the catch-up workflow: extract, code, export, one import."*
 
 ---
 
@@ -124,7 +159,23 @@ Run through this in order. Each section has a talking point to deliver while the
 ### What they need
 **Nothing to install.** The app is a web application. You give them a URL, they open it in any modern browser (Chrome, Edge, Safari, Firefox). It works on desktop; it is not optimised for mobile.
 
+### Trial gate (already built — activate in Render)
+
+The app has a full trial access code gate built in. To activate it:
+
+1. Go to your Render service → **Environment**
+2. Set `VITE_TRIAL_MODE=true`
+3. Set `VITE_TRIAL_LIMIT=3` (or your preferred cap — number of statements)
+4. Set `VITE_TRIAL_ACCESS_CODE=YOURCODE` (pick a word or short phrase)
+5. Redeploy
+
+The trial user will see a full-screen gate on first visit asking for the code. A counter in the nav shows statements remaining. Exports are prefixed `TRIAL_`. After the cap, the app stays open for review but processing is blocked — they see a "Trial Complete" screen with a mailto upgrade link.
+
+To rotate the code between trials: change `VITE_TRIAL_ACCESS_CODE` in Render and redeploy.  
+To reset your own trial counter without a full redeploy: visit `?reset=YOURCODE` in the URL bar.
+
 ### Sharing the URL
+
 Send them the Render URL privately — by email or direct message. **Do not post it publicly** (LinkedIn, website, social media) while you're on a free-tier Render plan, as open access drains your Anthropic API quota.
 
 ### What to tell them (copy-paste this)
@@ -133,7 +184,9 @@ Send them the Render URL privately — by email or direct message. **Do not post
 >
 > Here's your trial link: `https://[your-app-name].onrender.com`
 >
-> Open it in Chrome or Edge on a desktop. Upload any UK bank statement PDF to see the extraction and reconciliation live.
+> When prompted, enter your access code: `[YOURCODE]`
+>
+> Open it in Chrome or Edge on a desktop. Upload any UK bank statement PDF to see the extraction and reconciliation live. The trial allows [N] statements — enough to see the full workflow.
 >
 > **Privacy note:** Your PDF is sent over HTTPS to the processing server, read by the AI to extract transactions, and the results are returned to your browser. The file is not stored on the server after processing. No transaction data leaves your browser session unless you choose to export it or connect your own Google Drive / OneDrive.
 >
@@ -141,13 +194,12 @@ Send them the Render URL privately — by email or direct message. **Do not post
 
 ### Protecting your API during trials
 
-| Option | Effort | Effect |
+| Option | Status | Notes |
 |---|---|---|
-| Share URL privately (current) | None | Effective for small-scale trials. Anyone with the link can use it. |
-| Add an access code | 30-min build | A simple modal on first visit asks for a code you've set. Stops casual use. Ask to add this feature. |
-| Per-user invite tokens | 1–2 days build | Each invitee gets a unique token link. Tracks usage per person. Full multi-user auth is a later milestone. |
-
-For the current stage — private trials with named accountants — sharing the URL directly is fine. If you're sending it to more than 10 people, add the access code gate first.
+| Share URL privately | Live | Effective for small-scale trials. |
+| Access code gate | **Built — activate via Render env vars** | Set `VITE_TRIAL_ACCESS_CODE`. Rotate between demos. |
+| Processing cap | **Built — activate via Render env vars** | Set `VITE_TRIAL_LIMIT=3`. |
+| Per-user invite tokens | Deferred | Full multi-user auth is a later milestone. |
 
 ---
 
@@ -170,6 +222,9 @@ For the current stage — private trials with named accountants — sharing the 
 
 **"Could someone else see my statements?"**
 > No. There is no shared database, no user accounts at this stage. Your data lives in your browser only. Two people using the same URL see completely separate sessions.
+
+**"What's the difference between Pathway 1 and Pathway 2?"**
+> Pathway 1 is for books that are maintained — the entries exist, the statement is audited and exported for matching. Pathway 2 is for empty periods — catch-up or rescue bookkeeping where no entries have been made yet. Pathway 2 adds a per-line coding step (you confirm an account code for every transaction before exporting) and produces a single precoded import file that Xero codes and reconciles in one pass.
 
 ---
 
@@ -213,8 +268,8 @@ Date        Description                  Debit      Credit
 Closing balance:  £5,664.00
 ```
 
-This produces a clean 100/100 confidence score and demonstrates every feature of the app without involving any real financial data.
+This produces a clean high confidence score and demonstrates every feature. It also works for Pathway 2 demos — set Export To: Xero, process it, then click **✎ Code & Create** to walk through the coding step with no real data on screen.
 
 ---
 
-*Document version: 2026-06-26 | StatementAudit Pro*
+*Document version: 2026-06-28 | StatementAudit Pro*
