@@ -3458,7 +3458,7 @@ export default function App() {
               'Upload CSV — Xero reads Date, Amount, Payee, Description',
               'Amount: negative = money out, positive = money in',
               'Analysis Code is a bank reference label (e.g. payment type) — it is NOT a chart-of-accounts code',
-              'To post directly to account codes, use the ↓ Pre-coded export — adds Account Code + Tax Rate columns Xero requires',
+              'To post directly to account codes, use ✎ Code & Create — confirm a code per line, then export a precoded CSV with Account Code, Tax Rate (VAT/GST) and Tracking columns',
               'Review matches against rules, accept and post',
             ]},
           ].map(({title,color,steps}) => (
