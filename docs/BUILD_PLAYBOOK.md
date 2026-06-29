@@ -1,6 +1,6 @@
 # Build Playbook — portable lessons for any app build
 
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-29
 **What this is:** the transferable lessons, not the project specifics. One principle per line. Replace this file, never append; keep it short. Update at session-end alongside the handover. Project-only rules live in that project's GUARDRAILS / instructions and just point here.
 
 ---
@@ -35,10 +35,10 @@
 - Touch the most-protected areas (the gate, the money math, the prompt) only deliberately — never as a side effect. Keep a machine-checked list of non-negotiables (a `verify.sh` of fingerprints) and confirm it stays green on every change.
 - Highest-value, broadest-protection job first; smarter-but-narrower jobs after.
 
-## Working method — two channels & anti-drift
+## Working method — single channel & anti-drift
 
-- Split strategy/planning from hands-on edits into two channels; they never touch the same file at once. A dated handover is the shared memory between them.
-- The repo folder is the single source of truth. Never work from a pasted copy — point each channel at the file on disk.
+- The repo folder is the single source of truth. Never work from a pasted copy — point Claude Code at the file on disk.
+- When using a two-channel setup (planning chat + Claude Code), they never touch the same file at once, and a dated handover is the shared memory between them. Single-channel (Claude Code only) is the simpler default when the tool has full file access.
 - Open every session by checking the live build against the last handover (run the fingerprint check). Reconcile before planning.
 - Close every session with a commit and a dated handover. (Skipping this is what makes the next session start messy — proven the hard way.)
 - Canonical files (code, instructions, this playbook): stable name, internal "Last updated" line, replaced not timestamped. Dated files (handovers, decision records): kept, never overwritten. Rule of thumb: date in filename → keep; no date → replace.

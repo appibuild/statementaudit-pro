@@ -1,6 +1,6 @@
 # StatementAudit Pro — Project Instructions
 
-**Last updated:** 2026-06-24 · Reconciled against the live build (`src/statement-audit-pro.jsx`, 1,568 lines) and `verify.sh`.
+**Last updated:** 2026-06-29 · Reconciled against the live build (`src/statement-audit-pro.jsx`, 4,799 lines, commit `4b63017`) and `verify.sh` (13/13 green).
 
 > **This file holds the *durable* truths — what is always true about the product, the architecture, and the non-negotiables.** For *current* status (what's built this week, the open build item, the next step), the source of truth is the **latest dated handover in `docs/`**, not this file. When this file and the live code disagree, **the live code wins** and this file gets corrected (Guardrail G3). When the latest handover and this file disagree on status, **the handover wins**.
 
@@ -46,7 +46,7 @@ A modular document-intelligence platform for UK/Jersey bookkeepers and practice 
 
 **Why it exists:** Open Banking feeds in QBO/Xero are unreliable (disconnects, duplicates). CSV import from the actual PDF is more reliable. The missing piece was PDF → clean reconciled CSV with a mandatory human audit step.
 
-**Core workflow:** upload up to 20 PDFs → Claude extracts transactions as JSON → user reviews/edits → user approves each statement (mandatory gate) → app builds QBO/Xero CSV → user imports manually.
+**Core workflow:** upload up to 50 PDFs → Claude extracts transactions as JSON → user reviews/edits → user approves each statement (mandatory gate) → app builds QBO/Xero CSV → user imports manually. Two pathways: Pathway 1 (standard CSV for matching) and Pathway 2 — Code & Create (per-line coding confirmation → single precoded Xero import, empty-period only).
 
 **Time saving:** 45–90 min per 100-transaction statement → 8–12 min with review. ~10–20 hours/month recovered for a 20-client practice.
 
@@ -79,6 +79,8 @@ This split is the reason the Lloyds and HSBC classes of error are closed in code
   status: 'queued' | 'processing' | 'review' | 'approved' | 'rejected' | 'error',
   accountType: 'current' | 'savings' | 'credit' | 'loan',
   platform: 'qbo' | 'xero',
+  jurisdiction: 'uk' | 'jersey' | 'other',  // set at upload; drives tax column in coding modal
+  pathway: 'p1' | 'p2' | null,              // set on export
   bankName, accountName,
   period: { from: 'DD/MM/YYYY', to: 'DD/MM/YYYY' } | null,
   openingBalance: number | null,
@@ -129,7 +131,7 @@ Also carries: `txVar`, `balVar`, `derivedOpening`, `openingLikelyOff`, `accountT
 
 ## Claude API Integration
 
-- **Model (pinned):** `claude-sonnet-4-6`. Updated 2026-06-24 — `claude-sonnet-4-20250514` was retired by Anthropic; `claude-sonnet-4-6` is the current equivalent pinned ID. Do not change without an A/B win on real statements (corrections-per-100, not vibes).
+- **Model (pinned):** `claude-sonnet-4-6`. Confirmed in source, `verify.sh` fingerprint, and GUARDRAILS.md — all three agree (resolved 2026-06-29). Do not change without an A/B win on real statements (corrections-per-100, not vibes). `/api/suggest-codes` uses `claude-haiku-4-5-20251001` (Layer 2 only — cheaper, billed to user's own key).
 - **max_tokens:** `32000`. Standalone build: API key held server-side in Express proxy (`server/index.js`); never in client code.
 - **No assistant prefill.** The user message asks for JSON only. Prefill was removed — the pinned model rejected it. **Never reintroduce it.**
 - **Robust JSON extractor (sole mechanism):** slice from `indexOf('{')` to `lastIndexOf('}')`, then `JSON.parse`. Never revert to a simple `JSON.parse(raw)`.
@@ -154,8 +156,10 @@ The Pass-1 pipeline is production-grade and the Confidence Threshold System is b
 
 | Feature | Status |
 |---|---|
-| Multi-PDF upload (drag & drop, up to 20) | ✅ Live |
+| Multi-PDF upload (drag & drop, up to 50) | ✅ Live |
+| Tax Jurisdiction selector at upload (UK VAT / Jersey GST / Other) | ✅ Live |
 | Per-file account type + platform (QBO/Xero) | ✅ Live |
+| Per-file jurisdiction override in Queue (Xero only) | ✅ Live |
 | Sequential Claude processing with live status | ✅ Live |
 | Statement balance extraction (opening/closing) | ✅ Live |
 | Running-balance capture + two-anchor opening auto-apply | ✅ Live |
@@ -167,22 +171,41 @@ The Pass-1 pipeline is production-grade and the Confidence Threshold System is b
 | Account-type misdetection + one-click switch | ✅ Live |
 | Nominal Code + Notes columns | ✅ Live |
 | Flag (⚑) and delete (✕) per row | ✅ Live |
+| Per-row reset (↺) + full statement reset | ✅ Live |
+| Roll-back approved statement to Review | ✅ Live |
+| Expected-vs-printed balance column (live per-row) | ✅ Live |
+| FX badge (💱 CCY) on foreign-currency transactions in Review | ✅ Live |
 | `wrapped` / `ambiguous` signals + row badges | ✅ Live |
 | Duplicate detection (cross-statement) | ✅ Live |
 | Cross-statement duplicate viewer (read-only, jump-to-statement) | ✅ Live |
 | Raw-response capture on parse failure (diagnostic) | ✅ Live |
 | Period gap/overlap detection | ✅ Live |
 | Cross-statement search | ✅ Live |
-| Confidence Threshold System | ✅ Live |
+| 7-factor Confidence score (⚡ High / Good / Fair / Review) | ✅ Live |
 | Reprocess (per-row Run) + bulk Run/select + backoff | ✅ Live |
 | "No transactions found" message | ✅ Live |
 | Approve & Export gate (mandatory, hard-blocked on non-reconciliation) | ✅ Live |
-| QBO + Xero CSV export (incl. Xero pre-coded), merge across approved | ✅ Live |
+| QBO + Xero CSV export, merge across approved | ✅ Live |
 | QBO/Xero import step guides | ✅ Live |
+| Audit Workbook (.xlsx) export — 3 sheets incl. GST Treatment column | ✅ Live |
+| Guide Mode (💡 hover tooltips) | ✅ Live |
+| Pathway 2 — Code & Create modal (Xero only, empty-period gated) | ✅ Live |
+| Per-line coding confirmation gate (✓ toggle, empty-period assertion) | ✅ Live |
+| UK VAT rule-pack (`vatUK`) — 5 treatments, seam-guarded | ✅ Live |
+| Jersey GST rule-pack (`gstJersey`) — Module A, seam-guarded | ✅ Live |
+| Layer 2 AI coding suggestions (✦ badge, proposals only, haiku model) | ✅ Live |
+| Payee / category / treatment / tracking memory (localStorage) | ✅ Live |
+| Chart of Accounts import (CSV) + CoA OAuth pull (Xero PKCE / QBO) | ✅ Live |
+| Xero Tracking Categories (import CSV, optional, not a gate) | ✅ Live |
+| FX spot-rate sub-row in coding modal (frankfurter.app, free) | ✅ Live |
+| Multi-client Projects dashboard (◈ tab, read/navigate only) | ✅ Live |
+| Trial gate (`VITE_TRIAL_MODE` / `VITE_TRIAL_LIMIT` / `VITE_TRIAL_ACCESS_CODE`) | ✅ Live |
+| Cloud storage — personal Google Drive / OneDrive (BYOC) | ✅ Live |
+| M365 Practice Workspace (shared OneDrive, Files.ReadWrite scope) | ✅ Live |
 
-### Confidence Threshold System (built)
+### Confidence Threshold System (built — 7-factor scale, 2026-06-25)
 
-`calcConfidence(rec)`: start 100; −40 if not reconciled (variance ≥ £0.02); −15 if closing balance not read; wrapped rows no penalty; clamp 0–100. Stored on the statement, recomputed on edits. `greenLit`: score ≥ 95 AND reconciles AND zero `ambiguous` lines (hard rule) AND no cross-statement duplicates (evaluated live at display time). `ConfidenceBadge`: green ⚡ ≥ 95, amber NN/100 below. The fast-track panel shows the reconciliation strip + confidence + a single green ⚡ Approve & Export (the same gate handler) + "Review in detail". The gate is untouched.
+`calcConfidence(rec)`: 7-factor weighted scale (100 start). Major deductions: −40 unreconciled, −15 no closing balance read, −10 count mismatch (LLM vs text layer), −10 balance breaks detected. Minor: −5 ambiguous rows, −5 date anomalies, −5 no cross-check available. Clamp 0–100. Tiers: **⚡ High conf** ≥ 95 (green), **Good** 80–94 (amber), **Fair** 70–79 (amber), **Review** < 70 (red). Badge shows tier label + hover explanation. Stored on statement, recomputed on edits. The gate is untouched — any score can be approved if reconciled.
 
 ---
 
@@ -214,9 +237,9 @@ These are checked by `verify.sh` by fingerprint; a change touching any of them i
 
 ## Deployment Roadmap (durable shape)
 
-- **Phase 1 — Backend proxy:** Node/Express holds the API key; same server handles OAuth2 for QBO/Xero. Frontend deploys as a static React app. Triggered by the first persistence need or the first paying customer (see `docs/DECISION_RECORD_2026-06-12_*`).
-- **Phase 2 — Direct API push to QBO/Xero:** one-click push, replacing manual CSV download/upload. Requires Phase 1.
-- **Phase 3 — Multi-user:** login per staff member, session-level audit logs, client workspace separation.
+- **Phase 1 — Backend proxy:** ✅ Live. Node/Express holds the API key; OAuth2 routes for Xero PKCE CoA + QBO CoA + Layer 2 suggestions. Frontend deploys as static React (Vite build). Render Frankfurt.
+- **Phase 2 — Direct API push to QBO/Xero:** one-click push, replacing manual CSV download/upload. Not yet built.
+- **Phase 3 — Multi-user:** login per staff member, Postgres, session-level audit logs, client workspace separation. **Parked.** Compliance gate must close first: JOIC registration, Render DPA, Anthropic DPF, Customer DPA, Privacy Policy, RoPA. M365 Practice Workspace (shipped 2026-06-29) is NOT Phase 3 — it uses the practice's existing M365 DPA and does not open the Phase 3 gate.
 
 **Hosting (decided 2026-06-23 — see `docs/DECISION_RECORD_2026-06-23_1800_*`):** **Render** (Starter, paid/always-on), **Frankfurt / EU region**. Chosen because its web services allow a request up to ~100 minutes (no serverless cut-off mid-extraction, unlike Vercel's function timeouts), it keeps data in the EEA, has low ops burden, and runs ~£6–11/month (service, plus Postgres only when persistence is added). The dominant variable cost is the Anthropic API (~£0.13–0.31/statement), which scales with paying usage, not a fixed burn. Full EU-sovereign routing (e.g. Claude via an EU cloud endpoint such as Bedrock Frankfurt) is a *later* option, only if a customer requires it — the host alone doesn't deliver it, because inference still reaches the US Anthropic API.
 

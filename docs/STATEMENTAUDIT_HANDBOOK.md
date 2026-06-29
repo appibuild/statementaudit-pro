@@ -2,7 +2,7 @@
 
 **Purpose:** Upload a bank statement PDF → review and correct the AI extraction → export a clean CSV for QuickBooks or Xero. The app never lets you export until the numbers add up. This guide explains every feature and how to fix the errors you'll actually see.
 
-**Updated:** 2026-06-29 — M365 Practice Workspace; Guide Mode tooltips; Module A: Jersey GST treatment + Xero Tracking Categories; GST Treatment column in Audit Workbook.
+**Updated:** 2026-06-29 — 7-feature build: UK VAT rule-pack + Tax Jurisdiction selector; Layer 2 AI coding suggestions; FX badge + spot-rate lookup; Projects dashboard; Xero/QBO CoA OAuth pull; batch limit 50. Also: M365 Practice Workspace; Guide Mode; Module A Jersey GST; Xero Tracking Categories; GST Treatment in Audit Workbook.
 
 ---
 
@@ -20,6 +20,24 @@ On arrival at Review you choose a pathway:
 | **Pathway 2 — Code & Create** | Period is empty. No entries exist yet. Catch-up or rescue bookkeeping. **Xero only.** | Single precoded CSV — lands coded + reconciled in one Xero import. |
 
 Both pathways go through the same approval gate. Numbers must reconcile before anything exports.
+
+You can upload up to **50 statements** per batch.
+
+---
+
+### Tax Jurisdiction (Upload screen)
+
+Before uploading, set the **Tax Jurisdiction** selector:
+
+| Option | When to use |
+|---|---|
+| **United Kingdom (VAT)** | UK bank statements going into Xero with UK VAT treatment |
+| **Jersey (GST)** | Jersey bank statements going into Xero with Jersey GST treatment |
+| **Other / No Tax Column** | Any other jurisdiction; no tax column shown in coding modal |
+
+Your selection is saved as the default for future uploads. You can override it per-file in the Queue (Xero statements only) using the jurisdiction dropdown on each row.
+
+The jurisdiction drives the **Tax column** in the Pathway 2 coding modal — VAT Treatment for UK, GST Treatment for Jersey, hidden for Other.
 
 ---
 
@@ -92,6 +110,14 @@ Every row shows its **printed balance** from the PDF, with a live indicator:
 | `—` | Grey | No opening balance, so running total can't be computed |
 
 **This column updates live as you edit.** If you flip a transaction from debit to credit, the ✓ on that row turns green (or red) immediately.
+
+---
+
+### FX Badge (💱)
+
+Transactions with a foreign currency mentioned in the description (e.g. USD, EUR, AUD) are automatically flagged with a **💱 CCY** badge in the description cell. This is a visual indicator only — it does not affect the transaction amount or reconciliation.
+
+To look up a spot rate for a foreign-currency transaction, use the **FX sub-row in the coding modal** (see below under Pathway 2 — Code & Create).
 
 ---
 
@@ -214,8 +240,20 @@ Clicking **✎ Code & Create** opens a full-screen coding screen with every tran
 - **GST Treatment** — Jersey GST treatment for this transaction (Xero only; see below)
 - **✓ toggle** — click to confirm both the code and treatment; click again to un-confirm
 
-**To confirm a line:** Check the code is correct, select a GST treatment, then click the ✓ toggle. The row turns green.  
+**To confirm a line:** Check the code is correct, select a tax treatment (if applicable), then click the ✓ toggle. The row turns green.  
 **To change a code:** Edit the Account Code field — confirming resets until you tick ✓ again.
+
+---
+
+### Layer 2 AI Coding Suggestions (✦)
+
+When the coding modal opens, unknown payees (lines with no remembered code) are automatically sent to the AI for a suggested code. If a suggestion is available, a purple **✦ code — name** button appears below the Account Code input.
+
+**Clicking the ✦ button pre-fills the code field but does NOT confirm the line.** You still need to click the ✓ toggle. The suggestion is a proposal — you decide.
+
+- Suggestions only fire for lines with no remembered code (Layer 1 lookup takes precedence)
+- If the suggestion service is unavailable, the button simply doesn't appear — the gate is not affected
+- Once you confirm a suggested code, it is remembered for next time via the standard payee memory
 
 ---
 
@@ -224,6 +262,28 @@ Clicking **✎ Code & Create** opens a full-screen coding screen with every tran
 Tick **Auto-confirm remembered payees** to bulk-confirm all lines where a code is already remembered from a previous session. The "remembered" badge marks these lines.
 
 This switch saves clicks on recurring payees — salary, rent, utilities — but does not confirm lines with unknown payees. You still review and confirm those manually. The gate requires all lines confirmed; this switch cannot bypass it.
+
+---
+
+### UK VAT Treatment
+
+Each transaction on a UK Xero statement requires a VAT treatment before it can be confirmed. The app pre-fills from memory (if you've coded this payee before), then requires you to confirm or change it.
+
+**Treatments available:**
+
+| Treatment | Rate | When to use |
+|---|---|---|
+| **Standard Rate (20%)** | 20% | Default for most goods and services supplied in the UK |
+| **Reduced Rate (5%)** | 5% | Domestic fuel/power, children's car seats, some renovation works |
+| **Zero Rated (0%)** | 0% | Food, books, children's clothing, exports |
+| **Exempt** | — | Financial services, insurance, education, health/medical |
+| **Outside Scope / No VAT** | — | Non-business transactions; wages; items outside the VAT system |
+
+**Source:** HMRC · gov.uk/guidance/rates-of-vat-on-different-goods-and-services · Value Added Tax Act 1994.
+
+**The treatment the app proposes is a suggestion, not a fact.** You decide which treatment applies to each transaction. If in doubt, consult a UK VAT adviser.
+
+**Annual re-verification:** The UK VAT rule-pack carries a `verifiedAt` date. If it expires (365 days), the precoded export is blocked until the rule-pack is updated by the app operator.
 
 ---
 
@@ -305,6 +365,30 @@ Up to two tracking categories are supported (Xero's Tracking1/Tracking2 limit).
 
 ---
 
+### FX Spot Rate (Coding Modal)
+
+For transactions where the description mentions a foreign currency (USD, EUR, AUD, etc.), an **FX sub-row** appears below the tracking row in the coding modal. It shows the currency and two controls:
+
+- **Rate input** — enter a manual spot rate (e.g. 1.27 for USD → GBP)
+- **Look up (free)** — fetches the transaction-date rate from [frankfurter.app](https://www.frankfurter.app) at no cost (no account required)
+
+**The FX rate is reference-only.** It is stored alongside the coding line for your records but is **not** written to the exported CSV, **not** used in any arithmetic, and **not** part of reconciliation. It exists as a reference note for the accountant.
+
+---
+
+### Chart of Accounts — OAuth Pull
+
+As an alternative to importing a CoA CSV, you can connect directly to Xero or QuickBooks Online to pull the live chart:
+
+- **Connect Xero** — appears in the chart panel when `VITE_XERO_CLIENT_ID` is set in Render. Uses PKCE OAuth. Fetches all active accounts from your Xero organisation.
+- **Connect QBO** — appears when `VITE_QBO_CLIENT_ID` is set. Uses standard Intuit OAuth.
+
+After clicking, you are redirected to Xero/QBO to authorise, then redirected back. The accounts load into the coding screen automatically. **The access token is not stored** — it is used immediately and discarded. You will need to reconnect for each coding session.
+
+Both buttons are optional. If the env vars are not set, only CSV import is available (no button appears).
+
+---
+
 ### Exporting the Precoded File
 
 Once all lines are confirmed and the empty-period box is ticked, **↓ Export Precoded CSV** activates. Clicking it:
@@ -365,12 +449,27 @@ Once all lines are confirmed and the empty-period box is ticked, **↓ Export Pr
 1. Every row must have its ✓ toggle ticked — a line with an un-ticked toggle blocks export
 2. The empty-period assertion box must be ticked
 3. No line can have a blank Account Code field (enter a code first, then confirm)
-4. Every Xero row must have a GST Treatment selected — the ✓ toggle is disabled until one is chosen
-5. The footer message will tell you exactly which condition is blocking export (lines not confirmed / GST treatment missing / empty-period not ticked / rule-pack expired)
+4. Every Xero row must have a VAT/GST Treatment selected (UK = VAT, Jersey = GST) — the ✓ toggle is disabled until one is chosen; this condition does not apply if jurisdiction is set to "Other"
+5. The footer message will tell you exactly which condition is blocking export (lines not confirmed / VAT/GST treatment missing / empty-period not ticked / rule-pack expired)
 
 > **Note on tracking:** Tracking categories are optional and are NOT a gate. A missing tracking value will not block export.
 
 ---
+
+---
+
+## Projects Dashboard
+
+The **◈ Projects** tab (5th nav item) shows a grid of all your projects — one card per project.
+
+Each card shows:
+- Project name
+- Statement counts by status: **approved**, **⚑ for review**, **⚠ error**, **◷ queued**
+- Last activity date
+
+**Clicking a project card** switches to that project and opens the Review tab. This is read-only navigation — no data is changed.
+
+**+ New Project** card: click it to create a new project. A prompt asks for the project name.
 
 ---
 
@@ -431,11 +530,16 @@ Turn it off by clicking **💡 Guide** again.
 | Download audit workbook | Click **↓ Audit Workbook** in the header |
 | Approve and export (Pathway 1) | Click **✓ Approve & Export** (only active when reconciled) |
 | Open coding screen (Pathway 2) | Click **✎ Code & Create** — Xero statements only, reconciled only |
-| Load chart of accounts | In coding screen: click **📋 Import CSV** → select Xero CoA export |
-| Export precoded CSV (Pathway 2) | Confirm all lines + pick GST treatment for each + tick empty-period box → **↓ Export Precoded CSV** |
+| Load chart of accounts (CSV) | In coding screen: click **📋 Import CSV** → select Xero CoA export |
+| Pull chart from Xero (OAuth) | In coding screen: click **Connect Xero** (requires `VITE_XERO_CLIENT_ID` set in Render) |
+| Pull chart from QBO (OAuth) | In coding screen: click **Connect QBO** (requires `VITE_QBO_CLIENT_ID` set in Render) |
+| Accept AI code suggestion | Click the purple **✦ code — name** button → code pre-fills (still needs ✓ confirmation) |
+| Look up FX spot rate | In coding screen FX sub-row: click **Look up (free)** → fills from frankfurter.app |
+| Export precoded CSV (Pathway 2) | Confirm all lines + pick VAT/GST treatment for each + tick empty-period box → **↓ Export Precoded CSV** |
 | Load tracking categories | In coding screen: click **⚙ Import CSV** in the tracking panel → select Xero Tracking export |
 | Assign tracking per transaction | Select from the tracking sub-row beneath each coding line (optional) |
 | Turn on tooltips / Guide Mode | Click **💡 Guide** in the top-right toolbar (turns green when active) |
+| View all projects | Click **◈ Projects** tab |
 | Create practice workspace | ☁ Cloud → Connect OneDrive → Practice Workspace → + Create workspace |
 | Join practice workspace | ☁ Cloud → Connect OneDrive → Practice Workspace → Join workspace → paste share link |
 | Save cloud payee rules backup | Export tab → Payee Code Memory → **↓ Save Rules** → store the .json file safely |

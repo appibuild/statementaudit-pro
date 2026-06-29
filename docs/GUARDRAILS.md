@@ -1,6 +1,6 @@
 # StatementAudit Pro — Anti-Drift Guardrails
 
-**Created:** 2026-06-17 · **Last updated:** 2026-06-29 (Module A: Jersey GST rule-pack; verify.sh check 13 seam guard) · **Status:** Active. Applies to every session from here.
+**Created:** 2026-06-17 · **Last updated:** 2026-06-29 (G1 updated: 4,799 lines, commit 4b63017, 7-features handover added; 7-Feature Build section + Module A section added) · **Status:** Active. Applies to every session from here.
 
 **Why this exists:** A review traced the recurring pain to *drift* — and found it was several different kinds, not one. This document names each kind, its root cause, and the mechanical guardrail that prevents it. Board-reviewed (Fried, Hoy, Jarvis, Ogilvy, UK Practice Manager). G7 added 2026-06-23 after the 3B post-mortem. Single-channel transition recorded 2026-06-23. G6 expanded 2026-06-28 after Pathway 2 build (new safety-critical non-negotiables).
 
@@ -33,10 +33,9 @@ cd statementaudit-pro
 bash verify.sh                        # must be 13/13 green
 ```
 Then load:
-- `docs/STATEMENTAUDIT_HANDOVER_2026-06-28_TRANSACTION-MODE-EXPANSION.md` — expansion brief and non-negotiables
-- `src/statement-audit-pro.jsx` — canonical source (currently 3858 lines, commit ae7a9eb)
-
-> Note: `docs/STATEMENTAUDIT_PROJECT_INSTRUCTIONS.md` was referenced in the original G1 but does not exist — it was a two-channel artefact. The handover trail above is the current source of truth.
+- `docs/STATEMENTAUDIT_HANDOVER_2026-06-28_TRANSACTION-MODE-EXPANSION.md` — two-pathway non-negotiables (Pathway 2, G6 extension)
+- `docs/STATEMENTAUDIT_HANDOVER_2026-06-29_7FEATURES.md` — 7-feature build (UK VAT, batch 50, Layer 2, dashboard, FX, Xero/QBO CoA, M365 workspace)
+- `src/statement-audit-pro.jsx` — canonical source (currently 4,799 lines, commit `4b63017`)
 
 ### G2 — Save back and commit before closing (cures code drift at the source)
 
@@ -113,6 +112,20 @@ Every job or finding written into a handover carries a status tag: **`VERIFIED L
 ## G7 provenance (2026-06-23)
 
 Added after the findFlip / 3B sign-bug post-mortem. Surfaced by Claude Code's own feedback: the failure mode wasn't the two-channel structure but handover quality — a paper claim crossing the channel boundary as inherited fact. Simon Willison's remit (extraction reliability, solo-dev maintainability). Consistent with Ogilvy's note: the tag is a one-glance signal a tired reader acts on correctly.
+
+## 7-Feature Build (2026-06-29, commit ccf44ec)
+
+Five decisions that must not be silently reversed:
+
+1. **UK VAT rule-pack seam (same rule as Module A / gstJersey).** `vatUK` is consulted ONLY by (a) the coding modal Tax column and (b) `buildXeroPrecoded`. It MUST NOT appear in `recalc`, the balance walk, reconciliation arithmetic, or `BASE_PROMPT`/`PROMPTS`. The engine is tax-agnostic. Treatment is metadata on a transaction, never an arithmetic input. verify.sh seam guard range updated to 98–170 after vatUK pushed BASE_PROMPT to line 98.
+
+2. **Layer 2 AI coding suggestions are proposals only.** The purple ✦ badge pre-fills the code field; the human ✓ gate (Pathway 2 coding-confirm non-negotiable) still must be clicked. Never change the Layer 2 path to auto-confirm suggested codes. Layer 1 deterministic lookup is unchanged.
+
+3. **FX rate is reference-only.** The `l.fxRate` field on a coding line is NOT written to any exported CSV, NOT used in any arithmetic, and NOT part of reconciliation. Do not add FX arithmetic to the balance walk or the precoded export without a separate scope-confirmed build.
+
+4. **Xero/QBO CoA access tokens are not stored.** The PKCE/OAuth access tokens returned from `/api/xero-token` and `/api/qbo-token` are used in the callback closure only and are never written to localStorage, sessionStorage, or any persisted state. Do not add token persistence without a compliance review.
+
+5. **`/api/suggest-codes` uses claude-haiku — never the main extraction model.** Suggestions are cheap and fast by design. If the model is ever upgraded, re-check cost. The user's `ANTHROPIC_API_KEY` is billed; the app owner pays nothing.
 
 ## Module A — Jersey GST seam (2026-06-29, commit ae7a9eb)
 

@@ -2,7 +2,7 @@
 
 **Audience:** This document is for you (the product owner) — it covers how to run a polished Zoom demo and how to give an accountant trial access without exposing your API key, source code, or infrastructure.
 
-**Updated:** 2026-06-28 — Pathway 2 (Code & Create), trial gate built, chart of accounts import added.
+**Updated:** 2026-06-29 — 7-feature build: Tax Jurisdiction selector, UK VAT in coding modal, Layer 2 AI suggestions, FX badge, Projects dashboard, CoA OAuth pull, batch 50.
 
 ---
 
@@ -54,11 +54,11 @@ Two route options depending on your audience:
 
 ### Step 1 — Upload (2 min)
 
-**Do:** Open the Upload tab. Set Account Type (e.g. Current Account). Set Export To (QuickBooks or Xero — ask which they use). Drag one PDF onto the upload zone.
+**Do:** Open the Upload tab. Set Account Type (e.g. Current Account). Set Export To (QuickBooks or Xero — ask which they use). Set Tax Jurisdiction (UK VAT, Jersey GST, or Other). Drag one PDF onto the upload zone.
 
-**Say:** *"Every bank statement you process starts here. You tell it the account type — current, savings, credit card, or loan — and which accounting software you're exporting to. Then drag and drop. No formatting, no templates, no column mapping."*
+**Say:** *"Every bank statement you process starts here. You tell it the account type, which accounting software you're exporting to, and the tax jurisdiction. Then drag and drop. No formatting, no templates, no column mapping."*
 
-**Point out:** The file appears in the Queue immediately, status badge shows "Queued."
+**Point out:** The file appears in the Queue immediately, status badge shows "Queued." You can upload up to 50 statements at once.
 
 ---
 
@@ -76,7 +76,7 @@ Two route options depending on your audience:
 
 **Do:** Click the statement to open the Review view.
 
-**Say (confidence score):** *"The badge tells you how cleanly it reconciled — and gives you a word to go with the number. Green with a lightning bolt means it passed every check. Amber with 'Good' means it reconciled but something minor was flagged. 'Fair' or 'Review' means look more closely. Hover and it tells you exactly what to check."*
+**Say (confidence score):** *"The badge gives you a number and a word. Green lightning bolt means it passed every check. 'Good' means reconciled with minor flags. 'Fair' or 'Review' means look closer. Hover and it tells you exactly what to check."*
 
 **Do:** Point to the reconciliation strip.
 
@@ -144,13 +144,19 @@ Two route options depending on your audience:
 
 **Say:** *"The empty-period tick is a hard requirement — it prevents Pathway 2 from running against a period that already has entries in Xero, which would create duplicates. You're asserting it's a clean slate."*
 
-**Do:** If you've loaded a chart of accounts CSV (Accounting → Chart of Accounts → Export in Xero), show the autocomplete suggestions on a code field.
+**Do:** Show the purple **✦ suggestion button** that appears for unknown payees.
 
-**Say:** *"If you've imported the client's chart of accounts, every code field autocompletes from their real taxonomy. The app never infers a code — it's a lookup, not a guess. You still confirm every line."*
+**Say:** *"For payees the app hasn't seen before, it fires a quick AI lookup in the background and suggests an account code with a ✦ button. Click it to pre-fill — but you still have to tick ✓. It's a proposal, not a decision."*
+
+**Do:** If you've loaded a chart of accounts CSV (Accounting → Chart of Accounts → Export in Xero), show the autocomplete suggestions on a code field. Or if Render env vars are set, show the **Connect Xero** / **Connect QBO** button for a live pull.
+
+**Say:** *"If you've imported the client's chart of accounts — or connected directly to Xero or QBO — every code field autocompletes from their real taxonomy. The app never infers a code — it's a lookup, not a guess. You still confirm every line."*
+
+**Point out:** The **VAT Treatment** column (UK) or **GST Treatment** column (Jersey) — one dropdown per line showing the tax treatment. This populates the Tax Rate column in the Xero import automatically.
 
 **Do:** Tick the empty-period box, confirm a few lines, click **↓ Export Precoded CSV**.
 
-**Say:** *"One file. Import it into Xero under Accounting → Bank Accounts → Import and it lands already coded — the account code and tax rate are set, and Xero reconciles it against the bank feed in the same pass. That's the catch-up workflow: extract, code, export, one import."*
+**Say:** *"One file. Import it into Xero under Accounting → Bank Accounts → Import and it lands already coded with account codes and tax rates set. That's the catch-up workflow: extract, code, export, one import."*
 
 ---
 

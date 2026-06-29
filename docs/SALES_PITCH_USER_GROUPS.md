@@ -62,6 +62,12 @@ One file. One import. Catch-up month closed.
 
 **The original PDF stays alongside.** Review the extracted table with the source document side by side. Spot a misread amount, click the cell, type the correction. No re-upload required.
 
+**AI code suggestions for unknown payees.** When you open the coding screen, the app automatically suggests account codes for payees it hasn't seen before — shown as a purple proposal you click to accept. You still confirm every line; the suggestion saves the lookup time.
+
+**UK VAT and Jersey GST built in.** Tax treatments (UK VAT 20%/5%/Zero/Exempt or Jersey GST) are per-line selectable in the coding screen and write directly into the Xero Tax Rate column on export. No manual tax column to maintain.
+
+**Foreign currency flag.** Transactions mentioning a foreign currency (USD, EUR, AUD, etc.) are automatically flagged 💱 in the Review table. Open the coding screen for a free spot-rate lookup on the transaction date.
+
 ---
 
 ## Security — The Questions Clients Will Ask
@@ -90,8 +96,10 @@ One file. One import. Catch-up month closed.
 ## Where It Works
 
 - **QuickBooks Online** — Pathway 1 (Audit & Match). Exports in QBO native column order. Banking → Upload → done.
-- **Xero** — Pathway 1 and Pathway 2 (Code & Create). Standard import for matching; precoded import for catch-up work.
+- **Xero** — Pathway 1 and Pathway 2 (Code & Create). Standard import for matching; precoded import with UK VAT / Jersey GST for catch-up work.
 - **Any modern browser** on desktop — Chrome, Edge, Safari, Firefox. Nothing to install.
+- **Up to 50 statements per batch** — process multiple clients' statements in one session.
+- **Multi-client Projects** — organise statements by client project; a dashboard tab shows approved/pending counts per project at a glance.
 
 ---
 
