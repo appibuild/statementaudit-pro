@@ -572,7 +572,7 @@ const confidenceHint = (score, rec, txList, crossCheck) => {
 //   Google  → console.cloud.google.com → APIs & Services → Credentials
 //             Create OAuth 2.0 Client ID (Web) → add your Render URL as redirect URI
 //   OneDrive → portal.azure.com → App registrations → New registration
-//             Add redirect URI, grant Files.ReadWrite.AppFolder + User.Read
+//             Add redirect URI, grant Files.ReadWrite + User.Read
 // Then paste the client IDs into the two empty strings below.
 const CLOUD_CFG = {
   google: {
@@ -587,8 +587,9 @@ const CLOUD_CFG = {
     clientId: import.meta.env.VITE_MICROSOFT_CLIENT_ID || '',
     authUrl:  'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    scope:    'Files.ReadWrite.AppFolder User.Read offline_access',
-    label:    'OneDrive',
+    // Files.ReadWrite (not AppFolder) — required for workspace shared folders
+    scope:    'Files.ReadWrite User.Read offline_access',
+    label:    'OneDrive / M365',
     color:    '#0078D4',
   },
 };
@@ -664,6 +665,68 @@ const cloudGetUser = async (provider, token) => {
     }
   } catch { return null; }
 };
+
+// ── M365 Workspace helpers ─────────────────────────────────────────────────
+// These operate on a regular OneDrive folder (not special/approot) so the
+// folder can be shared with colleagues via an "Anyone with the link" share.
+const MS_GRAPH = 'https://graph.microsoft.com/v1.0';
+
+const wsCreateFolder = async (token, name) => {
+  const r = await fetch(`${MS_GRAPH}/me/drive/root/children`, {
+    method: 'POST',
+    headers: {Authorization:`Bearer ${token}`, 'Content-Type':'application/json'},
+    body: JSON.stringify({name, folder:{}, '@microsoft.graph.conflictBehavior':'rename'}),
+  }).then(r => r.json());
+  if (r.error) throw new Error(r.error.message || 'Could not create workspace folder');
+  return r;
+};
+
+// Encode share URL as Microsoft "shareId" for Graph API access
+const wsShareId = url => 'u!' + btoa(url).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+
+const wsResolveShare = async (token, shareUrl) => {
+  const sid = wsShareId(shareUrl.trim());
+  const r = await fetch(`${MS_GRAPH}/shares/${sid}/driveItem`, {
+    headers: {Authorization:`Bearer ${token}`},
+  }).then(r => r.json());
+  if (r.error) throw new Error(r.error.message || 'Could not access shared folder — check the link is "Anyone with the link can edit"');
+  return r;
+};
+
+const wsSaveFile = async (token, driveId, folderId, filename, data) => {
+  const base = driveId
+    ? `${MS_GRAPH}/drives/${driveId}/items/${folderId}`
+    : `${MS_GRAPH}/me/drive/items/${folderId}`;
+  await fetch(`${base}:/${filename}:/content`, {
+    method: 'PUT',
+    headers: {Authorization:`Bearer ${token}`, 'Content-Type':'application/json'},
+    body: JSON.stringify(data),
+  });
+};
+
+const wsLoadFile = async (token, driveId, folderId, filename) => {
+  const base = driveId
+    ? `${MS_GRAPH}/drives/${driveId}/items/${folderId}`
+    : `${MS_GRAPH}/me/drive/items/${folderId}`;
+  const r = await fetch(`${base}:/${filename}:/content`, {headers:{Authorization:`Bearer ${token}`}});
+  if (!r.ok) return null;
+  return r.json().catch(() => null);
+};
+
+const wsListStmts = async (token, driveId, folderId) => {
+  const base = driveId
+    ? `${MS_GRAPH}/drives/${driveId}/items/${folderId}`
+    : `${MS_GRAPH}/me/drive/items/${folderId}`;
+  const r = await fetch(`${base}/children`, {headers:{Authorization:`Bearer ${token}`}}).then(r => r.json());
+  const files = (r.value || []).filter(f => f.name?.startsWith('sa_stmt_'));
+  return Promise.all(files.map(f => {
+    const dlBase = driveId
+      ? `${MS_GRAPH}/drives/${driveId}/items/${f.id}`
+      : `${MS_GRAPH}/me/drive/items/${f.id}`;
+    return fetch(`${dlBase}/content`, {headers:{Authorization:`Bearer ${token}`}}).then(r => r.json()).catch(() => null);
+  }));
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const dlWorkbook = (s, rec, treatmentMem = {}) => {
   const treatmentLabels = Object.fromEntries(
@@ -804,6 +867,17 @@ export default function App() {
   const [cloudSyncing,  setCloudSyncing]  = useState(false);
   const [cloudError,    setCloudError]    = useState(null);
   const [showCloud,     setShowCloud]     = useState(false);
+  // M365 Workspace state
+  const [workspaceMode,      setWorkspaceMode]      = useState(() => localStorage.getItem('sa_wsMode')     || 'none');
+  const [workspaceName,      setWorkspaceName]      = useState(() => localStorage.getItem('sa_wsName')     || '');
+  const [workspaceFolderId,  setWorkspaceFolderId]  = useState(() => localStorage.getItem('sa_wsFolderId') || '');
+  const [workspaceDriveId,   setWorkspaceDriveId]   = useState(() => localStorage.getItem('sa_wsDriveId')  || '');
+  const [workspaceShareUrl,  setWorkspaceShareUrl]  = useState(() => localStorage.getItem('sa_wsShareUrl') || '');
+  const [workspaceSyncing,   setWorkspaceSyncing]   = useState(false);
+  const [workspaceError,     setWorkspaceError]     = useState(null);
+  const [wsView,             setWsView]             = useState('none'); // 'none'|'create'|'join'
+  const [wsCreateInput,      setWsCreateInput]      = useState('');
+  const [wsJoinInput,        setWsJoinInput]        = useState('');
   const [showCodingModal, setShowCodingModal] = useState(false);
   const [codingStmtId,    setCodingStmtId]    = useState(null);
   const [codingLines,     setCodingLines]     = useState([]);
@@ -852,6 +926,11 @@ export default function App() {
   useEffect(() => { localStorage.setItem('sa_defaultType',      uploadDefaultType);         }, [uploadDefaultType]);
   useEffect(() => { localStorage.setItem('sa_defaultPlatform',  uploadDefaultPlatform);     }, [uploadDefaultPlatform]);
   useEffect(() => { localStorage.setItem('sa_chartAccounts',    JSON.stringify(chartAccounts)); }, [chartAccounts]);
+  useEffect(() => { localStorage.setItem('sa_wsMode',      workspaceMode);     }, [workspaceMode]);
+  useEffect(() => { localStorage.setItem('sa_wsName',      workspaceName);     }, [workspaceName]);
+  useEffect(() => { localStorage.setItem('sa_wsFolderId',  workspaceFolderId); }, [workspaceFolderId]);
+  useEffect(() => { localStorage.setItem('sa_wsDriveId',   workspaceDriveId);  }, [workspaceDriveId]);
+  useEffect(() => { localStorage.setItem('sa_wsShareUrl',  workspaceShareUrl); }, [workspaceShareUrl]);
 
   useEffect(() => {
     const l = document.createElement('link');
@@ -957,16 +1036,28 @@ export default function App() {
       .catch(err => setCloudError(err.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-save approved statements to cloud when connected
+  // Auto-save approved statements to cloud (personal approot or workspace folder)
   useEffect(() => {
     if (!cloudToken || cloudProvider === 'none') return;
     const unsaved = stmts.filter(s => s.status === 'approved' && !s.cloudSaved);
     unsaved.forEach(stmt => {
-      cloudSaveStmt(cloudProvider, cloudToken, stmt)
-        .then(() => updateS(stmt.id, {cloudSaved: true}))
-        .catch(console.error);
+      const save = (cloudProvider === 'microsoft' && workspaceMode === 'active' && workspaceFolderId)
+        ? wsSaveFile(cloudToken, workspaceDriveId, workspaceFolderId, `sa_stmt_${stmt.id}.json`, wsStripStmt(stmt))
+        : cloudSaveStmt(cloudProvider, cloudToken, stmt);
+      save.then(() => updateS(stmt.id, {cloudSaved: true})).catch(console.error);
     });
-  }, [stmts, cloudToken, cloudProvider]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stmts, cloudToken, cloudProvider, workspaceMode, workspaceFolderId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push workspace memory whenever any memory state changes (fires after exportP2 updates memory)
+  useEffect(() => {
+    if (workspaceMode !== 'active' || !cloudToken || !workspaceFolderId) return;
+    wsSaveFile(cloudToken, workspaceDriveId, workspaceFolderId, 'workspace_memory.json', {
+      payeeMemory, categoryMemory, treatmentMemory, trackingMemory,
+      chartAccounts, trackingCategories,
+      updatedBy: cloudUser?.email || 'unknown',
+      updatedAt: new Date().toISOString(),
+    }).catch(console.error);
+  }, [payeeMemory, categoryMemory, treatmentMemory, trackingMemory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getTx   = s => s.editedTransactions || s.transactions || [];
   const active  = stmts.find(s => s.id === activeId);
@@ -1533,7 +1624,97 @@ export default function App() {
     localStorage.removeItem('sa_cloudProvider');
     localStorage.removeItem('sa_cloudToken');
     localStorage.removeItem('sa_cloudUser');
+    wsLeave();
   };
+
+  // ── M365 Workspace functions ───────────────────────────────────────────────
+  const wsLeave = () => {
+    setWorkspaceMode('none'); setWorkspaceName(''); setWorkspaceFolderId('');
+    setWorkspaceDriveId(''); setWorkspaceShareUrl(''); setWorkspaceError(null);
+    ['sa_wsMode','sa_wsName','sa_wsFolderId','sa_wsDriveId','sa_wsShareUrl'].forEach(k => localStorage.removeItem(k));
+  };
+
+  const wsStripStmt = s => {
+    const tx = (s.editedTransactions || s.transactions || []).map(t =>
+      ({...t, receipt: t.receipt ? {filename: t.receipt.filename} : undefined})
+    );
+    return {...s, editedTransactions:tx, transactions:tx, pdfData:undefined, rawResponse:undefined, file:undefined};
+  };
+
+  const wsBuildMemory = () => ({
+    payeeMemory:        payeeMemoryRef.current,
+    categoryMemory:     categoryMemoryRef.current,
+    treatmentMemory:    treatmentMemoryRef.current,
+    trackingMemory:     trackingMemoryRef.current,
+    chartAccounts,
+    trackingCategories,
+    updatedBy:  cloudUser?.email || 'unknown',
+    updatedAt:  new Date().toISOString(),
+  });
+
+  const wsMergeMemory = mem => {
+    if (mem.payeeMemory)     setPayeeMemory(prev    => ({...mem.payeeMemory,    ...prev}));
+    if (mem.categoryMemory)  setCategoryMemory(prev  => ({...mem.categoryMemory, ...prev}));
+    if (mem.treatmentMemory) setTreatmentMemory(prev => ({...mem.treatmentMemory,...prev}));
+    if (mem.trackingMemory)  setTrackingMemory(prev  => ({...mem.trackingMemory, ...prev}));
+    if (mem.chartAccounts?.length    && !chartAccounts.length)           setChartAccounts(mem.chartAccounts);
+    if (mem.trackingCategories?.cats?.length && !trackingCategories.cats?.length) setTrackingCategories(mem.trackingCategories);
+  };
+
+  const wsCreate = async () => {
+    if (!cloudToken || cloudProvider !== 'microsoft') return;
+    setWorkspaceSyncing(true); setWorkspaceError(null);
+    try {
+      const name = wsCreateInput.trim() || 'StatementAudit Pro';
+      const folder = await wsCreateFolder(cloudToken, name);
+      setWorkspaceName(folder.name); setWorkspaceFolderId(folder.id); setWorkspaceDriveId('');
+      await wsSaveFile(cloudToken, '', folder.id, 'workspace_memory.json', wsBuildMemory());
+      const approved = stmtsRef.current.filter(s => s.status === 'approved');
+      for (const s of approved) {
+        await wsSaveFile(cloudToken, '', folder.id, `sa_stmt_${s.id}.json`, wsStripStmt(s));
+      }
+      setWorkspaceMode('active'); setWsView('none');
+    } catch(e) { setWorkspaceError(e.message || 'Failed to create workspace'); }
+    finally { setWorkspaceSyncing(false); }
+  };
+
+  const wsJoin = async () => {
+    if (!cloudToken || cloudProvider !== 'microsoft') return;
+    setWorkspaceSyncing(true); setWorkspaceError(null);
+    try {
+      const item = await wsResolveShare(cloudToken, wsJoinInput.trim());
+      const driveId = item.parentReference?.driveId || '';
+      setWorkspaceName(item.name || 'Shared Workspace');
+      setWorkspaceFolderId(item.id); setWorkspaceDriveId(driveId);
+      setWorkspaceShareUrl(wsJoinInput.trim());
+      const mem = await wsLoadFile(cloudToken, driveId, item.id, 'workspace_memory.json');
+      if (mem) wsMergeMemory(mem);
+      const loaded = await wsListStmts(cloudToken, driveId, item.id);
+      const valid = loaded.filter(Boolean);
+      if (valid.length) setStmts(prev => {
+        const ids = new Set(prev.map(s => s.id));
+        return [...prev, ...valid.filter(s => s?.id && !ids.has(s.id))];
+      });
+      setWorkspaceMode('active'); setWsView('none');
+    } catch(e) { setWorkspaceError(e.message || 'Could not join workspace — check the link is "Anyone with the link can edit"'); }
+    finally { setWorkspaceSyncing(false); }
+  };
+
+  const wsPushMemory = async () => {
+    if (workspaceMode !== 'active' || !cloudToken || !workspaceFolderId) return;
+    await wsSaveFile(cloudToken, workspaceDriveId, workspaceFolderId, 'workspace_memory.json', wsBuildMemory()).catch(console.error);
+  };
+
+  const wsPullMemory = async () => {
+    if (workspaceMode !== 'active' || !cloudToken || !workspaceFolderId) return;
+    setWorkspaceSyncing(true); setWorkspaceError(null);
+    try {
+      const mem = await wsLoadFile(cloudToken, workspaceDriveId, workspaceFolderId, 'workspace_memory.json');
+      if (mem) wsMergeMemory(mem);
+    } catch(e) { setWorkspaceError('Sync failed — ' + (e.message || 'check connection')); }
+    finally { setWorkspaceSyncing(false); }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const checkTrialCode = () => {
     if (trialCodeInput.trim() === TRIAL_CODE) {
@@ -3284,7 +3465,7 @@ export default function App() {
                       'Name: StatementAudit Pro. Supported account types: "Accounts in any organizational directory and personal Microsoft accounts (e.g. Skype, Xbox)".',
                       'Redirect URI: select Web from the dropdown and enter your exact app URL (e.g. https://your-app.onrender.com) → Register.',
                       'On the Overview page, copy the Application (client) ID (a GUID like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).',
-                      'Left menu: API permissions → + Add a permission → Microsoft Graph → Delegated permissions → search and tick Files.ReadWrite.AppFolder and User.Read → Add permissions.',
+                      'Left menu: API permissions → + Add a permission → Microsoft Graph → Delegated permissions → search and tick Files.ReadWrite and User.Read → Add permissions (Files.ReadWrite is needed for the shared workspace feature; Files.ReadWrite.AppFolder will not work).',
                       'If a "Grant admin consent" button appears, click it (required for organisation accounts; not needed for personal Microsoft accounts).',
                       'In Render dashboard → your service → Environment → add variable VITE_MICROSOFT_CLIENT_ID = (paste the GUID) → Save. Render rebuilds automatically.',
                     ]},
@@ -3319,9 +3500,9 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  {/* Connected state */}
+                  {/* Connected state header */}
                   <div style={{background:cloudProvider==='google'?'#E8F0FE':'#E6F2FB',border:`1px solid ${cloudProvider==='google'?'#C2D8FB':'#B8DCFB'}`,
-                    borderRadius:10,padding:'14px 16px',marginBottom:20,display:'flex',alignItems:'center',gap:12}}>
+                    borderRadius:10,padding:'14px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:36,height:36,borderRadius:'50%',background:cloudProvider==='google'?'#4285F4':'#0078D4',
                       display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff',flexShrink:0}}>
                       {cloudProvider === 'google' ? '📁' : '🗂'}
@@ -3335,23 +3516,151 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'14px 16px',marginBottom:20}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>Storage status</div>
+                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'12px 16px',marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8}}>Storage</div>
                     {[
                       ['Approved & saved', stmts.filter(s => s.cloudSaved).length],
                       ['Approved, pending save', stmts.filter(s => s.status==='approved' && !s.cloudSaved).length],
                     ].map(([label, count]) => (
-                      <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:`1px solid ${C.bdr}`}}>
-                        <span style={{fontSize:13,color:C.t2}}>{label}</span>
-                        <span style={{fontSize:13,fontWeight:600,color:C.t1}}>{count}</span>
+                      <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:`1px solid ${C.bdr}`}}>
+                        <span style={{fontSize:12,color:C.t2}}>{label}</span>
+                        <span style={{fontSize:12,fontWeight:600,color:C.t1}}>{count}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontSize:12,color:C.t2,lineHeight:1.6}}>
-                    Files are saved to a private app folder in your {CLOUD_CFG[cloudProvider].label}.
-                    To share with a colleague, grant them access to the <strong>StatementAudit Pro</strong> folder in your cloud account.
-                  </div>
+                  {/* M365 Workspace section (Microsoft only) */}
+                  {cloudProvider === 'microsoft' && (
+                    <div style={{border:`1px solid ${C.bdr}`,borderRadius:10,overflow:'hidden',marginBottom:16}}>
+                      <div style={{padding:'11px 14px',background:workspaceMode==='active'?'#E6F2FB':C.surf,
+                        display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{fontSize:15}}>👥</span>
+                        <span style={{fontSize:13,fontWeight:700,color:C.t1,flex:1}}>
+                          {workspaceMode==='active' ? workspaceName : 'Practice Workspace'}
+                        </span>
+                        {workspaceMode==='active' && (
+                          <span style={{fontSize:11,fontWeight:600,color:'#0078D4'}}>
+                            {workspaceSyncing ? '↻ Syncing…' : '✓ Active'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{padding:'12px 14px',background:C.card}}>
+                        {workspaceMode !== 'active' ? (
+                          <>
+                            <p style={{fontSize:12,color:C.t2,lineHeight:1.6,margin:'0 0 12px'}}>
+                              A workspace is a shared OneDrive folder. All colleagues who join
+                              the same workspace share payee memory, chart of accounts, and
+                              tracking categories — no duplicate setup across the team.
+                            </p>
+
+                            {workspaceError && (
+                              <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:7,
+                                padding:'8px 12px',fontSize:12,color:C.red,marginBottom:12}}>{workspaceError}</div>
+                            )}
+
+                            {wsView === 'none' && (
+                              <div style={{display:'flex',gap:8}}>
+                                <button onClick={() => { setWsView('create'); setWorkspaceError(null); }}
+                                  style={{flex:1,padding:'9px 12px',borderRadius:8,border:`1px solid #0078D4`,
+                                    background:'#0078D4',color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                  + Create workspace
+                                </button>
+                                <button onClick={() => { setWsView('join'); setWorkspaceError(null); }}
+                                  style={{flex:1,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.bdr}`,
+                                    background:C.surf,color:C.t1,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                  Join workspace
+                                </button>
+                              </div>
+                            )}
+
+                            {wsView === 'create' && (
+                              <div>
+                                <div style={{fontSize:11,color:C.t3,marginBottom:8,lineHeight:1.5}}>
+                                  Creates a new folder in your OneDrive. Share the folder link
+                                  with colleagues so they can join.
+                                </div>
+                                <input value={wsCreateInput} onChange={e => setWsCreateInput(e.target.value)}
+                                  placeholder="Workspace name (e.g. Smith & Co)"
+                                  style={{width:'100%',padding:'8px 10px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                    fontSize:12,color:C.t1,background:C.card,marginBottom:8,boxSizing:'border-box'}} />
+                                <div style={{display:'flex',gap:8}}>
+                                  <button onClick={wsCreate} disabled={workspaceSyncing}
+                                    style={{flex:1,padding:'8px',borderRadius:7,border:'none',
+                                      background:'#0078D4',color:'#fff',fontSize:12,fontWeight:600,
+                                      cursor:workspaceSyncing?'default':'pointer',opacity:workspaceSyncing?0.6:1}}>
+                                    {workspaceSyncing ? 'Creating…' : 'Create'}
+                                  </button>
+                                  <button onClick={() => { setWsView('none'); setWorkspaceError(null); }}
+                                    style={{padding:'8px 14px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                      background:C.surf,color:C.t2,fontSize:12,cursor:'pointer'}}>Cancel</button>
+                                </div>
+                              </div>
+                            )}
+
+                            {wsView === 'join' && (
+                              <div>
+                                <div style={{fontSize:11,color:C.t3,marginBottom:8,lineHeight:1.5}}>
+                                  Paste the OneDrive share link your admin gave you.
+                                  The link must be set to <strong>"Anyone with the link can edit"</strong>.
+                                </div>
+                                <input value={wsJoinInput} onChange={e => setWsJoinInput(e.target.value)}
+                                  placeholder="https://onedrive.live.com/…"
+                                  style={{width:'100%',padding:'8px 10px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                    fontSize:11,color:C.t1,background:C.card,marginBottom:8,boxSizing:'border-box'}} />
+                                <div style={{display:'flex',gap:8}}>
+                                  <button onClick={wsJoin} disabled={workspaceSyncing || !wsJoinInput.trim()}
+                                    style={{flex:1,padding:'8px',borderRadius:7,border:'none',
+                                      background:'#0078D4',color:'#fff',fontSize:12,fontWeight:600,
+                                      cursor:(workspaceSyncing||!wsJoinInput.trim())?'default':'pointer',
+                                      opacity:(workspaceSyncing||!wsJoinInput.trim())?0.5:1}}>
+                                    {workspaceSyncing ? 'Joining…' : 'Join'}
+                                  </button>
+                                  <button onClick={() => { setWsView('none'); setWorkspaceError(null); }}
+                                    style={{padding:'8px 14px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                      background:C.surf,color:C.t2,fontSize:12,cursor:'pointer'}}>Cancel</button>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div style={{fontSize:12,color:C.t2,lineHeight:1.6,marginBottom:12}}>
+                              Memory and statements are synced to the shared OneDrive folder.
+                              Colleagues who have the same share link see the same payee rules and chart of accounts.
+                            </div>
+
+                            {workspaceError && (
+                              <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:7,
+                                padding:'8px 12px',fontSize:12,color:C.red,marginBottom:10}}>{workspaceError}</div>
+                            )}
+
+                            {workspaceShareUrl && (
+                              <div style={{background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:7,
+                                padding:'8px 12px',marginBottom:10}}>
+                                <div style={{fontSize:10,color:C.t3,fontWeight:600,marginBottom:4}}>SHARE THIS LINK WITH COLLEAGUES</div>
+                                <div style={{fontSize:10,color:C.blu,wordBreak:'break-all',lineHeight:1.4}}>{workspaceShareUrl}</div>
+                              </div>
+                            )}
+
+                            <div style={{display:'flex',gap:8}}>
+                              <button onClick={wsPullMemory} disabled={workspaceSyncing}
+                                style={{flex:1,padding:'8px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                  background:C.surf,color:C.t1,fontSize:12,fontWeight:600,
+                                  cursor:workspaceSyncing?'default':'pointer',opacity:workspaceSyncing?0.6:1}}>
+                                {workspaceSyncing ? '↻ Syncing…' : '↻ Pull latest'}
+                              </button>
+                              <button onClick={wsLeave}
+                                style={{padding:'8px 14px',borderRadius:7,border:`1px solid ${C.redBrd}`,
+                                  background:C.redDim,color:C.red,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                Leave
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <button onClick={disconnectCloud}
                     style={{width:'100%',padding:'10px',borderRadius:8,border:`1px solid ${C.redBrd}`,

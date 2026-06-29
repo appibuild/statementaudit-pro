@@ -132,6 +132,16 @@ Two additions completing the Pathway 2 / Xero precoded export:
 
 **Non-negotiable unchanged:** tracking is optional (UK Practice Manager constraint). No gate on tracking values.
 
+## M365 Workspace (2026-06-29)
+
+Shared OneDrive workspace feature added. Key decisions that must not be silently reversed:
+
+- **Microsoft OAuth scope is now `Files.ReadWrite`** (not `Files.ReadWrite.AppFolder`). AppFolder is user-isolated and cannot be shared. Files.ReadWrite allows creating a regular OneDrive folder that can be shared with colleagues. Any future scope change that reverts to AppFolder will break the workspace.
+- **Workspace uses "Anyone with the link can edit" OneDrive shares.** The share URL is resolved via Microsoft Graph `v1.0/shares/{u!base64url(shareUrl)}/driveItem`. The admin creates the folder, gets the share URL from OneDrive, and distributes it to colleagues. The link must be "can edit" not "can view".
+- **Personal BYOC (approot) and Workspace are mutually exclusive modes.** When a workspace is active, new approved statements save to the workspace folder; the personal approot is unused. Disconnecting from Microsoft clears both.
+- **Workspace memory auto-pushes on every memory state change.** The `payeeMemory`, `categoryMemory`, `treatmentMemory`, `trackingMemory` useEffect calls `wsSaveFile` for `workspace_memory.json` when workspace is active. This is intentional — it keeps shared memory current after every export. Do not add a debounce or guard that skips small changes.
+- **Phase 3 (login-per-user, Postgres, per-user audit logs) remains parked.** This workspace feature is NOT Phase 3 and does not open the Phase 3 compliance gate. It uses the practice's existing M365 DPA. StatementAudit Pro is a connector, not a data store.
+
 ## P2-F1 resolved (2026-06-28, post-audit)
 
 The build-alignment audit found that the Export tab had "↓ Pre-coded" (per-statement) and "↓ Merged Xero (pre-coded)" buttons that called `buildXeroPrecoded` directly, bypassing both the per-line coding confirmation modal and the empty-period assertion. Board + user panel review: unanimous removal. Both buttons have been deleted. The only route to a precoded export is now through the Code & Create modal. Recorded here so future sessions don't re-introduce a convenience shortcut to this path.
