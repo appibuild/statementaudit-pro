@@ -3483,7 +3483,7 @@ export default function App() {
   // DASHBOARD
   // ─────────────────────────────────────────────────────────────────────
   const renderDashboard = () => {
-    const fmtTime = ts => { const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); };
+    const fmtDate = ts => { const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); };
     return (
       <div style={{padding:'22px 28px',overflowY:'auto',height:'100%',boxSizing:'border-box'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
@@ -3520,7 +3520,7 @@ export default function App() {
                   {queued   > 0 && <span style={{fontSize:12,color:C.t3}}>◷ {queued} queued</span>}
                   {pStmts.length === 0 && <span style={{fontSize:12,color:C.t4}}>No statements yet</span>}
                 </div>
-                {lastAt > 0 && <div style={{fontSize:11,color:C.t4}}>Last activity: {fmtTime(lastAt)}</div>}
+                {lastAt > 0 && <div style={{fontSize:11,color:C.t4}}>Last activity: {fmtDate(lastAt)}</div>}
               </div>
             );
           })}
