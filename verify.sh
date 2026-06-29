@@ -75,10 +75,10 @@ if ! grep -q "const gstJersey" "$SRC"; then
 else
   grn "✓ gstJersey rule-pack present"
   # Check extraction prompts (BASE_PROMPT + PROMPTS object) are GST-free
-  # BASE_PROMPT ends before line ~115; PROMPTS object ends around line ~140
-  gst_in_prompts=$(sed -n '74,140p' "$SRC" | grep -c "gstJersey\|gstTreatment" || true)
+  # After vatUK addition: BASE_PROMPT starts at ~98; PROMPTS object closes at ~165
+  gst_in_prompts=$(sed -n '98,170p' "$SRC" | grep -c "gstJersey\|gstTreatment" || true)
   if [ "$gst_in_prompts" -gt 0 ]; then
-    red "✗ GST seam breach — GST symbol found in extraction prompt block (lines 74-140)"
+    red "✗ GST seam breach — GST symbol found in extraction prompt block (lines 98-170)"
     FAIL=1
   else
     grn "✓ GST seam clean — extraction prompts are GST-free"

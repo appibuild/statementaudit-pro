@@ -70,6 +70,30 @@ const gstJersey = (() => {
   };
 })();
 
+// ─── UK VAT Rule-Pack ─────────────────────────────────────────────────────────
+// SEAM GUARD: consulted ONLY by (a) coding modal Tax column and (b) buildXeroPrecoded.
+// MUST NOT appear inside recalc, the balance walk, reconciliation, or BASE_PROMPT.
+const vatUK = (() => {
+  const treatments = [
+    { key:'standard20', label:'Standard Rate (20%)',   xeroName:'20% (VAT on Income)',  xeroNameExpense:'20% (VAT on Expenses)',  lawRef:'VATA 1994 s.2 — standard-rated supplies; Xero: 20% (VAT on Income) for credits / 20% (VAT on Expenses) for debits' },
+    { key:'reduced5',   label:'Reduced Rate (5%)',     xeroName:'5% (VAT on Income)',   xeroNameExpense:'5% (VAT on Expenses)',   lawRef:'VATA 1994 s.29A — reduced rate (domestic energy, certain building works, children\'s car seats)' },
+    { key:'zero',       label:'Zero Rated (0%)',        xeroName:'Zero Rated Income',    xeroNameExpense:'Zero Rated Expenses',    lawRef:'VATA 1994 s.30 — zero-rated supplies (food, books, children\'s clothing, public transport, exports)' },
+    { key:'exempt',     label:'Exempt',                 xeroName:'Exempt Income',        xeroNameExpense:'Exempt Expenses',        lawRef:'VATA 1994 Sch.9 — exempt supplies (financial services, insurance, land/property, education, health)' },
+    { key:'outside',    label:'Outside Scope / No VAT', xeroName:'No VAT',               lawRef:'Outside the scope of UK VAT — wages, dividends, transfers between own accounts' },
+  ];
+  return {
+    version:      '2026-06-29',
+    effectiveDate:'2011-01-04',
+    verifiedAt:   '2026-06-29',
+    source:       'HMRC · gov.uk/guidance/rates-of-vat-on-different-goods-and-services · Value Added Tax Act 1994',
+    treatments,
+    options:      treatments.map(t => ({ value: t.key, label: t.label })),
+    xeroName(key)    { const t = treatments.find(x => x.key === key); return t ? t.xeroName : null; },
+    xeroNameExp(key) { const t = treatments.find(x => x.key === key); return t ? (t.xeroNameExpense || t.xeroName) : null; },
+    isExpired()      { return (Date.now() - new Date(this.verifiedAt).getTime()) > 365 * 24 * 60 * 60 * 1000; },
+  };
+})();
+
 // ─── System Prompts ───────────────────────────────────────────────────────────
 const BASE_PROMPT = `Return ONLY valid JSON — no markdown fences, no preamble, just raw JSON.
 
@@ -154,6 +178,23 @@ const fmtCcy = n => n == null ? '—' : `£${Math.abs(+n).toFixed(2).replace(/\B
 const fmtBal = n => n == null ? '—' : (+n < 0 ? '−' : '') + fmtCcy(n);
 const fmtN   = n => n == null ? '' : (+n).toFixed(2);
 const pDate  = str => { if (!str) return 0; const [d,m,y] = str.split('/'); return new Date(+y,+m-1,+d).getTime(); };
+
+// Detect FX transactions from description/payee text.
+// Returns {currency} for display badge, or null if no foreign currency found.
+const FX_CCY = /\b(USD|EUR|AUD|CAD|JPY|CHF|NOK|SEK|DKK|NZD|HKD|SGD|ZAR|MXN|BRL|INR|CNY|TRY|AED|SAR)\b/i;
+const detectFX = desc => {
+  if (!desc) return null;
+  const m = desc.match(FX_CCY);
+  return m ? { currency: m[1].toUpperCase() } : null;
+};
+
+// Convert DD/MM/YYYY to YYYY-MM-DD for frankfurter.app API
+const txDateToISO = ddmmyyyy => {
+  if (!ddmmyyyy) return null;
+  const [d,m,y] = ddmmyyyy.split('/');
+  if (!d || !m || !y) return null;
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+};
 
 const recalc = (txList, prev, acType) => {
   const deb = +txList.reduce((s,t) => s + (t.debit  || 0), 0).toFixed(2);
@@ -412,10 +453,11 @@ const buildXero = txList => {
   })].join('\r\n');
 };
 
-const buildXeroPrecoded = txList => {
+const buildXeroPrecoded = (txList, jurisdiction) => {
   // Tax Rate is mandatory for Xero to recognise the import as precoded (coded + reconciled).
   // Without it Xero silently falls back to plain uncoded statement lines.
   // Tracking1/Tracking2 are optional; included as empty columns for future use.
+  const rulePack = jurisdiction === 'jersey' ? gstJersey : jurisdiction === 'uk' ? vatUK : null;
   const h = 'Date,Amount,Payee,Description,Reference,Account Code,Tax Rate,Tracking1,Tracking2';
   return [h, ...txList.map(t => {
     const amt  = t.credit != null ? t.credit : t.debit != null ? -t.debit : '';
@@ -423,10 +465,20 @@ const buildXeroPrecoded = txList => {
     const d    = (t.description||'').replace(/"/g,'""');
     const ref  = (t.paymentType||'');
     const code = (t.nominalCode||'');
-    const gstName = gstJersey.xeroName(t.gstTreatment);
     const isDebit = t.debit != null && t.credit == null;
-    const tax  = gstName === 'GST on Income' && isDebit ? 'GST on Expenses'
-               : gstName || (code ? 'No VAT' : '');
+    let tax = '';
+    if (rulePack) {
+      if (jurisdiction === 'jersey') {
+        const gstName = gstJersey.xeroName(t.gstTreatment);
+        tax = gstName === 'GST on Income' && isDebit ? 'GST on Expenses' : gstName || (code ? 'No VAT' : '');
+      } else if (jurisdiction === 'uk') {
+        const vatName = vatUK.xeroName(t.gstTreatment);
+        const vatNameExp = vatUK.xeroNameExp(t.gstTreatment);
+        tax = isDebit ? (vatNameExp || vatName || (code ? 'No VAT' : '')) : (vatName || (code ? 'No VAT' : ''));
+      }
+    } else {
+      tax = code ? 'No VAT' : '';
+    }
     const tr1 = (t.tracking1||'').replace(/"/g,'""');
     const tr2 = (t.tracking2||'').replace(/"/g,'""');
     return `${t.date},${amt},"${p}","${d}",${ref},${code},${tax},"${tr1}","${tr2}"`;
@@ -540,6 +592,51 @@ const fmtTime = ts => {
   if (diff < 60)   return `${Math.round(diff)}m ago`;
   if (diff < 1440) return `${Math.floor(diff/60)}h ago`;
   return new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+};
+
+// ─── PKCE helpers for Xero / QBO OAuth ───────────────────────────────────────
+const XERO_CLIENT_ID = import.meta.env.VITE_XERO_CLIENT_ID || '';
+const QBO_CLIENT_ID  = import.meta.env.VITE_QBO_CLIENT_ID  || '';
+
+const pkceGenerateVerifier = () => {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+};
+
+const pkceChallenge = async (verifier) => {
+  const data = new TextEncoder().encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(hash)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+};
+
+const startXeroCoaAuth = async () => {
+  if (!XERO_CLIENT_ID) return;
+  const verifier   = pkceGenerateVerifier();
+  const challenge  = await pkceChallenge(verifier);
+  sessionStorage.setItem('xero_coa_verifier', verifier);
+  const redirect = window.location.origin + window.location.pathname;
+  const url = `https://login.xero.com/identity/connect/authorize?` +
+    `response_type=code&client_id=${XERO_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(redirect)}` +
+    `&scope=accounting.settings.read+offline_access` +
+    `&state=xero_coa` +
+    `&code_challenge=${challenge}&code_challenge_method=S256`;
+  window.location.href = url;
+};
+
+const startQboCoaAuth = () => {
+  if (!QBO_CLIENT_ID) return;
+  const redirect = window.location.origin + window.location.pathname;
+  const state = 'qbo_coa_' + Math.random().toString(36).slice(2,8);
+  sessionStorage.setItem('qbo_coa_state', state);
+  const url = `https://appcenter.intuit.com/connect/oauth2?` +
+    `response_type=code&client_id=${QBO_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(redirect)}` +
+    `&scope=com.intuit.quickbooks.accounting` +
+    `&state=${state}`;
+  window.location.href = url;
 };
 
 const dlReceipt = (receipt, tx, stmt) => {
@@ -884,6 +981,10 @@ export default function App() {
   const [uploadDefaultPlatform, setUploadDefaultPlatform] = useState(() =>
     localStorage.getItem('sa_defaultPlatform') || 'qbo'
   );
+  const [uploadDefaultJurisdiction, setUploadDefaultJurisdiction] = useState(() =>
+    localStorage.getItem('sa_defaultJurisdiction') || 'uk'
+  );
+  const [codingSuggestions, setCodingSuggestions] = useState({});
   const [renamingProjectId, setRenamingProjectId] = useState(null);
   const [renameProjectVal,  setRenameProjectVal]  = useState('');
   const [receiptTarget,     setReceiptTarget]     = useState(null); // {sid, tid}
@@ -968,7 +1069,89 @@ export default function App() {
   useEffect(() => { localStorage.setItem('sa_showNominal',      String(showNominal));       }, [showNominal]);
   useEffect(() => { localStorage.setItem('sa_defaultType',      uploadDefaultType);         }, [uploadDefaultType]);
   useEffect(() => { localStorage.setItem('sa_defaultPlatform',  uploadDefaultPlatform);     }, [uploadDefaultPlatform]);
+  useEffect(() => { localStorage.setItem('sa_defaultJurisdiction', uploadDefaultJurisdiction); }, [uploadDefaultJurisdiction]);
   useEffect(() => { localStorage.setItem('sa_chartAccounts',    JSON.stringify(chartAccounts)); }, [chartAccounts]);
+
+  // OAuth callback handler (Xero CoA + QBO CoA) — fires once on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code   = params.get('code');
+    const state  = params.get('state');
+    if (!code || !state) return;
+    // Strip OAuth params from URL without reload
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, '', cleanUrl);
+
+    if (state === 'xero_coa' && XERO_CLIENT_ID) {
+      const verifier  = sessionStorage.getItem('xero_coa_verifier');
+      const redirectUri = window.location.origin + cleanUrl;
+      if (!verifier) return;
+      sessionStorage.removeItem('xero_coa_verifier');
+      (async () => {
+        try {
+          const tkResp = await fetch('/api/xero-token', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ code, codeVerifier: verifier, redirectUri }),
+          });
+          if (!tkResp.ok) { const e = await tkResp.json(); throw new Error(e.error||'Xero token exchange failed'); }
+          const { access_token } = await tkResp.json();
+          // Get tenant list
+          const connResp = await fetch('https://api.xero.com/connections', {
+            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+          });
+          const conns = await connResp.json();
+          const tenantId = conns?.[0]?.tenantId;
+          if (!tenantId) throw new Error('No Xero tenant found');
+          // Fetch accounts
+          const acResp = await fetch('https://api.xero.com/api.xro/2.0/Accounts?where=Status%3D%3D%22ACTIVE%22', {
+            headers: { 'Authorization': `Bearer ${access_token}`, 'xero-tenant-id': tenantId, 'Accept': 'application/json' },
+          });
+          const acData = await acResp.json();
+          const accounts = (acData?.Accounts || []).map(a => ({
+            code: a.Code || '', name: a.Name || '', type: a.Type || '',
+          })).filter(a => a.code || a.name);
+          setChartAccounts(accounts);
+          alert(`Xero Chart of Accounts loaded — ${accounts.length} accounts imported.`);
+        } catch (err) {
+          alert('Xero CoA import failed: ' + err.message);
+        }
+      })();
+      return;
+    }
+
+    const qboState = sessionStorage.getItem('qbo_coa_state');
+    if (state === qboState && state.startsWith('qbo_coa_') && QBO_CLIENT_ID) {
+      const realmId = params.get('realmId');
+      const redirectUri = window.location.origin + cleanUrl;
+      sessionStorage.removeItem('qbo_coa_state');
+      (async () => {
+        try {
+          const tkResp = await fetch('/api/qbo-token', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ code, redirectUri }),
+          });
+          if (!tkResp.ok) { const e = await tkResp.json(); throw new Error(e.error||'QBO token exchange failed'); }
+          const { access_token } = await tkResp.json();
+          const env = window.location.hostname.includes('localhost') ? 'sandbox' : 'production';
+          const base = env === 'sandbox'
+            ? 'https://sandbox-quickbooks.api.intuit.com'
+            : 'https://quickbooks.api.intuit.com';
+          const acResp = await fetch(
+            `${base}/v3/company/${realmId}/query?query=select%20*%20from%20Account%20where%20Active%20%3D%20true&minorversion=65`,
+            { headers: { 'Authorization': `Bearer ${access_token}`, 'Accept': 'application/json' } }
+          );
+          const acData = await acResp.json();
+          const accounts = (acData?.QueryResponse?.Account || []).map(a => ({
+            code: a.AcctNum || '', name: a.Name || '', type: a.AccountType || '',
+          })).filter(a => a.code || a.name);
+          setChartAccounts(accounts);
+          alert(`QuickBooks Chart of Accounts loaded — ${accounts.length} accounts imported.`);
+        } catch (err) {
+          alert('QBO CoA import failed: ' + err.message);
+        }
+      })();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { localStorage.setItem('sa_showTips', String(showTips)); }, [showTips]);
   useEffect(() => { localStorage.setItem('sa_wsMode',      workspaceMode);     }, [workspaceMode]);
   useEffect(() => { localStorage.setItem('sa_wsName',      workspaceName);     }, [workspaceName]);
@@ -1126,18 +1309,19 @@ export default function App() {
     const pdfs = Array.from(files).filter(f => f.type === 'application/pdf');
     if (!pdfs.length) return;
     setStmts(prev => {
-      const room = Math.max(0, 20 - prev.length);
+      const room = Math.max(0, 50 - prev.length);
       return [...prev, ...pdfs.slice(0, room).map(file => ({
         id:uid(), file, filename:file.name, status:'queued',
         projectId: activeProjectId,
         accountType: uploadDefaultType, platform: uploadDefaultPlatform,
+        jurisdiction: uploadDefaultJurisdiction,
         bankName:'', accountName:'', period:null,
         openingBalance:null, closingBalance:null,
         transactions:[], editedTransactions:null, reconciliation:null, crossCheck:null, error:null, rawResponse:null,
       }))];
     });
     setTab('queue');
-  }, [activeProjectId, uploadDefaultType, uploadDefaultPlatform]);
+  }, [activeProjectId, uploadDefaultType, uploadDefaultPlatform, uploadDefaultJurisdiction]);
 
   // ── Claude API ─────────────────────────────────────────────────────────
   const processOne = useCallback(async id => {
@@ -1542,7 +1726,21 @@ export default function App() {
     setCodingStmtId(sid);
     setAutoConfirmMem(false);
     setEmptyPeriodOk(false);
+    setCodingSuggestions({});
     setShowCodingModal(true);
+    // Layer 2 — batch AI code suggestions for unknown payees (silent, non-blocking)
+    const unknowns = lines
+      .filter(l => !l.fromMemory)
+      .map(l => ({ payee: l.payee||'', description: l.description||'', normKey: normKey(l.payee, l.description) }))
+      .filter(u => u.normKey);
+    if (unknowns.length > 0) {
+      fetch('/api/suggest-codes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ payees: unknowns }),
+      }).then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.suggestions) setCodingSuggestions(data.suggestions); })
+        .catch(() => {});
+    }
   };
 
   const updateCodingLine = (tid, patch) =>
@@ -1584,7 +1782,7 @@ export default function App() {
     }
     const codedLines = codingLines.map(l => ({...l, nominalCode: l.code, category: l.code}));
     if (stmt.platform === 'xero') {
-      dlFile(buildXeroPrecoded(codedLines), makeName(stmt, 'PRECODED'));
+      dlFile(buildXeroPrecoded(codedLines, stmt.jurisdiction || 'uk'), makeName(stmt, 'PRECODED'));
     } else {
       dlFile(buildQBO(codedLines), makeName(stmt, 'CODED_REF'));
     }
@@ -1913,12 +2111,25 @@ export default function App() {
         <div>
           <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Export To</div>
           <Tip text="Choose your accounting platform — this determines which CSV format is produced on export. Xero unlocks Pathway 2 (Code & Create) for empty periods." pos="bottom" active={showTips}>
-          <select value={uploadDefaultPlatform} onChange={e => setUploadDefaultPlatform(e.target.value)}
+          <select value={uploadDefaultPlatform} onChange={e => { setUploadDefaultPlatform(e.target.value); localStorage.setItem('sa_defaultPlatform', e.target.value); }}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
               color:uploadDefaultPlatform==='xero'?'#13B5EA':'#2CA01C',fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
               fontFamily:'Inter,sans-serif',fontWeight:500}}>
             <option value="qbo">QuickBooks Online</option>
             <option value="xero">Xero</option>
+          </select>
+          </Tip>
+        </div>
+        <div>
+          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Tax Jurisdiction</div>
+          <Tip text="Sets the tax treatment options in Code & Create. UK VAT shows 20%/5%/Zero/Exempt. Jersey shows GST treatments. 'Other' hides the tax column." pos="bottom" active={showTips}>
+          <select value={uploadDefaultJurisdiction} onChange={e => { setUploadDefaultJurisdiction(e.target.value); localStorage.setItem('sa_defaultJurisdiction', e.target.value); }}
+            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
+              color:C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
+              fontFamily:'Inter,sans-serif',fontWeight:500}}>
+            <option value="uk">United Kingdom (VAT)</option>
+            <option value="jersey">Jersey (GST)</option>
+            <option value="other">Other / No Tax Column</option>
           </select>
           </Tip>
         </div>
@@ -1935,7 +2146,7 @@ export default function App() {
           Drop bank statement PDFs here
         </div>
         <div style={{fontSize:13,color:C.t2,marginBottom:22,lineHeight:1.8}}>
-          Up to 20 files · Any UK bank<br/>
+          Up to 50 files · Any UK bank<br/>
           Current · Savings · Credit Card · Loan / Mortgage<br/>
           Export to QuickBooks Online or Xero
         </div>
@@ -1967,7 +2178,7 @@ export default function App() {
         <div>
           <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:'Inter,sans-serif'}}>Processing Queue</div>
           <div style={{fontSize:12,color:C.t2,marginTop:3}}>
-            {stmts.length} file{stmts.length!==1?'s':''} · Set account type and platform before processing · Max 20 files
+            {stmts.length} file{stmts.length!==1?'s':''} · Set account type and platform before processing · Max 50 files
           </div>
         </div>
         <div style={{display:'flex',gap:8}}>
@@ -2054,14 +2265,27 @@ export default function App() {
                   cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
                 {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              <select value={s.platform} disabled={editLock}
-                onChange={e => updateS(s.id,{platform:e.target.value})}
-                style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'5px 8px',
-                  color:s.platform==='xero'?'#13B5EA':'#2CA01C',fontSize:11,outline:'none',
-                  cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
-                <option value="qbo">QuickBooks Online</option>
-                <option value="xero">Xero</option>
-              </select>
+              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                <select value={s.platform} disabled={editLock}
+                  onChange={e => updateS(s.id,{platform:e.target.value})}
+                  style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'5px 8px',
+                    color:s.platform==='xero'?'#13B5EA':'#2CA01C',fontSize:11,outline:'none',
+                    cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
+                  <option value="qbo">QuickBooks Online</option>
+                  <option value="xero">Xero</option>
+                </select>
+                {s.platform==='xero' && (
+                  <select value={s.jurisdiction||'uk'} disabled={editLock}
+                    onChange={e => updateS(s.id,{jurisdiction:e.target.value})}
+                    style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'4px 8px',
+                      color:C.t2,fontSize:10,outline:'none',
+                      cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
+                    <option value="uk">UK VAT</option>
+                    <option value="jersey">Jersey GST</option>
+                    <option value="other">No Tax</option>
+                  </select>
+                )}
+              </div>
               <Pill status={s.status}/>
               <div style={{display:'flex',gap:5}}>
                 {['queued','error','rejected'].includes(s.status) && (
@@ -2828,6 +3052,12 @@ export default function App() {
                                 ⊕ {ccFlag.issues.map(i => i.field === 'direction' ? `direction (AI:${i.llm}, text:${i.text})` : `${i.field} (AI:${typeof i.llm==='number'?i.llm.toFixed(2):i.llm}, text:${typeof i.text==='number'?i.text.toFixed(2):i.text})`).join(' · ')}
                               </span>
                             )}
+                            {(() => { const fx = detectFX(t.description); return fx ? (
+                              <span title={`Foreign currency transaction — ${fx.currency} detected`}
+                                style={{marginLeft:7,fontSize:11,fontWeight:600,color:'#7C4DFF',background:'#EDE7FF',border:'1px solid #C9B8FF',borderRadius:6,padding:'2px 8px',whiteSpace:'nowrap'}}>
+                                💱 {fx.currency}
+                              </span>
+                            ) : null; })()}
                           </span>
                         )}
                       </td>
@@ -3250,6 +3480,74 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────────────
+  // DASHBOARD
+  // ─────────────────────────────────────────────────────────────────────
+  const renderDashboard = () => {
+    const fmtTime = ts => { const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); };
+    return (
+      <div style={{padding:'22px 28px',overflowY:'auto',height:'100%',boxSizing:'border-box'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+          <div>
+            <div style={{fontSize:19,fontWeight:700,color:C.t1}}>Projects</div>
+            <div style={{fontSize:12,color:C.t2,marginTop:3}}>
+              {projects.length} project{projects.length!==1?'s':''} · click a card to switch and review
+            </div>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:16}}>
+          {projects.map(p => {
+            const pStmts  = stmts.filter(s => (s.projectId||'default') === p.id);
+            const approved = pStmts.filter(s => s.status === 'approved').length;
+            const review   = pStmts.filter(s => s.status === 'review').length;
+            const errored  = pStmts.filter(s => s.status === 'error').length;
+            const queued   = pStmts.filter(s => ['queued','processing'].includes(s.status)).length;
+            const lastAt   = pStmts.reduce((m,s) => Math.max(m,s.approvedAt||s.extractedAt||0), 0);
+            const isActive = p.id === activeProjectId;
+            return (
+              <div key={p.id}
+                onClick={() => { setActiveProjectId(p.id); localStorage.setItem('sa_activeProject',p.id); setTab('audit'); }}
+                style={{background:isActive?C.bluDim:C.card,border:`1px solid ${isActive?C.bluBrd:C.bdr}`,
+                  borderRadius:12,padding:'18px 20px',cursor:'pointer',
+                  transition:'all 0.15s',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                  <div style={{fontSize:15,fontWeight:700,color:isActive?C.blu:C.t1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{p.name}</div>
+                  {isActive && <span style={{fontSize:10,fontWeight:700,color:C.blu,background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:4,padding:'1px 6px',flexShrink:0,marginLeft:6}}>Active</span>}
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:3,marginBottom:10}}>
+                  {approved > 0 && <span style={{fontSize:12,color:C.grn}}>✓ {approved} approved</span>}
+                  {review   > 0 && <span style={{fontSize:12,color:C.blu}}>⚑ {review} for review</span>}
+                  {errored  > 0 && <span style={{fontSize:12,color:C.red}}>⚠ {errored} error{errored!==1?'s':''}</span>}
+                  {queued   > 0 && <span style={{fontSize:12,color:C.t3}}>◷ {queued} queued</span>}
+                  {pStmts.length === 0 && <span style={{fontSize:12,color:C.t4}}>No statements yet</span>}
+                </div>
+                {lastAt > 0 && <div style={{fontSize:11,color:C.t4}}>Last activity: {fmtTime(lastAt)}</div>}
+              </div>
+            );
+          })}
+          <div
+            onClick={() => {
+              const name = window.prompt('New project name:');
+              if (!name?.trim()) return;
+              const id = uid();
+              const updated = [...projects, {id, name: name.trim()}];
+              setProjects(updated);
+              localStorage.setItem('sa_projects', JSON.stringify(updated));
+              setActiveProjectId(id);
+              localStorage.setItem('sa_activeProject', id);
+            }}
+            style={{background:C.surf,border:`2px dashed ${C.bdrBrt}`,borderRadius:12,
+              padding:'18px 20px',cursor:'pointer',display:'flex',flexDirection:'column',
+              alignItems:'center',justifyContent:'center',gap:6,color:C.t3,
+              transition:'all 0.15s',minHeight:100}}>
+            <div style={{fontSize:24}}>+</div>
+            <div style={{fontSize:13}}>New Project</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────────────
   // LAYOUT
   // ─────────────────────────────────────────────────────────────────────
   const navItems = [
@@ -3257,6 +3555,7 @@ export default function App() {
     {id:'queue',  n:'2', label:'Process', badge:stmts.length||null},
     {id:'audit',  n:'3', label:'Review',  badge:cnts.review||null},
     {id:'export', n:'4', label:'Export',  badge:cnts.approved||null},
+    {id:'dash',   n:'◈', label:'Projects',badge:projects.length>1?projects.length:null},
   ];
   const stepDone = id => {
     const order = ['upload','queue','audit','export'];
@@ -3309,6 +3608,7 @@ export default function App() {
               queue:  'Step 2 — Run the AI extraction engine on your queued files. Each PDF is read, transactions extracted, and reconciled.',
               audit:  'Step 3 — Check, edit, and approve each extracted statement. Numbers must close before anything exports.',
               export: 'Step 4 — Download approved statements as CSV files for QuickBooks or Xero. Access the Audit Workbook here too.',
+              dash:   'Projects dashboard — view all projects, statement counts, and last activity. Click a card to switch projects.',
             }[n.id];
             return (
               <Tip key={n.id} text={tabTip} pos="bottom" active={showTips}>
@@ -3390,11 +3690,12 @@ export default function App() {
       </div>
 
       {/* Content */}
-      <div style={{flex:1,overflow:'hidden',padding:tab==='audit'?'22px 22px 22px 0':22}}>
+      <div style={{flex:1,overflow:'hidden',padding:tab==='audit'?'22px 22px 22px 0':tab==='dash'?0:22}}>
         {tab==='upload' && renderUpload()}
         {tab==='queue'  && renderQueue()}
         {tab==='audit'  && renderAudit()}
         {tab==='export' && renderExport()}
+        {tab==='dash'   && renderDashboard()}
       </div>
       {renderQboImportModal()}
 
@@ -4086,8 +4387,12 @@ export default function App() {
         const total        = codingLines.length;
         const confirmed    = codingLines.filter(l => l.confirmed).length;
         const isXero       = stmt.platform === 'xero';
-        const gstComplete  = !isXero || codingLines.every(l => l.gstTreatment !== '');
-        const rulePackOk   = !isXero || !gstJersey.isExpired();
+        const jur          = stmt.jurisdiction || 'uk';
+        const hasTaxCol    = isXero && jur !== 'other';
+        const activePack   = jur === 'jersey' ? gstJersey : jur === 'uk' ? vatUK : null;
+        const taxLabel     = jur === 'jersey' ? 'GST Treatment' : 'VAT Treatment';
+        const gstComplete  = !hasTaxCol || codingLines.every(l => l.gstTreatment !== '');
+        const rulePackOk   = !hasTaxCol || !activePack?.isExpired();
         const canExport    = confirmed === total && (!isXero || emptyPeriodOk) && total > 0 && gstComplete && rulePackOk;
         return (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.72)',zIndex:9994,
@@ -4147,18 +4452,18 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                {isXero && (
+                {hasTaxCol && activePack && (
                   <div style={{display:'flex',alignItems:'center',gap:8,flex:'0 1 auto',
                     background: rulePackOk ? C.grnDim : C.redDim,
                     border:`1px solid ${rulePackOk ? C.grnBrd : C.redBrd}`,
                     borderRadius:8,padding:'10px 14px'}}>
                     <span style={{fontSize:18,lineHeight:1,flexShrink:0}}>{rulePackOk ? '🏛' : '⚠️'}</span>
                     <span style={{fontSize:11,color: rulePackOk ? C.grn : C.red,lineHeight:1.4}}>
-                      <strong>Jersey GST Rule-Pack v{gstJersey.version}</strong>
+                      <strong>{jur === 'jersey' ? `Jersey GST Rule-Pack v${gstJersey.version}` : `UK VAT Rule-Pack v${vatUK.version}`}</strong>
                       <span style={{display:'block',fontWeight:400,marginTop:1}}>
                         {rulePackOk
-                          ? `Effective ${gstJersey.effectiveDate} · Verified ${gstJersey.verifiedAt} · Source: Revenue Jersey`
-                          : 'Rule-pack expired — precoded export blocked. Update gstJersey.verifiedAt before continuing.'}
+                          ? `Effective ${activePack.effectiveDate} · Verified ${activePack.verifiedAt} · Source: ${jur === 'jersey' ? 'Revenue Jersey' : 'HMRC'}`
+                          : `Rule-pack expired — precoded export blocked. Update ${jur === 'jersey' ? 'gstJersey' : 'vatUK'}.verifiedAt before continuing.`}
                       </span>
                     </span>
                   </div>
@@ -4193,8 +4498,22 @@ export default function App() {
                   <div style={{display:'flex',gap:4,flexShrink:0}}>
                     <button onClick={() => chartInputRef.current?.click()}
                       style={{...btn('outline'),padding:'3px 9px',fontSize:11}}>
-                      {chartAccounts.length ? 'Replace' : 'Import CSV'}
+                      {chartAccounts.length ? 'Replace CSV' : 'Import CSV'}
                     </button>
+                    {XERO_CLIENT_ID && (
+                      <button onClick={startXeroCoaAuth}
+                        title="Connect your Xero Chart of Accounts"
+                        style={{...btn('outline'),padding:'3px 9px',fontSize:11,color:'#13B5EA',borderColor:'#13B5EA'}}>
+                        Connect Xero
+                      </button>
+                    )}
+                    {QBO_CLIENT_ID && (
+                      <button onClick={startQboCoaAuth}
+                        title="Connect your QuickBooks Chart of Accounts"
+                        style={{...btn('outline'),padding:'3px 9px',fontSize:11,color:'#2CA01C',borderColor:'#2CA01C'}}>
+                        Connect QBO
+                      </button>
+                    )}
                     {chartAccounts.length > 0 && (
                       <button onClick={() => setChartAccounts([])}
                         title="Clear chart"
@@ -4251,7 +4570,7 @@ export default function App() {
                 <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
                   padding:'7px 24px',background:C.bg,borderBottom:`1px solid ${C.bdr}`,
                   position:'sticky',top:0,zIndex:1}}>
-                  {['Date','Payee / Description','Amount','Account Code', isXero ? 'GST Treatment' : '',''].map((h,i) => (
+                  {['Date','Payee / Description','Amount','Account Code', hasTaxCol ? taxLabel : '',''].map((h,i) => (
                     <div key={i} style={{fontSize:10,color:C.t4,fontWeight:700,
                       textTransform:'uppercase',letterSpacing:'0.06em',
                       textAlign:i===2?'right':i===5?'center':'left'}}>{h}</div>
@@ -4300,8 +4619,22 @@ export default function App() {
                             border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
                             borderRadius:6,color:C.t1,fontSize:12,
                             fontFamily:'JetBrains Mono,monospace',outline:'none',boxSizing:'border-box'}}/>
+                        {(() => {
+                          const key = normKey(l.payee, l.description);
+                          const sug = !l.fromMemory && key && codingSuggestions[key];
+                          return sug ? (
+                            <button onClick={() => updateCodingLine(l.id||i, {code: sug.code, confirmed: false})}
+                              title="Click to apply AI suggestion"
+                              style={{marginTop:3,width:'100%',padding:'2px 6px',background:C.purDim,
+                                border:`1px solid ${C.purBrd}`,borderRadius:4,color:C.pur,fontSize:10,
+                                cursor:'pointer',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',
+                                whiteSpace:'nowrap',fontFamily:'Inter,sans-serif'}}>
+                              ✦ {sug.code}{sug.name ? ` — ${sug.name}` : ''}
+                            </button>
+                          ) : null;
+                        })()}
                       </div>
-                      {isXero ? (
+                      {hasTaxCol && activePack ? (
                         <div style={{paddingLeft:6}}>
                           <select value={l.gstTreatment||''}
                             onChange={e => updateCodingLine(l.id||i, {gstTreatment: e.target.value, confirmed: false})}
@@ -4310,7 +4643,7 @@ export default function App() {
                               borderRadius:6,color: l.gstTreatment ? C.t1 : C.red,fontSize:11,
                               outline:'none',boxSizing:'border-box',cursor:'pointer'}}>
                             <option value=''>— pick treatment —</option>
-                            {gstJersey.options.map(o => (
+                            {activePack.options.map(o => (
                               <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
                           </select>
@@ -4321,7 +4654,7 @@ export default function App() {
                       <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <button
                           onClick={() => updateCodingLine(l.id||i, {confirmed: !l.confirmed})}
-                          disabled={!l.code.trim() || (isXero && !l.gstTreatment)}
+                          disabled={!l.code.trim() || (hasTaxCol && !l.gstTreatment)}
                           title={l.confirmed ? 'Un-confirm' : 'Confirm this code'}
                           style={{width:28,height:28,borderRadius:6,flexShrink:0,
                             border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
@@ -4353,6 +4686,39 @@ export default function App() {
                           ))}
                         </div>
                       )}
+                      {(() => {
+                        const fx = detectFX(l.description);
+                        if (!fx) return null;
+                        return (
+                          <div style={{padding:'0 24px 5px',paddingLeft:118,display:'flex',
+                            gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                            <span style={{fontSize:10,color:'#7C4DFF',flexShrink:0,fontWeight:600}}>💱 {fx.currency}/GBP rate:</span>
+                            <input value={l.fxRate||''}
+                              onChange={e => updateCodingLine(l.id||i, {fxRate: e.target.value})}
+                              placeholder="e.g. 1.2650"
+                              style={{width:90,padding:'2px 6px',background:C.bg,border:'1px solid #C9B8FF',
+                                borderRadius:5,color:C.t1,fontSize:11,fontFamily:'JetBrains Mono,monospace',outline:'none'}}/>
+                            <button
+                              onClick={async () => {
+                                const isoDate = txDateToISO(l.date);
+                                if (!isoDate) return;
+                                updateCodingLine(l.id||i, {fxRate: '…'});
+                                try {
+                                  const r = await fetch(`https://api.frankfurter.app/${isoDate}?from=${fx.currency}&to=GBP`);
+                                  const d = await r.json();
+                                  const rate = d?.rates?.GBP;
+                                  if (rate) updateCodingLine(l.id||i, {fxRate: String(rate)});
+                                  else updateCodingLine(l.id||i, {fxRate: ''});
+                                } catch { updateCodingLine(l.id||i, {fxRate: ''}); }
+                              }}
+                              style={{padding:'2px 9px',background:'#EDE7FF',border:'1px solid #C9B8FF',
+                                borderRadius:5,color:'#7C4DFF',fontSize:10,cursor:'pointer',fontWeight:600}}>
+                              Look up (free)
+                            </button>
+                            {l.fxRate && l.fxRate !== '…' && <span style={{fontSize:10,color:C.t3}}>· reference only</span>}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
