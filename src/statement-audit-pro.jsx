@@ -427,7 +427,9 @@ const buildXeroPrecoded = txList => {
     const isDebit = t.debit != null && t.credit == null;
     const tax  = gstName === 'GST on Income' && isDebit ? 'GST on Expenses'
                : gstName || (code ? 'No VAT' : '');
-    return `${t.date},${amt},"${p}","${d}",${ref},${code},${tax},,`;
+    const tr1 = (t.tracking1||'').replace(/"/g,'""');
+    const tr2 = (t.tracking2||'').replace(/"/g,'""');
+    return `${t.date},${amt},"${p}","${d}",${ref},${code},${tax},"${tr1}","${tr2}"`;
   })].join('\r\n');
 };
 
@@ -752,6 +754,15 @@ export default function App() {
   const [treatmentMemory, setTreatmentMemory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sa_treatmentMemory') || '{}'); } catch { return {}; }
   });
+  const [trackingMemory, setTrackingMemory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_trackingMemory') || '{}'); } catch { return {}; }
+  });
+  // source:'csv'|'api'|'none'; cats:[{name,options[]}] (max 2, Xero limit)
+  // source field is the switch point — swap importTrackingCSV for an API call to change source
+  const [trackingCategories, setTrackingCategories] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_trackingCategories') || '{"source":"none","cats":[]}'); }
+    catch { return {source:'none', cats:[]}; }
+  });
   const [projects, setProjects] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sa_projects') || 'null') || [{id:'default',name:'Default Project'}]; }
     catch { return [{id:'default',name:'Default Project'}]; }
@@ -809,9 +820,11 @@ export default function App() {
   const qboInputRef       = useRef(null);
   const receiptInputRef   = useRef(null);
   const chartInputRef     = useRef(null);
+  const trackingInputRef  = useRef(null);
   const payeeMemoryRef      = useRef({});
   const categoryMemoryRef   = useRef({});
   const treatmentMemoryRef  = useRef({});
+  const trackingMemoryRef   = useRef({});
 
   useEffect(() => { stmtsRef.current = stmts; }, [stmts]);
   useEffect(() => {
@@ -826,6 +839,13 @@ export default function App() {
     treatmentMemoryRef.current = treatmentMemory;
     localStorage.setItem('sa_treatmentMemory', JSON.stringify(treatmentMemory));
   }, [treatmentMemory]);
+  useEffect(() => {
+    trackingMemoryRef.current = trackingMemory;
+    localStorage.setItem('sa_trackingMemory', JSON.stringify(trackingMemory));
+  }, [trackingMemory]);
+  useEffect(() => {
+    localStorage.setItem('sa_trackingCategories', JSON.stringify(trackingCategories));
+  }, [trackingCategories]);
   useEffect(() => { localStorage.setItem('sa_projects',         JSON.stringify(projects));  }, [projects]);
   useEffect(() => { localStorage.setItem('sa_activeProject',    activeProjectId);           }, [activeProjectId]);
   useEffect(() => { localStorage.setItem('sa_showNominal',      String(showNominal));       }, [showNominal]);
@@ -1372,11 +1392,14 @@ export default function App() {
       const key = normKey(t.payee, t.description);
       const memCode      = categoryMemoryRef.current[key] || payeeMemoryRef.current[key];
       const memTreatment = treatmentMemoryRef.current[key] || '';
+      const memTracking  = trackingMemoryRef.current[key] || {};
       return {
         ...t,
         code:         memCode || (t.credit != null && t.debit == null ? 'Misc Revenue' : 'Misc Expense'),
         fromMemory:   !!memCode,
         gstTreatment: memTreatment,
+        tracking1:    memTracking.t1 || '',
+        tracking2:    memTracking.t2 || '',
         confirmed:    false,
       };
     });
@@ -1413,6 +1436,17 @@ export default function App() {
       });
       setTreatmentMemory(updTreat);
     }
+    // Save confirmed tracking to trackingMemory (Xero only, when categories are loaded)
+    if (stmt.platform === 'xero' && trackingCategories.cats.length > 0) {
+      const updTrack = {...trackingMemoryRef.current};
+      codingLines.forEach(l => {
+        if (l.confirmed && (l.tracking1 || l.tracking2)) {
+          const key = normKey(l.payee, l.description);
+          if (key) updTrack[key] = {t1: l.tracking1 || '', t2: l.tracking2 || ''};
+        }
+      });
+      setTrackingMemory(updTrack);
+    }
     const codedLines = codingLines.map(l => ({...l, nominalCode: l.code, category: l.code}));
     if (stmt.platform === 'xero') {
       dlFile(buildXeroPrecoded(codedLines), makeName(stmt, 'PRECODED'));
@@ -1447,6 +1481,36 @@ export default function App() {
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  // Parses Xero's Tracking Settings CSV export: "Tracking Category Name,Tracking Option"
+  // Replace this function body (keeping the signature + setTrackingCategories call) to switch
+  // to a live Xero API pull when OAuth is available — source field will become 'api'.
+  const importTrackingCSV = e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const lines = (ev.target.result || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const map = {};
+      lines.forEach((line, i) => {
+        if (i === 0 && /tracking/i.test(line.split(',')[0])) return;
+        const parts = line.split(',');
+        const catName = (parts[0] || '').replace(/^"|"$/g, '').trim();
+        const optName = (parts[1] || '').replace(/^"|"$/g, '').trim();
+        if (!catName || !optName) return;
+        if (!map[catName]) map[catName] = [];
+        if (!map[catName].includes(optName)) map[catName].push(optName);
+      });
+      const cats = Object.entries(map).slice(0, 2).map(([name, options]) => ({name, options}));
+      if (cats.length === 0) {
+        alert('No valid tracking categories found.\n\nIn Xero: Settings → General Settings → Tracking → Export');
+        return;
+      }
+      setTrackingCategories({source:'csv', loadedAt: Date.now(), cats});
+    };
+    reader.readAsText(file);
   };
 
   const startCloudAuth = async provider => {
@@ -3690,8 +3754,40 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Tracking categories panel — Xero only */}
+              {isXero && (
+                <div style={{padding:'8px 24px',borderBottom:`1px solid ${C.bdr}`,
+                  display:'flex',alignItems:'center',gap:8,
+                  background: trackingCategories.cats.length ? C.bluDim : C.bg}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,color:trackingCategories.cats.length?C.blu:C.t3,fontWeight:500}}>
+                      {trackingCategories.cats.length
+                        ? `⚙ ${trackingCategories.cats.map(c=>c.name).join(' & ')} · ${trackingCategories.cats.reduce((n,c)=>n+c.options.length,0)} options · source: ${trackingCategories.source}`
+                        : '⚙ No tracking categories loaded'}
+                    </div>
+                    <div style={{fontSize:11,color:C.t4,marginTop:1}}>
+                      {trackingCategories.cats.length
+                        ? 'Tracking selectors shown per line (optional — not a gate)'
+                        : 'Import Xero tracking CSV to show selectors per line · Xero: Settings → Tracking → Export'}
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:4,flexShrink:0}}>
+                    <button onClick={() => trackingInputRef.current?.click()}
+                      style={{...btn('outline'),padding:'3px 9px',fontSize:11}}>
+                      {trackingCategories.cats.length ? 'Replace' : 'Import CSV'}
+                    </button>
+                    {trackingCategories.cats.length > 0 && (
+                      <button onClick={() => setTrackingCategories({source:'none',cats:[]})}
+                        title="Clear tracking categories"
+                        style={{...btn('outline'),padding:'3px 7px',fontSize:11,color:C.red,borderColor:C.redBrd}}>✕</button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* hidden chart file input */}
               <input ref={chartInputRef} type="file" accept=".csv" onChange={importChartCSV} style={{display:'none'}}/>
+              <input ref={trackingInputRef} type="file" accept=".csv" onChange={importTrackingCSV} style={{display:'none'}}/>
               {/* datalist for account code autocomplete */}
               <datalist id="sa-chart-datalist">
                 {chartAccounts.map(a => (
@@ -3716,10 +3812,10 @@ export default function App() {
                   const isPos = l.credit != null && l.debit == null;
                   return (
                     <div key={l.id||i}
-                      style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
-                        padding:'6px 24px',alignItems:'start',
-                        background: l.confirmed ? C.grnDim : i%2===0 ? C.card : C.surf,
+                      style={{background: l.confirmed ? C.grnDim : i%2===0 ? C.card : C.surf,
                         borderBottom:`1px solid ${C.bdr}`,transition:'background 0.1s'}}>
+                      <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
+                        padding:'6px 24px',alignItems:'start'}}>
                       <div style={{fontSize:11,color:C.t3,fontFamily:'JetBrains Mono,monospace'}}>{l.date}</div>
                       <div style={{paddingRight:8,display:'flex',flexDirection:'column',gap:3,overflow:'hidden'}}>
                         <div style={{display:'flex',alignItems:'center',gap:4,minWidth:0}}>
@@ -3786,6 +3882,26 @@ export default function App() {
                           ✓
                         </button>
                       </div>
+                      </div>
+                      {isXero && trackingCategories.cats.length > 0 && (
+                        <div style={{padding:'0 24px 5px',paddingLeft:118,display:'flex',
+                          gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                          <span style={{fontSize:10,color:C.t4,flexShrink:0,marginRight:2}}>Tracking:</span>
+                          {trackingCategories.cats.slice(0,2).map((cat, ci) => (
+                            <select key={ci}
+                              value={ci===0 ? l.tracking1||'' : l.tracking2||''}
+                              onChange={e => updateCodingLine(l.id||i,
+                                ci===0 ? {tracking1:e.target.value,confirmed:false}
+                                       : {tracking2:e.target.value,confirmed:false})}
+                              style={{flex:1,maxWidth:200,padding:'3px 6px',background:C.bg,
+                                border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t2,
+                                fontSize:11,outline:'none',cursor:'pointer'}}>
+                              <option value=''>— {cat.name} (optional) —</option>
+                              {cat.options.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
