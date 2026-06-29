@@ -2,7 +2,7 @@
 
 **Purpose:** Upload a bank statement PDF → review and correct the AI extraction → export a clean CSV for QuickBooks or Xero. The app never lets you export until the numbers add up. This guide explains every feature and how to fix the errors you'll actually see.
 
-**Updated:** 2026-06-29 — Module A: Jersey GST treatment + Xero Tracking Categories in Pathway 2; GST Treatment column in Audit Workbook.
+**Updated:** 2026-06-29 — M365 Practice Workspace; Guide Mode tooltips; Module A: Jersey GST treatment + Xero Tracking Categories; GST Treatment column in Audit Workbook.
 
 ---
 
@@ -372,6 +372,51 @@ Once all lines are confirmed and the empty-period box is ticked, **↓ Export Pr
 
 ---
 
+---
+
+## Cloud Storage & Practice Workspace
+
+### Personal Cloud Save (Google Drive or OneDrive)
+
+Connect via the **☁ Cloud** button in the top bar. Once connected, every approved statement auto-saves as a JSON file to a private app folder. Reconnecting from any browser restores all your previous statements automatically.
+
+**One-time setup required:** you need to register the app in Google Cloud Console (for Drive) or Azure Portal (for OneDrive) and add the Client ID as a Render environment variable. The numbered setup steps are inside the Cloud panel — expand the relevant "Setup" accordion.
+
+---
+
+### Practice Workspace (Microsoft OneDrive / M365 only)
+
+A shared OneDrive folder that the whole practice team accesses through StatementAudit Pro. **Shared across the workspace:** payee code memory, category memory, Jersey GST treatment memory, tracking categories, chart of accounts.
+
+**Admin flow (sets up the workspace):**
+1. Connect to OneDrive via ☁ Cloud
+2. In the Cloud panel, under **Practice Workspace**, click **+ Create workspace**
+3. Enter a name (e.g. "Smith & Co") → Create
+4. Open OneDrive, find the new folder, right-click → **Share → Anyone with the link can edit → Copy link**
+5. Give that link to colleagues
+
+**Colleague flow (joins an existing workspace):**
+1. Connect to OneDrive via ☁ Cloud
+2. In the Cloud panel, click **Join workspace**
+3. Paste the share link the admin gave you → Join
+4. The app loads the shared memory and any existing statements from the workspace folder
+
+**Key rules:**
+- The share link must be set to **"Anyone with the link can edit"** (not view-only)
+- Memory auto-pushes to the workspace every time you export — colleagues see the latest rules next time they open the app
+- Workspace mode and personal save are mutually exclusive: when a workspace is active, statements save to the workspace folder. Leave the workspace to revert to personal save
+- This is NOT the same as multi-user login — each person connects with their own Microsoft account; there are no shared passwords
+
+---
+
+## Guide Mode
+
+Click the **💡 Guide** button (top-right toolbar) to turn on hover tooltips. When Guide Mode is on, hovering any button, tab, or dropdown shows a plain-English explanation of what it does and how it fits into the workflow. The button turns green when active. Your preference is saved between sessions.
+
+Turn it off by clicking **💡 Guide** again.
+
+---
+
 ## Quick Reference
 
 | Action | How |
@@ -390,3 +435,7 @@ Once all lines are confirmed and the empty-period box is ticked, **↓ Export Pr
 | Export precoded CSV (Pathway 2) | Confirm all lines + pick GST treatment for each + tick empty-period box → **↓ Export Precoded CSV** |
 | Load tracking categories | In coding screen: click **⚙ Import CSV** in the tracking panel → select Xero Tracking export |
 | Assign tracking per transaction | Select from the tracking sub-row beneath each coding line (optional) |
+| Turn on tooltips / Guide Mode | Click **💡 Guide** in the top-right toolbar (turns green when active) |
+| Create practice workspace | ☁ Cloud → Connect OneDrive → Practice Workspace → + Create workspace |
+| Join practice workspace | ☁ Cloud → Connect OneDrive → Practice Workspace → Join workspace → paste share link |
+| Save cloud payee rules backup | Export tab → Payee Code Memory → **↓ Save Rules** → store the .json file safely |

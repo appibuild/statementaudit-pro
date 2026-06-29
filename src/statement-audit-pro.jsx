@@ -791,6 +791,48 @@ const CATEGORIES = [
 ];
 
 // ─── Main Component ────────────────────────────────────────────────────────────
+// ── Tooltip (Guide Mode) ───────────────────────────────────────────────────
+// Wraps any element with a contextual hover bubble when Guide Mode is on.
+// active = showTips from the App component, passed via props.
+const Tip = ({ text, pos = 'bottom', active, children }) => {
+  const [v, setV] = React.useState(false);
+  if (!active || !text) return children;
+  const above = pos === 'top';
+  return (
+    <span style={{position:'relative',display:'inline-flex',alignItems:'stretch'}}
+      onMouseEnter={() => setV(true)} onMouseLeave={() => setV(false)}>
+      {children}
+      {v && (
+        <span style={{
+          position:'absolute',
+          ...(above ? {bottom:'calc(100% + 7px)'} : {top:'calc(100% + 7px)'}),
+          left:'50%', transform:'translateX(-50%)',
+          zIndex:9999,
+          background:'#1B2032', color:'#E8EEFF',
+          padding:'8px 12px', borderRadius:8,
+          fontSize:11, lineHeight:1.55,
+          maxWidth:250, minWidth:140, whiteSpace:'normal',
+          boxShadow:'0 4px 20px rgba(0,0,0,0.4)',
+          pointerEvents:'none', textAlign:'left',
+          fontWeight:400, fontFamily:'Inter,sans-serif',
+        }}>
+          {text}
+          <span style={{
+            position:'absolute',
+            ...(above
+              ? {bottom:-5, borderTop:'6px solid #1B2032', borderBottom:'none'}
+              : {top:-5, borderBottom:'6px solid #1B2032', borderTop:'none'}),
+            left:'50%', transform:'translateX(-50%)',
+            width:0, height:0,
+            borderLeft:'6px solid transparent', borderRight:'6px solid transparent',
+          }}/>
+        </span>
+      )}
+    </span>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function App() {
   const [stmts,    setStmts]    = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -867,6 +909,7 @@ export default function App() {
   const [cloudSyncing,  setCloudSyncing]  = useState(false);
   const [cloudError,    setCloudError]    = useState(null);
   const [showCloud,     setShowCloud]     = useState(false);
+  const [showTips,      setShowTips]      = useState(() => localStorage.getItem('sa_showTips') === 'true');
   // M365 Workspace state
   const [workspaceMode,      setWorkspaceMode]      = useState(() => localStorage.getItem('sa_wsMode')     || 'none');
   const [workspaceName,      setWorkspaceName]      = useState(() => localStorage.getItem('sa_wsName')     || '');
@@ -926,6 +969,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('sa_defaultType',      uploadDefaultType);         }, [uploadDefaultType]);
   useEffect(() => { localStorage.setItem('sa_defaultPlatform',  uploadDefaultPlatform);     }, [uploadDefaultPlatform]);
   useEffect(() => { localStorage.setItem('sa_chartAccounts',    JSON.stringify(chartAccounts)); }, [chartAccounts]);
+  useEffect(() => { localStorage.setItem('sa_showTips', String(showTips)); }, [showTips]);
   useEffect(() => { localStorage.setItem('sa_wsMode',      workspaceMode);     }, [workspaceMode]);
   useEffect(() => { localStorage.setItem('sa_wsName',      workspaceName);     }, [workspaceName]);
   useEffect(() => { localStorage.setItem('sa_wsFolderId',  workspaceFolderId); }, [workspaceFolderId]);
@@ -1857,15 +1901,18 @@ export default function App() {
       <div style={{display:'flex',gap:16,alignItems:'flex-end',justifyContent:'center',flexWrap:'wrap'}}>
         <div>
           <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Account Type</div>
+          <Tip text="Set this before processing. Current Account, Credit Card, Savings, etc. — tells the AI which debit/credit conventions to apply when reading the PDF." pos="bottom" active={showTips}>
           <select value={uploadDefaultType} onChange={e => setUploadDefaultType(e.target.value)}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
               color:ACCOUNT_TYPES[uploadDefaultType]?.color||C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
               fontFamily:'Inter,sans-serif',fontWeight:500}}>
             {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
+          </Tip>
         </div>
         <div>
           <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Export To</div>
+          <Tip text="Choose your accounting platform — this determines which CSV format is produced on export. Xero unlocks Pathway 2 (Code & Create) for empty periods." pos="bottom" active={showTips}>
           <select value={uploadDefaultPlatform} onChange={e => setUploadDefaultPlatform(e.target.value)}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
               color:uploadDefaultPlatform==='xero'?'#13B5EA':'#2CA01C',fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
@@ -1873,6 +1920,7 @@ export default function App() {
             <option value="qbo">QuickBooks Online</option>
             <option value="xero">Xero</option>
           </select>
+          </Tip>
         </div>
       </div>
       <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
@@ -1923,14 +1971,20 @@ export default function App() {
           </div>
         </div>
         <div style={{display:'flex',gap:8}}>
+          <Tip text="Add more PDF bank statements to the queue." pos="bottom" active={showTips}>
           <button onClick={() => fileInputRef.current?.click()} style={btn('outline')}>+ Add Files</button>
+          </Tip>
           {cnts.errors > 0 && (
+            <Tip text="Re-run all statements that failed on the last attempt." pos="bottom" active={showTips}>
             <button onClick={runErrored} disabled={running} style={btn('outline',running)}>↻ Run errored ({cnts.errors})</button>
+            </Tip>
           )}
           {cnts.queued > 0 && (
+            <Tip text="Send all queued files to the AI extraction engine. Each PDF is read, transactions extracted, and reconciled one at a time." pos="bottom" active={showTips}>
             <button onClick={processAll} disabled={running} style={btn('primary',running)}>
               {running ? '⟳ Processing…' : `▶ Process All (${cnts.queued})`}
             </button>
+            </Tip>
           )}
         </div>
       </div>
@@ -2011,14 +2065,20 @@ export default function App() {
               <Pill status={s.status}/>
               <div style={{display:'flex',gap:5}}>
                 {['queued','error','rejected'].includes(s.status) && (
+                  <Tip text="Extract transactions from this PDF now." pos="top" active={showTips}>
                   <button onClick={() => processOne(s.id)} style={{...btn('outline'),padding:'4px 10px',fontSize:11}}>Run</button>
+                  </Tip>
                 )}
                 {['review','approved'].includes(s.status) && (
+                  <Tip text="Open this statement in the Review tab." pos="top" active={showTips}>
                   <button onClick={() => {setActiveId(s.id);setTab('audit');}} style={{...btn('outline'),padding:'4px 10px',fontSize:11}}>View</button>
+                  </Tip>
                 )}
                 {s.status !== 'processing' && (
+                  <Tip text="Remove this file from the list." pos="top" active={showTips}>
                   <button onClick={() => setStmts(p => p.filter(x => x.id !== s.id))}
                     style={{background:'none',border:'none',color:C.t3,cursor:'pointer',fontSize:13,padding:'2px 4px'}}>✕</button>
+                  </Tip>
                 )}
               </div>
             </div>
@@ -2236,8 +2296,11 @@ export default function App() {
                       color:atCfg.color,fontSize:11,outline:'none',cursor:'pointer'}}>
                     {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
+                  <Tip text="Re-extract this statement. Use after changing Account Type, or if the first extraction failed or gave wrong results." pos="bottom" active={showTips}>
                   <button onClick={() => processOne(s.id)} disabled={running}
                     style={{...btn('outline',running),padding:'4px 11px',fontSize:11}}>↻ Re-run</button>
+                  </Tip>
+                  <Tip text="Open a side-by-side view of the original PDF alongside the extracted transactions — useful for verifying individual rows." pos="bottom" active={showTips}>
                   <button onClick={() => {
                       const next = !showPdf;
                       setShowPdf(next);
@@ -2245,8 +2308,11 @@ export default function App() {
                       else { setSidebarCollapsed(false); setRecCollapsed(false); }
                     }}
                     style={{...btn(showPdf?'success':'outline'),padding:'4px 11px',fontSize:11}}>📄 {showPdf?'Hide PDF':'Show PDF'}</button>
+                  </Tip>
+                  <Tip text="Show or hide the Nominal Code column in the transaction table. Nominal codes are saved to payee memory and appear in the export." pos="bottom" active={showTips}>
                   <button onClick={() => setShowNominal(v => !v)}
                     style={{...btn(showNominal?'success':'outline'),padding:'4px 11px',fontSize:11}}>🔢 {showNominal?'Hide Nominal':'Nominal codes'}</button>
+                  </Tip>
                 </div>
               </div>
               <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
@@ -2254,39 +2320,54 @@ export default function App() {
                 <span style={{fontSize:11,color:C.t2,fontFamily:'JetBrains Mono,monospace',padding:'0 4px'}}>{idx+1}/{reviewable.length}</span>
                 <button onClick={() => idx<reviewable.length-1 && setActiveId(reviewable[idx+1].id)} disabled={idx>=reviewable.length-1} style={btn('outline')}>Next →</button>
                 {canEdit && <>
+                  <Tip text="Mark this statement as rejected. It stays in the list but won't export. You can reverse this at any time." pos="bottom" active={showTips}>
                   <button onClick={() => reject(s.id)} style={btn('danger')}>✕ Reject</button>
+                  </Tip>
                   {!fastTrack && (rec?.reconciled
                     ? <>
+                        <Tip text="Downloads the CSV and marks this statement as approved. Only active when the closing balance and statement figures both reconcile." pos="bottom" active={showTips}>
                         <button onClick={() => { exportStmt(s); approve(s.id); }} style={btn('primary')}>✓ Approve &amp; Export</button>
+                        </Tip>
+                        <Tip text={s.platform === 'xero'
+                          ? 'Pathway 2 — confirm an account code for each line, then export one precoded Xero import file. For empty periods only.'
+                          : 'Confirm an account code for each line and export a QBO CSV with reference codes for manual categorisation in QBO.'} pos="bottom" active={showTips}>
                         <button onClick={() => openCodingModal(s.id)}
-                          title={s.platform === 'xero'
-                            ? 'Pathway 2 — confirm a code for each line, export one precoded Xero import (coded + reconciled in one pass)'
-                            : 'Reference coding — confirm a code for each line, export QBO CSV with reference codes for manual entry'}
                           style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>
                           ✎ {s.platform === 'xero' ? 'Code & Create' : 'Code & Reference'}
                         </button>
+                        </Tip>
                       </>
-                    : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
+                    : <Tip text="The approval gate is blocked. Closing balance or statement figures don't match — fix the variance first." pos="bottom" active={showTips}><span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span></Tip>
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
+                    <Tip text="Downloads a three-sheet Excel file — full transaction register, clean import data, and receipts list. Includes GST Treatment column for Xero Pathway 2." pos="bottom" active={showTips}>
                     <button onClick={() => dlWorkbook(s, s.reconciliation, treatmentMemoryRef.current)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                    </Tip>
                   )}
                   {!fastTrack && canEdit && (
+                    <Tip text="Undo all inline edits and restore the original AI extraction. Useful if you want to start corrections from scratch." pos="bottom" active={showTips}>
                     <button
                       onClick={() => { if (s.editedTransactions && window.confirm('Reset all edits and return to the original AI extraction?')) resetStatement(s.id); }}
                       disabled={!s.editedTransactions}
                       title={s.editedTransactions ? 'Undo all inline edits and restore the original AI extraction' : 'No edits to reset'}
                       style={{...btn('outline'),borderColor:s.editedTransactions?C.amb:C.bdr,color:s.editedTransactions?C.amb:C.t4,
                         cursor:s.editedTransactions?'pointer':'default'}}>↺ Reset edits</button>
+                    </Tip>
                   )}
                 </>}
                 {s.status==='approved' && <>
+                  <Tip text="Re-download the approved CSV for this statement." pos="bottom" active={showTips}>
                   <button onClick={() => exportStmt(s)} style={btn('success')}>↓ Re-download CSV</button>
+                  </Tip>
+                  <Tip text="Download the Excel audit workbook for this statement." pos="bottom" active={showTips}>
                   <button onClick={() => dlWorkbook(s, s.reconciliation, treatmentMemoryRef.current)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                  </Tip>
+                  <Tip text="Return to Review status without re-running — all data, edits, and coding are kept. Use to make corrections after approving." pos="bottom" active={showTips}>
                   <button
                     onClick={() => { if (window.confirm('Return this statement to Review? You can re-approve it at any time without re-running.')) updateS(s.id, {status:'review', approvedAt:undefined}); }}
                     title="Return to Review without re-running — all data and edits are kept"
                     style={{...btn('outline'),borderColor:C.amb,color:C.amb}}>↺ Roll back to Review</button>
+                  </Tip>
                 </>}
               </div>
             </div>
@@ -3027,12 +3108,16 @@ export default function App() {
           </div>
           <div style={{display:'flex',gap:8}}>
             {qboApproved.length > 1 && (
+              <Tip text="Combine all approved QBO statements into a single CSV file for one import into QuickBooks." pos="bottom" active={showTips}>
               <button onClick={() => dlFile(buildQBO(qboApproved.flatMap(s=>getTx(s)).sort((a,b)=>pDate(a.date)-pDate(b.date))), 'Merged_QBO.csv')}
                 style={btn('outline')}>↓ Merge QBO ({qboApproved.length})</button>
+              </Tip>
             )}
             {xeroApproved.length > 1 && (
+              <Tip text="Combine all approved Xero statements into a single CSV file for one import into Xero." pos="bottom" active={showTips}>
               <button onClick={() => dlFile(buildXero(xeroApproved.flatMap(s=>getTx(s)).sort((a,b)=>pDate(a.date)-pDate(b.date))), 'Merged_Xero.csv')}
                 style={btn('outline')}>↓ Merge Xero ({xeroApproved.length})</button>
+              </Tip>
             )}
           </div>
         </div>
@@ -3076,7 +3161,9 @@ export default function App() {
                     border:`1px solid ${rec?.reconciled?C.grnBrd:C.ambBrd}`}}>
                     {rec?.reconciled?'✓ Reconciled':'⚑ Variance'}
                   </span>
+                  <Tip text="Re-download the approved CSV for this statement." pos="top" active={showTips}>
                   <button onClick={() => exportStmt(s)} style={btn('primary')}>↓ Download</button>
+                  </Tip>
                 </div>
               </div>
             );
@@ -3093,9 +3180,15 @@ export default function App() {
               </div>
             </div>
             <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+              <Tip text="Save your current payee rules as a JSON backup file. Keep this somewhere safe — it's your only recovery if browser storage is cleared." pos="top" active={showTips}>
               <button onClick={exportRules} disabled={!Object.keys(payeeMemory).length} style={btn('outline')}>↓ Save Rules</button>
+              </Tip>
+              <Tip text="Load a previously saved rules backup (.json). Restores payee memory, chart of accounts, and coding preferences." pos="top" active={showTips}>
               <button onClick={() => rulesInputRef.current?.click()} style={btn('outline')}>↑ Import Rules (.json)</button>
+              </Tip>
+              <Tip text="Import rules exported from QuickBooks Online (Transactions → Bank Transactions → Rules → Export Rules)." pos="top" active={showTips}>
               <button onClick={() => qboInputRef.current?.click()} style={btn('outline')}>↑ Import QBO Rules (.xls)</button>
+              </Tip>
               <button onClick={() => { if(window.confirm('Clear all payee→code rules?')) setPayeeMemory({}); }}
                 disabled={!Object.keys(payeeMemory).length} style={btn('danger')}>Clear All</button>
               <input ref={rulesInputRef} type="file" accept=".json" style={{display:'none'}} onChange={importRules}/>
@@ -3211,8 +3304,15 @@ export default function App() {
           {navItems.map(n => {
             const on   = tab===n.id;
             const done = stepDone(n.id);
+            const tabTip = {
+              upload: 'Step 1 — Drop PDF bank statements here. Set Account Type and Export To before uploading.',
+              queue:  'Step 2 — Run the AI extraction engine on your queued files. Each PDF is read, transactions extracted, and reconciled.',
+              audit:  'Step 3 — Check, edit, and approve each extracted statement. Numbers must close before anything exports.',
+              export: 'Step 4 — Download approved statements as CSV files for QuickBooks or Xero. Access the Audit Workbook here too.',
+            }[n.id];
             return (
-              <button key={n.id} onClick={() => setTab(n.id)}
+              <Tip key={n.id} text={tabTip} pos="bottom" active={showTips}>
+              <button onClick={() => setTab(n.id)}
                 style={{display:'flex',alignItems:'center',gap:9,padding:'9px 16px',borderRadius:10,
                   background:on?C.bluDim:'transparent',
                   border:`1px solid ${on?C.bluBrd:'transparent'}`,
@@ -3228,8 +3328,10 @@ export default function App() {
                     fontSize:12,fontWeight:600,lineHeight:'18px'}}>{n.badge}</span>
                 )}
               </button>
+              </Tip>
             );
           })}
+          <Tip text="A log of every extraction, approval, rejection, and cloud save this session." pos="bottom" active={showTips}>
           <button onClick={() => setShowActivity(v => !v)}
             title="Activity log"
             style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
@@ -3237,6 +3339,8 @@ export default function App() {
               color:showActivity?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
             ⧖ Activity
           </button>
+          </Tip>
+          <Tip text={cloudProvider!=='none' ? 'Cloud storage is connected. Microsoft users can also create or join a shared Practice Workspace.' : 'Connect Google Drive or OneDrive to auto-save approved statements. Microsoft users can create a shared Practice Workspace.'} pos="bottom" active={showTips}>
           <button onClick={() => { setShowCloud(v => !v); setCloudError(null); }}
             title="Cloud storage — Google Drive or OneDrive"
             style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
@@ -3246,6 +3350,8 @@ export default function App() {
               cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
             {cloudSyncing ? '↻ Syncing' : cloudProvider !== 'none' ? '☁ Synced' : '☁ Cloud'}
           </button>
+          </Tip>
+          <Tip text="Step-by-step guides, troubleshooting, and import instructions for QuickBooks and Xero." pos="bottom" active={showTips}>
           <button onClick={() => setShowHelp(v => !v)}
             title="Help & guides"
             style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
@@ -3253,6 +3359,8 @@ export default function App() {
               color:showHelp?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
             ? Help
           </button>
+          </Tip>
+          <Tip text="Send a message, report a bug, or suggest a feature." pos="bottom" active={showTips}>
           <button onClick={() => { setShowFeedback(v => !v); setFeedbackSent(false); }}
             title="Give feedback"
             style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
@@ -3260,12 +3368,24 @@ export default function App() {
               color:showFeedback?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
             💬 Feedback
           </button>
+          </Tip>
+          <Tip text="Toggle Guide Mode — hover over any button or tab to see what it does." pos="bottom" active={showTips}>
+          <button onClick={() => setShowTips(v => !v)}
+            title="Toggle guide mode tooltips"
+            style={{display:'flex',alignItems:'center',gap:5,padding:'9px 12px',borderRadius:10,
+              background:showTips?C.grnDim:'transparent',border:`1px solid ${showTips?C.grnBrd:'transparent'}`,
+              color:showTips?C.grn:C.t3,cursor:'pointer',fontSize:13,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
+            💡{showTips?' Guide on':' Guide'}
+          </button>
+          </Tip>
+          <Tip text="Keyboard shortcuts: A = Approve, R = Reject, ← → = navigate statements, ? = show shortcuts." pos="bottom" active={showTips}>
           <button onClick={() => setShowShortcuts(v => !v)}
             title="Keyboard shortcuts"
             style={{padding:'9px 12px',borderRadius:10,background:'transparent',border:`1px solid transparent`,
               color:C.t3,cursor:'pointer',fontSize:16,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
             ⌨
           </button>
+          </Tip>
         </nav>
       </div>
 
@@ -3718,17 +3838,35 @@ export default function App() {
             { q:'Does confirming a code in the modal save it for future use?', a:'Yes — when you export from the coding screen, every confirmed code is saved back to the app\'s payee memory. Next time you process a statement with the same payees, those lines will show the "remembered" badge and can be auto-confirmed with the "Auto-confirm remembered payees" switch.' },
             { q:'What happens if I cancel the coding screen without exporting?', a:'Nothing is saved or exported. The statement remains in Review status unchanged. You can re-open the coding screen from the same statement any time.' },
           ]},
-          { section:'Cloud Storage Setup', items:[
+          { section:'Cloud Storage & Practice Workspace', items:[
             { q:'What do I need to do before the Connect buttons work?',
               a:'Both Google Drive and OneDrive require a one-time app registration so they know which app is requesting access to files. You\'ll create a free OAuth client ID in Google Cloud Console (for Drive) or Azure Portal (for OneDrive), then add it as a Render environment variable. The full numbered steps are in the ☁ Cloud panel — click the relevant "Setup" accordion. Total time: about 5 minutes per provider.' },
             { q:'How do I set up Google Drive — step by step?',
               a:'1. Go to console.cloud.google.com → New Project → name it StatementAudit Pro → Create. 2. APIs & Services → Library → enable the Google Drive API. 3. APIs & Services → OAuth consent screen → External → fill in App name + email → Save. 4. APIs & Services → Credentials → + Create Credentials → OAuth client ID → Web application. 5. Under Authorised redirect URIs add your exact Render URL (e.g. https://your-app.onrender.com — no trailing slash). 6. Create → copy the Client ID (ends in .apps.googleusercontent.com). 7. In Render: your service → Environment → add VITE_GOOGLE_CLIENT_ID = (paste ID) → Save. Render rebuilds in ~2 minutes and the Connect Google Drive button becomes active.' },
             { q:'How do I set up OneDrive — step by step?',
-              a:'1. Go to portal.azure.com → search "App registrations" → + New registration. 2. Name: StatementAudit Pro. Account types: "Accounts in any organizational directory and personal Microsoft accounts". 3. Redirect URI: Web → your exact Render URL (e.g. https://your-app.onrender.com). 4. Register → copy the Application (client) ID from the Overview page (it\'s a GUID). 5. API permissions → + Add a permission → Microsoft Graph → Delegated → tick Files.ReadWrite.AppFolder and User.Read → Add permissions. 6. Click "Grant admin consent" if shown (needed for organisation accounts, not personal). 7. In Render: your service → Environment → add VITE_MICROSOFT_CLIENT_ID = (paste GUID) → Save. Rebuild completes in ~2 minutes.' },
+              a:'1. Go to portal.azure.com → search "App registrations" → + New registration. 2. Name: StatementAudit Pro. Account types: "Accounts in any organizational directory and personal Microsoft accounts". 3. Redirect URI: Web → your exact Render URL (e.g. https://your-app.onrender.com). 4. Register → copy the Application (client) ID from the Overview page (it\'s a GUID). 5. API permissions → + Add a permission → Microsoft Graph → Delegated → tick Files.ReadWrite and User.Read → Add permissions (important: choose Files.ReadWrite, not Files.ReadWrite.AppFolder — the workspace feature requires this). 6. Click "Grant admin consent" if shown (needed for organisation accounts, not personal). 7. In Render: your service → Environment → add VITE_MICROSOFT_CLIENT_ID = (paste GUID) → Save. Rebuild completes in ~2 minutes.' },
             { q:'Where do I find my Render app URL to use as the redirect URI?',
               a:'In your Render dashboard, open the service → the URL shown at the top (e.g. https://statementaudit-pro.onrender.com) is what you paste as the redirect URI in both Google Cloud and Azure. Use the exact URL — no trailing slash, and make sure it starts with https://. If you later add a custom domain, you\'ll need to add that URL as an additional redirect URI in both consoles.' },
             { q:'Do I need to set up both providers, or can I choose just one?',
-              a:'You only need to set up the one you want to use — there\'s no requirement to configure both. OneDrive tends to be the better choice for UK accountants already in the Microsoft 365 ecosystem (Excel, SharePoint, Teams). Google Drive works well if your team uses Google Workspace. Both work identically from the app\'s point of view.' },
+              a:'You only need to set up the one you want to use — there\'s no requirement to configure both. OneDrive is the better choice for UK accounting practices already using Microsoft 365 — it unlocks the Practice Workspace feature (shared payee rules and chart of accounts across the team). Google Drive works well if your team uses Google Workspace. Both work identically for personal cloud save.' },
+            { q:'What is the Practice Workspace and how does it work?',
+              a:'The Practice Workspace is a shared OneDrive folder that your whole team accesses through StatementAudit Pro. Once connected to OneDrive: the admin clicks "Create workspace" in the Cloud panel, gives it a name, and the app creates a folder in their OneDrive. They then share that folder link from OneDrive (right-click → Share → Anyone with the link can edit → Copy link) and give it to colleagues. Each colleague opens Cloud panel → "Join workspace" → pastes the link. From that point, payee memory, chart of accounts, and tracking categories are shared automatically — when anyone processes a statement and exports, the memory updates for everyone in the workspace.' },
+            { q:'What gets shared in the Practice Workspace?',
+              a:'The workspace shares: payee code memory (the codes you\'ve confirmed for each payee), category memory, Jersey GST treatment memory, Xero tracking category selections, chart of accounts (if loaded), and tracking categories (if loaded). Individual statements are also saved to the workspace folder so colleagues can see all approved statements. The workspace does NOT share login credentials — each user connects to Microsoft with their own account.' },
+            { q:'Can I use the workspace if I\'m on Google Drive?',
+              a:'No — the Practice Workspace feature uses Microsoft OneDrive\'s sharing model. It is only available when connected to Microsoft / OneDrive. Google Drive users get personal cloud save (statements auto-saved to a private app folder) but not the shared workspace.' },
+            { q:'What happens if I disconnect from Microsoft?',
+              a:'Disconnecting from Microsoft also leaves the workspace — your local payee memory and other settings are kept in the browser, but the connection to the shared folder is cleared. To reconnect, sign back in to Microsoft and join the workspace again using the same share link.' },
+          ]},
+          { section:'Guide Mode & Navigation', items:[
+            { q:'What is Guide Mode?',
+              a:'Guide Mode adds a hover tooltip to every button and tab in the app — hover any element to see a short explanation of what it does and how it fits into the workflow. Turn it on by clicking the 💡 Guide button in the top-right of the screen. It turns green when active. Your preference is saved — Guide Mode stays on or off between sessions.' },
+            { q:'How do I turn Guide Mode on and off?',
+              a:'Click the 💡 Guide button at the top right of the screen. When Guide Mode is on the button turns green and shows "Guide on". Click again to turn it off. The setting persists between sessions — you don\'t need to re-enable it each time you open the app.' },
+            { q:'Which elements show tooltips?',
+              a:'Guide Mode covers: the four main navigation tabs (Upload, Process, Review, Export), all topbar action buttons (Cloud, Help, Feedback, Shortcuts), and the key action buttons in each tab — including Approve, Reject, Code & Create, Code & Reference, Audit Workbook, Reset edits, Roll back, Process All, Re-run, Save Rules, Import Rules, Merge exports, and all per-statement Download buttons.' },
+            { q:'What are the keyboard shortcuts?',
+              a:'In the Review tab: A = Approve & Export the current statement. R = Reject the current statement. ← → = navigate between statements. ? = show/hide the shortcuts panel. Shortcuts only fire when focus is not inside a text input.' },
           ]},
           { section:'Audit Workbook', items:[
             { q:'What is the Audit Workbook and what does it contain?',
