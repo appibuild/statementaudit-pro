@@ -1,6 +1,6 @@
 # StatementAudit Pro — Anti-Drift Guardrails
 
-**Created:** 2026-06-17 · **Last updated:** 2026-06-28 (G1 stale-file fix; G6 expanded for Pathway 2 non-negotiables) · **Status:** Active. Applies to every session from here.
+**Created:** 2026-06-17 · **Last updated:** 2026-06-29 (Module A: Jersey GST rule-pack; verify.sh check 13 seam guard) · **Status:** Active. Applies to every session from here.
 
 **Why this exists:** A review traced the recurring pain to *drift* — and found it was several different kinds, not one. This document names each kind, its root cause, and the mechanical guardrail that prevents it. Board-reviewed (Fried, Hoy, Jarvis, Ogilvy, UK Practice Manager). G7 added 2026-06-23 after the 3B post-mortem. Single-channel transition recorded 2026-06-23. G6 expanded 2026-06-28 after Pathway 2 build (new safety-critical non-negotiables).
 
@@ -30,12 +30,11 @@ At the start of every session: run **`bash verify.sh`** from the repo root and l
 **Current session startup sequence:**
 ```bash
 cd statementaudit-pro
-bash verify.sh                        # must be 11/11 green
+bash verify.sh                        # must be 13/13 green
 ```
 Then load:
-- `docs/STATEMENTAUDIT_HANDOVER_2026-06-26.md` — build state and feature record
 - `docs/STATEMENTAUDIT_HANDOVER_2026-06-28_TRANSACTION-MODE-EXPANSION.md` — expansion brief and non-negotiables
-- `src/statement-audit-pro.jsx` — canonical source (currently 3761 lines)
+- `src/statement-audit-pro.jsx` — canonical source (currently 3858 lines, commit ae7a9eb)
 
 > Note: `docs/STATEMENTAUDIT_PROJECT_INSTRUCTIONS.md` was referenced in the original G1 but does not exist — it was a two-channel artefact. The handover trail above is the current source of truth.
 
@@ -114,6 +113,14 @@ Every job or finding written into a handover carries a status tag: **`VERIFIED L
 ## G7 provenance (2026-06-23)
 
 Added after the findFlip / 3B sign-bug post-mortem. Surfaced by Claude Code's own feedback: the failure mode wasn't the two-channel structure but handover quality — a paper claim crossing the channel boundary as inherited fact. Simon Willison's remit (extraction reliability, solo-dev maintainability). Consistent with Ogilvy's note: the tag is a one-glance signal a tired reader acts on correctly.
+
+## Module A — Jersey GST seam (2026-06-29, commit ae7a9eb)
+
+`gstJersey` rule-pack added. Seam rule: the rule-pack is consulted ONLY by (a) the coding modal GST column and (b) `buildXeroPrecoded`. It MUST NOT appear in `recalc`, the balance walk, reconciliation arithmetic, or `BASE_PROMPT`/`PROMPTS`. verify.sh check 13 enforces this — fails if `gstJersey` or `gstTreatment` appear in the extraction prompt block (lines 74–140). The engine is GST-agnostic: treatment is metadata on the transaction, never an arithmetic input.
+
+**Rate-maintenance discipline:** the rule-pack carries `verifiedAt: '2026-06-29'`. `gstJersey.isExpired()` returns true after 365 days — the precoded export is hard-blocked when this fires. Stephen must update `verifiedAt` (and re-verify against Revenue Jersey) each year before the expiry. The rate/treatment data comes from Revenue Jersey / GST (Jersey) Law 2007, Schedules 5 & 6 — not Claude Code memory.
+
+**QBO boundary preserved:** no GST treatment column in QBO modal (reference-only boundary unchanged).
 
 ## P2-F1 resolved (2026-06-28, post-audit)
 

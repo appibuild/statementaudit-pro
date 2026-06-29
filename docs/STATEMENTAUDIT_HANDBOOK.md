@@ -2,7 +2,7 @@
 
 **Purpose:** Upload a bank statement PDF → review and correct the AI extraction → export a clean CSV for QuickBooks or Xero. The app never lets you export until the numbers add up. This guide explains every feature and how to fix the errors you'll actually see.
 
-**Updated:** 2026-06-28 — Pathway 2 (Code & Create), chart of accounts import, rollback buttons.
+**Updated:** 2026-06-29 — Module A: Jersey GST treatment per transaction in Pathway 2 / Code & Create.
 
 ---
 
@@ -208,9 +208,10 @@ Clicking **✎ Code & Create** opens a full-screen coding screen with every tran
 - **Payee / Description** — from the PDF; a "remembered" badge appears if the app has seen this payee before
 - **Amount** — debit in red, credit in green
 - **Account Code** — editable; pre-populated from payee memory or defaulting to Misc Revenue / Misc Expense
-- **✓ toggle** — click to confirm the code; click again to un-confirm
+- **GST Treatment** — Jersey GST treatment for this transaction (Xero only; see below)
+- **✓ toggle** — click to confirm both the code and treatment; click again to un-confirm
 
-**To confirm a line:** Check the code is correct, then click the ✓ toggle. The row turns green.  
+**To confirm a line:** Check the code is correct, select a GST treatment, then click the ✓ toggle. The row turns green.  
 **To change a code:** Edit the Account Code field — confirming resets until you tick ✓ again.
 
 ---
@@ -220,6 +221,32 @@ Clicking **✎ Code & Create** opens a full-screen coding screen with every tran
 Tick **Auto-confirm remembered payees** to bulk-confirm all lines where a code is already remembered from a previous session. The "remembered" badge marks these lines.
 
 This switch saves clicks on recurring payees — salary, rent, utilities — but does not confirm lines with unknown payees. You still review and confirm those manually. The gate requires all lines confirmed; this switch cannot bypass it.
+
+---
+
+### Jersey GST Treatment (Module A)
+
+Each transaction on a Xero statement requires a GST treatment before it can be confirmed. The app pre-fills from memory (if you've coded this payee before), then requires you to confirm or change it.
+
+**Treatments available:**
+
+| Treatment | Rate | When to use |
+|---|---|---|
+| **Standard Rate (5%)** | 5% | Default for most goods and services supplied in Jersey |
+| **Zero Rated (0%)** | 0% | Exports, residential property, prescription medicines, international services, ISE supplies >£1,000 |
+| **Exempt** | — | Financial services, insurance, postal services, medical/paramedical (registered professionals), charities, education |
+| **ISE Supply (>£1,000)** | 0% (treated as export) | Supply to a Jersey International Service Entity where the individual supply exceeds £1,000 |
+| **Outside Scope / No GST** | — | Place of supply outside Jersey; goods supplied and remaining outside Jersey |
+
+**Source:** Revenue Jersey — Goods and Services Tax (Jersey) Law 2007, Schedules 5 & 6.
+
+**The treatment the app proposes is a suggestion, not a fact.** The product sources the law; you decide which treatment applies to each client transaction. If you are unsure, consult your client or a Jersey tax adviser before confirming.
+
+**The ✓ toggle is disabled until a treatment is selected.** You cannot confirm a line without a GST treatment — this is the per-line gate.
+
+**Treatment memory:** Confirmed treatments are remembered per payee/description. Next time you open a coding screen with the same payee, the treatment is pre-filled (but still requires your confirmation).
+
+**GST Rule-Pack banner:** The controls bar shows the active rule-pack version and verification date. If the rule-pack is more than one year old, the precoded export is blocked — the banner shows this in red. To unblock: update `gstJersey.verifiedAt` in the source code after verifying the current rates at Revenue Jersey.
 
 ---
 
@@ -304,6 +331,8 @@ Once all lines are confirmed and the empty-period box is ticked, **↓ Export Pr
 1. Every row must have its ✓ toggle ticked — a line with an un-ticked toggle blocks export
 2. The empty-period assertion box must be ticked
 3. No line can have a blank Account Code field (enter a code first, then confirm)
+4. Every Xero row must have a GST Treatment selected — the ✓ toggle is disabled until one is chosen
+5. The footer message will tell you exactly which condition is blocking export (lines not confirmed / GST treatment missing / empty-period not ticked / rule-pack expired)
 
 ---
 
@@ -322,4 +351,4 @@ Once all lines are confirmed and the empty-period box is ticked, **↓ Export Pr
 | Approve and export (Pathway 1) | Click **✓ Approve & Export** (only active when reconciled) |
 | Open coding screen (Pathway 2) | Click **✎ Code & Create** — Xero statements only, reconciled only |
 | Load chart of accounts | In coding screen: click **📋 Import CSV** → select Xero CoA export |
-| Export precoded CSV (Pathway 2) | Confirm all lines + tick empty-period box → **↓ Export Precoded CSV** |
+| Export precoded CSV (Pathway 2) | Confirm all lines + pick GST treatment for each + tick empty-period box → **↓ Export Precoded CSV** |
