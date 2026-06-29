@@ -47,6 +47,29 @@ const STATUS_CFG = {
   error:      { label:'Error',      color:C.red },
 };
 
+// ─── Jersey GST Rule-Pack ─────────────────────────────────────────────────────
+// SEAM GUARD: consulted ONLY by (a) coding modal GST column and (b) buildXeroPrecoded.
+// MUST NOT appear inside recalc, the balance walk, reconciliation, or BASE_PROMPT.
+const gstJersey = (() => {
+  const treatments = [
+    { key:'standard', label:'Standard Rate (5%)',     xeroName:'GST',         lawRef:'GST (Jersey) Law 2007 — standard-rated catch-all' },
+    { key:'zero',     label:'Zero Rated (0%)',         xeroName:'Zero Rated',  lawRef:'Schedule 6 — zero-rated (exports, housing, prescriptions, international services)' },
+    { key:'exempt',   label:'Exempt',                  xeroName:'Exempt',      lawRef:'Schedule 5 — exempt (financial services, insurance, postal, medical, charity, education)' },
+    { key:'ise',      label:'ISE Supply (>£1,000)',    xeroName:'Zero Rated',  lawRef:'ISE regime — supply to International Service Entity exceeding £1,000, treated as export' },
+    { key:'outside',  label:'Outside Scope / No GST', xeroName:'No VAT',      lawRef:'Place of supply outside Jersey — not within scope of GST (Jersey) Law 2007' },
+  ];
+  return {
+    version:      '2026-06-29',
+    effectiveDate:'2008-05-06',
+    verifiedAt:   '2026-06-29',
+    source:       'Revenue Jersey · gov.je/TaxesMoney/GST/ · Goods and Services Tax (Jersey) Law 2007, Schedules 5 & 6',
+    treatments,
+    options:      treatments.map(t => ({ value: t.key, label: t.label })),
+    xeroName(key)    { const t = treatments.find(x => x.key === key); return t ? t.xeroName : null; },
+    isExpired()      { return (Date.now() - new Date(this.verifiedAt).getTime()) > 365 * 24 * 60 * 60 * 1000; },
+  };
+})();
+
 // ─── System Prompts ───────────────────────────────────────────────────────────
 const BASE_PROMPT = `Return ONLY valid JSON — no markdown fences, no preamble, just raw JSON.
 
@@ -400,7 +423,7 @@ const buildXeroPrecoded = txList => {
     const d    = (t.description||'').replace(/"/g,'""');
     const ref  = (t.paymentType||'');
     const code = (t.nominalCode||'');
-    const tax  = code ? 'No VAT' : '';
+    const tax  = gstJersey.xeroName(t.gstTreatment) || (code ? 'No VAT' : '');
     return `${t.date},${amt},"${p}","${d}",${ref},${code},${tax},,`;
   })].join('\r\n');
 };
@@ -718,6 +741,9 @@ export default function App() {
   const [categoryMemory, setCategoryMemory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sa_categoryMemory') || '{}'); } catch { return {}; }
   });
+  const [treatmentMemory, setTreatmentMemory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_treatmentMemory') || '{}'); } catch { return {}; }
+  });
   const [projects, setProjects] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sa_projects') || 'null') || [{id:'default',name:'Default Project'}]; }
     catch { return [{id:'default',name:'Default Project'}]; }
@@ -775,8 +801,9 @@ export default function App() {
   const qboInputRef       = useRef(null);
   const receiptInputRef   = useRef(null);
   const chartInputRef     = useRef(null);
-  const payeeMemoryRef    = useRef({});
-  const categoryMemoryRef = useRef({});
+  const payeeMemoryRef      = useRef({});
+  const categoryMemoryRef   = useRef({});
+  const treatmentMemoryRef  = useRef({});
 
   useEffect(() => { stmtsRef.current = stmts; }, [stmts]);
   useEffect(() => {
@@ -787,6 +814,10 @@ export default function App() {
     categoryMemoryRef.current = categoryMemory;
     localStorage.setItem('sa_categoryMemory', JSON.stringify(categoryMemory));
   }, [categoryMemory]);
+  useEffect(() => {
+    treatmentMemoryRef.current = treatmentMemory;
+    localStorage.setItem('sa_treatmentMemory', JSON.stringify(treatmentMemory));
+  }, [treatmentMemory]);
   useEffect(() => { localStorage.setItem('sa_projects',         JSON.stringify(projects));  }, [projects]);
   useEffect(() => { localStorage.setItem('sa_activeProject',    activeProjectId);           }, [activeProjectId]);
   useEffect(() => { localStorage.setItem('sa_showNominal',      String(showNominal));       }, [showNominal]);
@@ -1331,12 +1362,14 @@ export default function App() {
     const tx = getTx(stmt);
     const lines = tx.map(t => {
       const key = normKey(t.payee, t.description);
-      const memCode = categoryMemoryRef.current[key] || payeeMemoryRef.current[key];
+      const memCode      = categoryMemoryRef.current[key] || payeeMemoryRef.current[key];
+      const memTreatment = treatmentMemoryRef.current[key] || '';
       return {
         ...t,
-        code: memCode || (t.credit != null && t.debit == null ? 'Misc Revenue' : 'Misc Expense'),
-        fromMemory: !!memCode,
-        confirmed: false,
+        code:         memCode || (t.credit != null && t.debit == null ? 'Misc Revenue' : 'Misc Expense'),
+        fromMemory:   !!memCode,
+        gstTreatment: memTreatment,
+        confirmed:    false,
       };
     });
     setCodingLines(lines);
@@ -1361,6 +1394,17 @@ export default function App() {
       }
     });
     setCategoryMemory(updCat);
+    // Save confirmed GST treatments to treatmentMemory (Xero only)
+    if (stmt.platform === 'xero') {
+      const updTreat = {...treatmentMemoryRef.current};
+      codingLines.forEach(l => {
+        if (l.confirmed && l.gstTreatment) {
+          const key = normKey(l.payee, l.description);
+          if (key) updTreat[key] = l.gstTreatment;
+        }
+      });
+      setTreatmentMemory(updTreat);
+    }
     const codedLines = codingLines.map(l => ({...l, nominalCode: l.code, category: l.code}));
     if (stmt.platform === 'xero') {
       dlFile(buildXeroPrecoded(codedLines), makeName(stmt, 'PRECODED'));
@@ -3516,10 +3560,12 @@ export default function App() {
       {showCodingModal && (() => {
         const stmt = stmts.find(s => s.id === codingStmtId);
         if (!stmt) return null;
-        const total     = codingLines.length;
-        const confirmed = codingLines.filter(l => l.confirmed).length;
-        const isXero    = stmt.platform === 'xero';
-        const canExport = confirmed === total && (!isXero || emptyPeriodOk) && total > 0;
+        const total        = codingLines.length;
+        const confirmed    = codingLines.filter(l => l.confirmed).length;
+        const isXero       = stmt.platform === 'xero';
+        const gstComplete  = !isXero || codingLines.every(l => l.gstTreatment !== '');
+        const rulePackOk   = !isXero || !gstJersey.isExpired();
+        const canExport    = confirmed === total && (!isXero || emptyPeriodOk) && total > 0 && gstComplete && rulePackOk;
         return (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.72)',zIndex:9994,
             display:'flex',alignItems:'flex-start',justifyContent:'center',padding:20,overflowY:'auto'}}>
@@ -3578,6 +3624,22 @@ export default function App() {
                     </span>
                   </div>
                 )}
+                {isXero && (
+                  <div style={{display:'flex',alignItems:'center',gap:8,flex:'0 1 auto',
+                    background: rulePackOk ? C.grnDim : C.redDim,
+                    border:`1px solid ${rulePackOk ? C.grnBrd : C.redBrd}`,
+                    borderRadius:8,padding:'10px 14px'}}>
+                    <span style={{fontSize:18,lineHeight:1,flexShrink:0}}>{rulePackOk ? '🏛' : '⚠️'}</span>
+                    <span style={{fontSize:11,color: rulePackOk ? C.grn : C.red,lineHeight:1.4}}>
+                      <strong>Jersey GST Rule-Pack v{gstJersey.version}</strong>
+                      <span style={{display:'block',fontWeight:400,marginTop:1}}>
+                        {rulePackOk
+                          ? `Effective ${gstJersey.effectiveDate} · Verified ${gstJersey.verifiedAt} · Source: Revenue Jersey`
+                          : 'Rule-pack expired — precoded export blocked. Update gstJersey.verifiedAt before continuing.'}
+                      </span>
+                    </span>
+                  </div>
+                )}
                 <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',
                   background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'10px 14px'}}>
                   <input type="checkbox" checked={autoConfirmMem}
@@ -3631,13 +3693,13 @@ export default function App() {
 
               {/* Transaction table */}
               <div style={{maxHeight:'52vh',overflowY:'auto'}}>
-                <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 160px 44px',
+                <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
                   padding:'7px 24px',background:C.bg,borderBottom:`1px solid ${C.bdr}`,
                   position:'sticky',top:0,zIndex:1}}>
-                  {['Date','Payee / Description','Amount','Account Code',''].map((h,i) => (
+                  {['Date','Payee / Description','Amount','Account Code', isXero ? 'GST Treatment' : '',''].map((h,i) => (
                     <div key={i} style={{fontSize:10,color:C.t4,fontWeight:700,
                       textTransform:'uppercase',letterSpacing:'0.06em',
-                      textAlign:i===2?'right':i===4?'center':'left'}}>{h}</div>
+                      textAlign:i===2?'right':i===5?'center':'left'}}>{h}</div>
                   ))}
                 </div>
                 {codingLines.map((l, i) => {
@@ -3646,7 +3708,7 @@ export default function App() {
                   const isPos = l.credit != null && l.debit == null;
                   return (
                     <div key={l.id||i}
-                      style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 160px 44px',
+                      style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
                         padding:'6px 24px',alignItems:'start',
                         background: l.confirmed ? C.grnDim : i%2===0 ? C.card : C.surf,
                         borderBottom:`1px solid ${C.bdr}`,transition:'background 0.1s'}}>
@@ -3684,10 +3746,27 @@ export default function App() {
                             borderRadius:6,color:C.t1,fontSize:12,
                             fontFamily:'JetBrains Mono,monospace',outline:'none',boxSizing:'border-box'}}/>
                       </div>
+                      {isXero ? (
+                        <div style={{paddingLeft:6}}>
+                          <select value={l.gstTreatment||''}
+                            onChange={e => updateCodingLine(l.id||i, {gstTreatment: e.target.value, confirmed: false})}
+                            style={{width:'100%',padding:'4px 6px',background:C.bg,
+                              border:`1px solid ${l.gstTreatment ? (l.confirmed ? C.grnBrd : C.ambBrd) : C.redBrd}`,
+                              borderRadius:6,color: l.gstTreatment ? C.t1 : C.red,fontSize:11,
+                              outline:'none',boxSizing:'border-box',cursor:'pointer'}}>
+                            <option value=''>— pick treatment —</option>
+                            {gstJersey.options.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div/>
+                      )}
                       <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <button
                           onClick={() => updateCodingLine(l.id||i, {confirmed: !l.confirmed})}
-                          disabled={!l.code.trim()}
+                          disabled={!l.code.trim() || (isXero && !l.gstTreatment)}
                           title={l.confirmed ? 'Un-confirm' : 'Confirm this code'}
                           style={{width:28,height:28,borderRadius:6,flexShrink:0,
                             border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
@@ -3712,6 +3791,12 @@ export default function App() {
                   {isXero && !emptyPeriodOk && total > 0 && (
                     <span style={{marginLeft:10,fontSize:11,color:C.red}}>· tick the empty-period box above</span>
                   )}
+                  {isXero && !gstComplete && (
+                    <span style={{marginLeft:10,fontSize:11,color:C.red}}>· pick GST treatment for every line</span>
+                  )}
+                  {isXero && !rulePackOk && (
+                    <span style={{marginLeft:10,fontSize:11,color:C.red,fontWeight:600}}>· GST rule-pack expired — export blocked</span>
+                  )}
                 </div>
                 <div style={{display:'flex',gap:8}}>
                   <button onClick={() => setShowCodingModal(false)}
@@ -3719,7 +3804,7 @@ export default function App() {
                   <button onClick={exportP2} disabled={!canExport}
                     title={canExport
                       ? (isXero ? 'Export precoded Xero CSV and approve statement' : 'Export QBO CSV with reference codes and approve statement')
-                      : (isXero ? 'Confirm all lines and tick the empty-period box first' : 'Confirm all lines first')}
+                      : (isXero ? 'Confirm all lines, pick all GST treatments, and tick the empty-period box first' : 'Confirm all lines first')}
                     style={{...btn('primary'),padding:'8px 18px',fontSize:13,
                       opacity: canExport ? 1 : 0.38, cursor: canExport ? 'pointer' : 'default'}}>
                     {isXero ? '↓ Export Precoded CSV' : '↓ Export with Reference Codes'}

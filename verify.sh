@@ -68,6 +68,23 @@ done
 grep -q "Visa Rate" "$SRC" && grn "✓ foreign-transaction rule present" || { red "✗ foreign-transaction rule missing"; FAIL=1; }
 grep -q "uFEFF" "$SRC" && grn "✓ UTF-8 BOM on export" || { red "✗ UTF-8 BOM missing"; FAIL=1; }
 
+# 12. GST seam guard — gstJersey rule-pack must exist; must not appear in extraction prompts or recalc
+if ! grep -q "const gstJersey" "$SRC"; then
+  red "✗ gstJersey rule-pack missing"
+  FAIL=1
+else
+  grn "✓ gstJersey rule-pack present"
+  # Check extraction prompts (BASE_PROMPT + PROMPTS object) are GST-free
+  # BASE_PROMPT ends before line ~115; PROMPTS object ends around line ~140
+  gst_in_prompts=$(sed -n '74,140p' "$SRC" | grep -c "gstJersey\|gstTreatment" || true)
+  if [ "$gst_in_prompts" -gt 0 ]; then
+    red "✗ GST seam breach — GST symbol found in extraction prompt block (lines 74-140)"
+    FAIL=1
+  else
+    grn "✓ GST seam clean — extraction prompts are GST-free"
+  fi
+fi
+
 echo "────────────────────────────────────────────────"
 if [ "$FAIL" -eq 0 ]; then
   grn "ALL CHECKS PASSED — this is the canonical build. Safe to work."
