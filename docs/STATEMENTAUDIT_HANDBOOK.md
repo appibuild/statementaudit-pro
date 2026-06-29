@@ -2,7 +2,7 @@
 
 **Purpose:** Upload a bank statement PDF → review and correct the AI extraction → export a clean CSV for QuickBooks or Xero. The app never lets you export until the numbers add up. This guide explains every feature and how to fix the errors you'll actually see.
 
-**Updated:** 2026-06-29 — Module A: Jersey GST treatment per transaction in Pathway 2 / Code & Create.
+**Updated:** 2026-06-29 — Module A: Jersey GST treatment + Xero Tracking Categories in Pathway 2; GST Treatment column in Audit Workbook.
 
 ---
 
@@ -173,12 +173,15 @@ Once all four pass, the export buttons go live. For Pathway 1: **✓ Approve & E
 
 ### The Audit Workbook (↓ Audit Workbook)
 
-Downloads an `.xlsx` file with two tabs:
+Downloads an `.xlsx` file with three sheets:
 
-| Tab | What's in it |
+| Sheet | What's in it |
 |---|---|
-| **Audit Review** | All transactions + Debit, Credit, Running balance, **Expected balance** (computed), Statement figures, Variance, STATUS cell (RECONCILED or NOT) |
-| **QBO/Xero Import (clean)** | Import-ready rows only — no audit figures |
+| **Audit Review** | Full transaction register — date, type, description, payee, debit, credit, running balance, expected balance, category, nominal code, **GST Treatment** (Xero Pathway 2), notes, flags, receipt filename |
+| **Xero / QBO Import (clean)** | Import-ready rows only — no audit figures |
+| **Receipts** | List of transactions with attached receipts and their filenames |
+
+**GST Treatment column (column 12):** Populated for Xero statements processed via Pathway 2. Shows the confirmed treatment for each line — Standard Rate (5%), Zero Rated (0%), Exempt, ISE Supply (>£1,000), or Outside Scope / No GST. Empty for non-Xero statements or statements not yet coded via Pathway 2.
 
 The **Expected balance** column is new. It shows what the running balance *should* be based on the arithmetic. If it matches the Running balance column, the row is correct. If not, look at that row.
 
@@ -271,6 +274,37 @@ The chart persists in localStorage across sessions. Use **Replace** to swap it f
 
 ---
 
+### Xero Tracking Categories
+
+If your client uses Xero Tracking (departments, properties, regions, cost centres), you can assign tracking options per transaction inside the coding screen.
+
+**To load tracking categories:**
+1. In Xero: **Settings → General Settings → Tracking** → click a category → **Export** (downloads a CSV)
+2. In the coding screen: the **⚙ Tracking** panel is shown in the controls bar (Xero only). Click **Import CSV** and select the file.
+3. A tracking sub-row appears beneath each transaction line showing optional selectors for each loaded category.
+
+**Supported format — Xero Tracking Settings export:**
+```
+Tracking Category Name,Tracking Option
+Department,Sales
+Department,Marketing
+Department,Administration
+Region,North
+Region,South
+```
+
+Up to two tracking categories are supported (Xero's Tracking1/Tracking2 limit).
+
+**Key points:**
+- Tracking is **optional** — it is not a confirmation gate. You can confirm a line and export without selecting tracking values.
+- Confirmed tracking choices are **remembered per payee/description** across sessions. Next time you open a coding screen with the same payees, the tracking values are pre-filled.
+- The exported precoded CSV (`_PRECODED.csv`) includes the Tracking1 and Tracking2 columns with the selected values. Xero assigns them to the transactions on import.
+- Without a tracking CSV loaded, the Tracking1/Tracking2 columns export empty — this is valid; Xero accepts the import either way.
+
+**Clearing or replacing:** Click **Replace** to swap in a different client's tracking file. Click **✕** to clear and revert to empty tracking columns.
+
+---
+
 ### Exporting the Precoded File
 
 Once all lines are confirmed and the empty-period box is ticked, **↓ Export Precoded CSV** activates. Clicking it:
@@ -334,6 +368,8 @@ Once all lines are confirmed and the empty-period box is ticked, **↓ Export Pr
 4. Every Xero row must have a GST Treatment selected — the ✓ toggle is disabled until one is chosen
 5. The footer message will tell you exactly which condition is blocking export (lines not confirmed / GST treatment missing / empty-period not ticked / rule-pack expired)
 
+> **Note on tracking:** Tracking categories are optional and are NOT a gate. A missing tracking value will not block export.
+
 ---
 
 ## Quick Reference
@@ -352,3 +388,5 @@ Once all lines are confirmed and the empty-period box is ticked, **↓ Export Pr
 | Open coding screen (Pathway 2) | Click **✎ Code & Create** — Xero statements only, reconciled only |
 | Load chart of accounts | In coding screen: click **📋 Import CSV** → select Xero CoA export |
 | Export precoded CSV (Pathway 2) | Confirm all lines + pick GST treatment for each + tick empty-period box → **↓ Export Precoded CSV** |
+| Load tracking categories | In coding screen: click **⚙ Import CSV** in the tracking panel → select Xero Tracking export |
+| Assign tracking per transaction | Select from the tracking sub-row beneath each coding line (optional) |

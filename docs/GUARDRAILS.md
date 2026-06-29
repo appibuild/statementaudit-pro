@@ -122,6 +122,16 @@ Added after the findFlip / 3B sign-bug post-mortem. Surfaced by Claude Code's ow
 
 **QBO boundary preserved:** no GST treatment column in QBO modal (reference-only boundary unchanged).
 
+## Tracking Categories + Workbook GST column (2026-06-29, commits 15c29ff + 426214f)
+
+Two additions completing the Pathway 2 / Xero precoded export:
+
+1. **GST Treatment in Audit Workbook** (`buildAuditWorkbook`): column 12 of Audit Review sheet now shows the confirmed Jersey GST treatment for each transaction on Xero statements. Treatment labels resolved from `treatmentMemory` via `normKey` at the `dlWorkbook` call site. Non-Xero statements: column present, always empty.
+
+2. **Xero Tracking Categories**: `trackingCategories {source, loadedAt, cats}` state + `trackingMemory {normKey: {t1,t2}}`. Import from Xero Tracking Settings CSV export. Tracking sub-row per coding line (optional, not gated). `buildXeroPrecoded` now populates Tracking1/Tracking2 columns. The `source` field is the designed switch point — replace `importTrackingCSV` with a Xero API call and set `source:'api'` when OAuth is available; no other code changes needed.
+
+**Non-negotiable unchanged:** tracking is optional (UK Practice Manager constraint). No gate on tracking values.
+
 ## P2-F1 resolved (2026-06-28, post-audit)
 
 The build-alignment audit found that the Export tab had "↓ Pre-coded" (per-statement) and "↓ Merged Xero (pre-coded)" buttons that called `buildXeroPrecoded` directly, bypassing both the per-line coding confirmation modal and the empty-period assertion. Board + user panel review: unanimous removal. Both buttons have been deleted. The only route to a precoded export is now through the Code & Create modal. Recorded here so future sessions don't re-introduce a convenience shortcut to this path.
