@@ -452,7 +452,7 @@ const dlFile = (content, name) => {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 };
 
-const buildAuditWorkbook = (s, rec) => {
+const buildAuditWorkbook = (s, rec, treatmentLabels = {}) => {
   const tx = s.editedTransactions || s.transactions || [];
   const wb = XLSX.utils.book_new();
 
@@ -461,14 +461,16 @@ const buildAuditWorkbook = (s, rec) => {
   ar.push(['Bank', s.bankName||'', 'Account', s.accountName||'']);
   ar.push(['Period', s.period ? `${s.period.from} \u2013 ${s.period.to}` : '', 'Account type', (ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current).label]);
   ar.push([]);
-  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Category','Nominal code','Notes','Flags','Receipt file']);
+  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Category','Nominal code','GST Treatment','Notes','Flags','Receipt file']);
   const expBals = rec?.expectedBalances || {};
   tx.forEach((t, i) => {
     const flags = [t.flagged?'\u2691':'', t.ambiguous?'Check':'', t.wrapped?'Joined':''].filter(Boolean).join(', ');
     ar.push([i+1, t.date, t.paymentType, t.description||'', t.payee||'',
       t.debit!=null?t.debit:'', t.credit!=null?t.credit:'',
       t.balance!=null?t.balance:'', expBals[t.id]!=null?expBals[t.id]:'',
-      t.category||'', t.nominalCode||'', t.notes||'', flags, t.receipt?.filename||'']);
+      t.category||'', t.nominalCode||'',
+      treatmentLabels[((t.payee&&t.payee.trim())||(t.description&&t.description.trim())||'').toUpperCase().replace(/\s+/g,' ')]||'',
+      t.notes||'', flags, t.receipt?.filename||'']);
   });
   ar.push([]);
   const stOut  = rec?.statementPaymentsOut || 0;
@@ -492,7 +494,7 @@ const buildAuditWorkbook = (s, rec) => {
     ar.push(['NOTE', `Equal-and-opposite gap of \u00A3${outGap.toFixed(2)} on both sides \u2014 likely a transaction entered in the wrong direction.`]);
 
   const ws1 = XLSX.utils.aoa_to_sheet(ar);
-  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:16},{wch:20},{wch:18},{wch:28},{wch:12},{wch:32}];
+  ws1['!cols'] = [{wch:4},{wch:12},{wch:7},{wch:42},{wch:26},{wch:13},{wch:13},{wch:16},{wch:16},{wch:20},{wch:18},{wch:22},{wch:28},{wch:12},{wch:32}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Audit Review');
 
   // \u2500\u2500 Sheet 2: Import (clean) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -661,8 +663,11 @@ const cloudGetUser = async (provider, token) => {
   } catch { return null; }
 };
 
-const dlWorkbook = (s, rec) => {
-  const wb = buildAuditWorkbook(s, rec);
+const dlWorkbook = (s, rec, treatmentMem = {}) => {
+  const treatmentLabels = Object.fromEntries(
+    Object.entries(treatmentMem).map(([k, v]) => [k, gstJersey.treatments.find(t => t.key === v)?.label || v])
+  );
+  const wb = buildAuditWorkbook(s, rec, treatmentLabels);
   const bank = (s.bankName||'Bank').replace(/\s+/g,'_');
   const pfx  = TRIAL_MODE ? 'TRIAL_' : '';
   const d = str => str.split('/').reverse().join('-');
@@ -2019,7 +2024,7 @@ export default function App() {
                     : <span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span>
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
-                    <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                    <button onClick={() => dlWorkbook(s, s.reconciliation, treatmentMemoryRef.current)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                   )}
                   {!fastTrack && canEdit && (
                     <button
@@ -2032,7 +2037,7 @@ export default function App() {
                 </>}
                 {s.status==='approved' && <>
                   <button onClick={() => exportStmt(s)} style={btn('success')}>↓ Re-download CSV</button>
-                  <button onClick={() => dlWorkbook(s, s.reconciliation)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                  <button onClick={() => dlWorkbook(s, s.reconciliation, treatmentMemoryRef.current)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                   <button
                     onClick={() => { if (window.confirm('Return this statement to Review? You can re-approve it at any time without re-running.')) updateS(s.id, {status:'review', approvedAt:undefined}); }}
                     title="Return to Review without re-running — all data and edits are kept"
@@ -2289,7 +2294,7 @@ export default function App() {
               <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
                 <button onClick={() => { exportStmt(s); approve(s.id); }}
                   style={{...btn('primary'),fontSize:15,padding:'12px 22px'}}>⚡ Approve &amp; Export</button>
-                <button onClick={() => dlWorkbook(s, rec)}
+                <button onClick={() => dlWorkbook(s, rec, treatmentMemoryRef.current)}
                   style={{...btn('outline'),fontSize:13,padding:'10px 18px',borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                 <span onClick={openDetail} style={{fontSize:13,color:C.blu,cursor:'pointer',fontWeight:600}}>Review in detail →</span>
               </div>
