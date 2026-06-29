@@ -894,17 +894,26 @@ const CATEGORIES = [
 // active = showTips from the App component, passed via props.
 const Tip = ({ text, pos = 'bottom', active, children }) => {
   const [v, setV] = useState(false);
+  const [rect, setRect] = useState(null);
+  const wrapRef = useRef(null);
   if (!active || !text) return children;
   const above = pos === 'top';
+  const handleEnter = () => {
+    if (wrapRef.current) setRect(wrapRef.current.getBoundingClientRect());
+    setV(true);
+  };
   return (
-    <span style={{position:'relative',display:'inline-flex',alignItems:'stretch'}}
-      onMouseEnter={() => setV(true)} onMouseLeave={() => setV(false)}>
+    <span ref={wrapRef} style={{position:'relative',display:'inline-flex',alignItems:'stretch'}}
+      onMouseEnter={handleEnter} onMouseLeave={() => { setV(false); setRect(null); }}>
       {children}
-      {v && (
+      {v && rect && (
         <span style={{
-          position:'absolute',
-          ...(above ? {bottom:'calc(100% + 7px)'} : {top:'calc(100% + 7px)'}),
-          left:'50%', transform:'translateX(-50%)',
+          position:'fixed',
+          left: rect.left + rect.width / 2,
+          ...(above
+            ? {bottom: window.innerHeight - rect.top + 7}
+            : {top: rect.bottom + 7}),
+          transform:'translateX(-50%)',
           zIndex:9999,
           background:'#1B2032', color:'#E8EEFF',
           padding:'8px 12px', borderRadius:8,
