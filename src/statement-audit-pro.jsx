@@ -892,7 +892,7 @@ const CATEGORIES = [
 // Wraps any element with a contextual hover bubble when Guide Mode is on.
 // active = showTips from the App component, passed via props.
 const Tip = ({ text, pos = 'bottom', active, children }) => {
-  const [v, setV] = React.useState(false);
+  const [v, setV] = useState(false);
   if (!active || !text) return children;
   const above = pos === 'top';
   return (
