@@ -195,11 +195,13 @@ app.post('/api/qbo-token', async (req, res) => {
   }
 });
 
-// ── Serve React frontend (production) ────────────────────────────────────────
-// In dev, Vite runs on its own port and proxies /api to here.
-// In production (Render), Express serves the built client/dist directly.
+// ── Serve React frontend ──────────────────────────────────────────────────────
+// In dev, Vite runs its own server (dist won't exist) — block is skipped.
+// In production (Render), the build step creates client/dist — block activates.
+// Using existsSync avoids a NODE_ENV dependency; works without any env var set.
+const fs = require('fs');
 const clientDist = path.join(__dirname, '../client/dist');
-if (process.env.NODE_ENV === 'production') {
+if (fs.existsSync(path.join(clientDist, 'index.html'))) {
   app.use(express.static(clientDist));
   app.get('*', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 }
