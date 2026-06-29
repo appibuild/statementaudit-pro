@@ -515,7 +515,8 @@ const buildAuditWorkbook = (s, rec, treatmentLabels = {}) => {
   ar.push(['Bank', s.bankName||'', 'Account', s.accountName||'']);
   ar.push(['Period', s.period ? `${s.period.from} \u2013 ${s.period.to}` : '', 'Account type', (ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current).label]);
   ar.push([]);
-  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Category','Nominal code','GST Treatment','Notes','Flags','Receipt file']);
+  const taxColLabel = s.jurisdiction === 'uk' ? 'VAT Treatment' : s.jurisdiction === 'jersey' ? 'GST Treatment' : 'Tax Treatment';
+  ar.push(['#','Date','Type','Description','Payee','Debit (out)','Credit (in)','Running balance','Expected balance','Category','Nominal code',taxColLabel,'Notes','Flags','Receipt file']);
   const expBals = rec?.expectedBalances || {};
   tx.forEach((t, i) => {
     const flags = [t.flagged?'\u2691':'', t.ambiguous?'Check':'', t.wrapped?'Joined':''].filter(Boolean).join(', ');
@@ -2122,7 +2123,7 @@ export default function App() {
         </div>
         <div>
           <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Tax Jurisdiction</div>
-          <Tip text="Sets the tax treatment options in Code & Create. UK VAT shows 20%/5%/Zero/Exempt. Jersey shows GST treatments. 'Other' hides the tax column." pos="bottom" active={showTips}>
+          <Tip text="Sets the tax treatment options in Code & Create. UK VAT shows Standard 20%/Reduced 5%/Zero/Exempt/Outside Scope. Jersey shows GST (Standard 5%/Zero/Exempt/ISE/Outside Scope). 'Other' hides the tax column." pos="bottom" active={showTips}>
           <select value={uploadDefaultJurisdiction} onChange={e => { setUploadDefaultJurisdiction(e.target.value); localStorage.setItem('sa_defaultJurisdiction', e.target.value); }}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
               color:C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
@@ -2564,7 +2565,7 @@ export default function App() {
                     : <Tip text="The approval gate is blocked. Closing balance or statement figures don't match — fix the variance first." pos="bottom" active={showTips}><span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span></Tip>
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
-                    <Tip text="Downloads a three-sheet Excel file — full transaction register, clean import data, and receipts list. Includes GST Treatment column for Xero Pathway 2." pos="bottom" active={showTips}>
+                    <Tip text="Downloads a three-sheet Excel file — full transaction register, clean import data, and receipts list. Includes VAT/GST Treatment column for Xero Pathway 2." pos="bottom" active={showTips}>
                     <button onClick={() => dlWorkbook(s, s.reconciliation, treatmentMemoryRef.current)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                     </Tip>
                   )}
@@ -3432,7 +3433,7 @@ export default function App() {
               <span style={{fontSize:13,fontWeight:700,color:'#92400E'}}>Backup your rules — do this now</span>
             </div>
             <div style={{fontSize:12,color:'#78350F',marginBottom:6}}>
-              <strong>Rules live in this browser only.</strong> Clear your browser data or switch devices and they are gone permanently — there is no server copy.
+              <strong>Rules live in this browser only</strong> (OneDrive Practice Workspace users: rules also sync to your shared folder — manual backups are still recommended as a secondary copy). Clear your browser data or switch devices and they are gone permanently unless backed up or synced.
             </div>
             <div style={{fontSize:11,color:'#92400E',lineHeight:1.6}}>
               A backup file downloads automatically each time you Approve.{' '}
@@ -3449,7 +3450,7 @@ export default function App() {
             { title:'QuickBooks Online', color:'#2CA01C', steps:[
               'Banking → Upload transactions → Select bank account',
               'Upload CSV — QBO auto-detects column layout',
-              'Map: Date · Payment Type · Description · Payee · Debit · Credit',
+              'Map: Date · Payment Type · Description · Payee · Debit · Credit · Category · Nominal Code · Notes',
               'Review auto-matched transactions against existing bank rules',
               'Accept matches, categorise new transactions, click Add All',
             ]},
@@ -3457,7 +3458,7 @@ export default function App() {
               'Accounting → Bank Accounts → Select account → Import Statement',
               'Upload CSV — Xero reads Date, Amount, Payee, Description',
               'Amount: negative = money out, positive = money in',
-              'Analysis Code is a bank reference label (e.g. payment type) — it is NOT a chart-of-accounts code',
+              'Reference column carries the payment type (DD, SO, BACS). Analysis Code carries the nominal code from payee memory — visible in Xero as a bank reference, not an account code',
               'To post directly to account codes, use ✎ Code & Create — confirm a code per line, then export a precoded CSV with Account Code, Tax Rate (VAT/GST) and Tracking columns',
               'Review matches against rules, accept and post',
             ]},
@@ -3604,7 +3605,7 @@ export default function App() {
             const on   = tab===n.id;
             const done = stepDone(n.id);
             const tabTip = {
-              upload: 'Step 1 — Drop PDF bank statements here. Set Account Type and Export To before uploading.',
+              upload: 'Step 1 — Drop PDF bank statements here. Set Account Type, Export To, and Tax Jurisdiction before uploading.',
               queue:  'Step 2 — Run the AI extraction engine on your queued files. Each PDF is read, transactions extracted, and reconciled.',
               audit:  'Step 3 — Check, edit, and approve each extracted statement. Numbers must close before anything exports.',
               export: 'Step 4 — Download approved statements as CSV files for QuickBooks or Xero. Access the Audit Workbook here too.',
@@ -4745,10 +4746,10 @@ export default function App() {
                     <span style={{marginLeft:10,fontSize:11,color:C.red}}>· tick the empty-period box above</span>
                   )}
                   {isXero && !gstComplete && (
-                    <span style={{marginLeft:10,fontSize:11,color:C.red}}>· pick GST treatment for every line</span>
+                    <span style={{marginLeft:10,fontSize:11,color:C.red}}>· pick {taxLabel.toLowerCase()} for every line</span>
                   )}
                   {isXero && !rulePackOk && (
-                    <span style={{marginLeft:10,fontSize:11,color:C.red,fontWeight:600}}>· GST rule-pack expired — export blocked</span>
+                    <span style={{marginLeft:10,fontSize:11,color:C.red,fontWeight:600}}>· {jur === 'jersey' ? 'GST' : 'VAT'} rule-pack expired — export blocked</span>
                   )}
                 </div>
                 <div style={{display:'flex',gap:8}}>
@@ -4757,7 +4758,7 @@ export default function App() {
                   <button onClick={exportP2} disabled={!canExport}
                     title={canExport
                       ? (isXero ? 'Export precoded Xero CSV and approve statement' : 'Export QBO CSV with reference codes and approve statement')
-                      : (isXero ? 'Confirm all lines, pick all GST treatments, and tick the empty-period box first' : 'Confirm all lines first')}
+                      : (isXero ? `Confirm all lines, pick all ${taxLabel.toLowerCase()}s, and tick the empty-period box first` : 'Confirm all lines first')}
                     style={{...btn('primary'),padding:'8px 18px',fontSize:13,
                       opacity: canExport ? 1 : 0.38, cursor: canExport ? 'pointer' : 'default'}}>
                     {isXero ? '↓ Export Precoded CSV' : '↓ Export with Reference Codes'}
