@@ -52,11 +52,11 @@ const STATUS_CFG = {
 // MUST NOT appear inside recalc, the balance walk, reconciliation, or BASE_PROMPT.
 const gstJersey = (() => {
   const treatments = [
-    { key:'standard', label:'Standard Rate (5%)',     xeroName:'GST',         lawRef:'GST (Jersey) Law 2007 — standard-rated catch-all' },
-    { key:'zero',     label:'Zero Rated (0%)',         xeroName:'Zero Rated',  lawRef:'Schedule 6 — zero-rated (exports, housing, prescriptions, international services)' },
-    { key:'exempt',   label:'Exempt',                  xeroName:'Exempt',      lawRef:'Schedule 5 — exempt (financial services, insurance, postal, medical, charity, education)' },
-    { key:'ise',      label:'ISE Supply (>£1,000)',    xeroName:'Zero Rated',  lawRef:'ISE regime — supply to International Service Entity exceeding £1,000, treated as export' },
-    { key:'outside',  label:'Outside Scope / No GST', xeroName:'No VAT',      lawRef:'Place of supply outside Jersey — not within scope of GST (Jersey) Law 2007' },
+    { key:'standard', label:'Standard Rate (5%)',     xeroName:'GST on Income',  xeroNameExpense:'GST on Expenses', lawRef:'GST (Jersey) Law 2007 — standard-rated catch-all; Xero: GST on Income (credits) / GST on Expenses (debits)' },
+    { key:'zero',     label:'Zero Rated (0%)',         xeroName:'Zero Rated',     lawRef:'Schedule 6 — zero-rated (exports, housing, prescriptions, international services)' },
+    { key:'exempt',   label:'Exempt',                  xeroName:'Exempt',         lawRef:'Schedule 5 — exempt (financial services, insurance, postal, medical, charity, education)' },
+    { key:'ise',      label:'ISE Supply (>£1,000)',    xeroName:'Zero Rated',     lawRef:'ISE regime — supply to International Service Entity exceeding £1,000, treated as export' },
+    { key:'outside',  label:'Outside Scope / No GST', xeroName:'No GST',         lawRef:'Place of supply outside Jersey — not within scope of GST (Jersey) Law 2007' },
   ];
   return {
     version:      '2026-06-29',
@@ -423,7 +423,10 @@ const buildXeroPrecoded = txList => {
     const d    = (t.description||'').replace(/"/g,'""');
     const ref  = (t.paymentType||'');
     const code = (t.nominalCode||'');
-    const tax  = gstJersey.xeroName(t.gstTreatment) || (code ? 'No VAT' : '');
+    const gstName = gstJersey.xeroName(t.gstTreatment);
+    const isDebit = t.debit != null && t.credit == null;
+    const tax  = gstName === 'GST on Income' && isDebit ? 'GST on Expenses'
+               : gstName || (code ? 'No VAT' : '');
     return `${t.date},${amt},"${p}","${d}",${ref},${code},${tax},,`;
   })].join('\r\n');
 };
