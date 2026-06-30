@@ -456,7 +456,7 @@ const buildXero = txList => {
 const buildXeroPrecoded = (txList, jurisdiction) => {
   // Tax Rate is mandatory for Xero to recognise the import as precoded (coded + reconciled).
   // Without it Xero silently falls back to plain uncoded statement lines.
-  // Tracking1/Tracking2 are optional; included as empty columns for future use.
+  // Tracking1/Tracking2: written from t.tracking1/t.tracking2 (confirmed in coding screen).
   const rulePack = jurisdiction === 'jersey' ? gstJersey : jurisdiction === 'uk' ? vatUK : null;
   const h = 'Date,Amount,Payee,Description,Reference,Account Code,Tax Rate,Tracking1,Tracking2';
   return [h, ...txList.map(t => {
@@ -685,7 +685,10 @@ const CLOUD_CFG = {
     clientId: import.meta.env.VITE_MICROSOFT_CLIENT_ID || '',
     authUrl:  'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    // Files.ReadWrite (not AppFolder) — required for workspace shared folders
+    // Files.ReadWrite — required for workspace shared folders. Files.ReadWrite.Selected and
+    // Files.ReadWrite.AppFolder both fail: Selected requires a file-picker per file (no
+    // programmatic folder access); AppFolder is app-private and cannot be shared across users.
+    // Broad scope decision: Compliance adviser sign-off required before real client data is processed.
     scope:    'Files.ReadWrite User.Read offline_access',
     label:    'OneDrive / M365',
     color:    '#0078D4',
@@ -4105,7 +4108,7 @@ export default function App() {
             {/* Footer */}
             <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
               <div style={{fontSize:11,color:C.t4,textAlign:'center',lineHeight:1.5}}>
-                Your financial data never passes through our servers.<br/>
+                Processed in memory only — never stored on our servers. EEA-hosted.<br/>
                 Google Drive · OneDrive · Your storage, your control.
               </div>
             </div>

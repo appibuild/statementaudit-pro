@@ -14,6 +14,9 @@ app.use(express.json({ limit: '50mb' })); // PDFs as base64 can be large
 // Both results land before the response is sent; the cross-check compares them.
 // If the text layer is unavailable the LLM result is returned unchanged (_textExtract.available=false).
 // The API key never reaches the client.
+// No-retention contract: this handler does NOT write any PDF payload to disk, temp files, or logs.
+// The base64 PDF in req.body passes through in memory to Anthropic and pdfjs only; it is never
+// persisted. Verify with: grep -n 'writeFile\|createWriteStream\|console.log.*pdf\|console.log.*base64' server/index.js
 app.post('/api/extract', async (req, res) => {
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: { message: 'ANTHROPIC_API_KEY not set on server.' } });
