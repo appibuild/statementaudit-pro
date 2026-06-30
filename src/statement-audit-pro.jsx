@@ -3632,136 +3632,174 @@ export default function App() {
   };
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg,
+    <div style={{display:'flex',height:'100vh',background:C.bg,
       color:C.t1,fontFamily:'Inter,system-ui,sans-serif',overflow:'hidden'}}>
 
-      {/* Topbar */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 28px',
-        boxShadow:C.sh2,flexShrink:0,background:C.card,zIndex:10,position:'relative'}}>
-        <div style={{display:'flex',alignItems:'center',gap:13}}>
-          <div style={{width:40,height:40,borderRadius:10,background:C.blu,display:'flex',
-            alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:19}}>£</div>
-          <div>
-            <div style={{fontSize:19,fontWeight:700,color:C.t1,letterSpacing:'-0.01em'}}>StatementAudit Pro</div>
-            <div style={{fontSize:13,color:C.t3}}>Bank statement audit &amp; reconciliation → QuickBooks, Xero &amp; Excel</div>
-          </div>
-          {TRIAL_MODE && (
-            <div style={{marginLeft:8,display:'flex',alignItems:'center',gap:8,padding:'5px 12px',
-              borderRadius:8,background:trialUsed >= TRIAL_LIMIT ? C.redDim : C.ambDim,
-              border:`1px solid ${trialUsed >= TRIAL_LIMIT ? C.redBrd : C.ambBrd}`}}>
-              <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.07em',textTransform:'uppercase',
-                color: trialUsed >= TRIAL_LIMIT ? C.red : C.amb}}>TRIAL</span>
-              <span style={{fontSize:12,color:C.t2}}>
-                {trialUsed >= TRIAL_LIMIT
-                  ? 'Limit reached — contact us to upgrade'
-                  : `${TRIAL_LIMIT - trialUsed} of ${TRIAL_LIMIT} statement${TRIAL_LIMIT !== 1 ? 's' : ''} remaining`}
-              </span>
-              {trialUsed >= TRIAL_LIMIT && (
-                <button onClick={() => setShowTrialCap(true)}
-                  style={{fontSize:11,fontWeight:600,color:C.red,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline'}}>
-                  Upgrade →
-                </button>
-              )}
+      {/* ── Left Sidebar ── */}
+      <div style={{width:sidebarCollapsed?56:220,flexShrink:0,background:C.card,
+        display:'flex',flexDirection:'column',zIndex:10,position:'relative',
+        borderRight:`1px solid ${C.bdr}`,transition:'width 0.18s',overflow:'hidden'}}>
+
+        {/* Brand */}
+        <div style={{padding:'18px 14px 14px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0}}>
+          {sidebarCollapsed ? (
+            <div style={{display:'flex',justifyContent:'center'}}>
+              <div style={{width:34,height:34,borderRadius:9,background:C.blu,display:'flex',
+                alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:17}}>£</div>
             </div>
+          ) : (
+            <>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:34,height:34,borderRadius:9,background:C.blu,display:'flex',
+                  alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:17,flexShrink:0}}>£</div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.t1,letterSpacing:'-0.01em',lineHeight:1.2,whiteSpace:'nowrap'}}>StatementAudit Pro</div>
+                  <div style={{fontSize:10,color:C.t3,marginTop:1,whiteSpace:'nowrap'}}>Audit · Reconcile · Export</div>
+                </div>
+              </div>
+              {TRIAL_MODE && (
+                <div style={{marginTop:10,padding:'5px 8px',borderRadius:6,textAlign:'center',
+                  background:trialUsed >= TRIAL_LIMIT ? C.redDim : C.ambDim,
+                  border:`1px solid ${trialUsed >= TRIAL_LIMIT ? C.redBrd : C.ambBrd}`,
+                  fontSize:10,fontWeight:600,color:trialUsed >= TRIAL_LIMIT ? C.red : C.amb}}>
+                  {trialUsed >= TRIAL_LIMIT
+                    ? <><span>Trial limit — </span><button onClick={()=>setShowTrialCap(true)} style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontWeight:700,padding:0,fontSize:10,textDecoration:'underline'}}>Upgrade →</button></>
+                    : `Trial: ${TRIAL_LIMIT - trialUsed}/${TRIAL_LIMIT} remaining`}
+                </div>
+              )}
+            </>
           )}
         </div>
-        <nav style={{display:'flex',gap:8}}>
+
+        {/* Nav items */}
+        <div style={{flex:1,overflowY:'auto',padding:'10px 8px 6px'}}>
+          {!sidebarCollapsed && (
+            <div style={{fontSize:10,fontWeight:700,color:C.t4,textTransform:'uppercase',letterSpacing:'0.09em',padding:'2px 8px 8px'}}>Workflow</div>
+          )}
           {navItems.map(n => {
             const on   = tab===n.id;
             const done = stepDone(n.id);
             const tabTip = {
-              upload: 'Step 1 — Drop PDF bank statements here. Set Account Type, Export To, and Tax Jurisdiction before uploading.',
-              queue:  'Step 2 — Run the AI extraction engine on your queued files. Each PDF is read, transactions extracted, and reconciled.',
-              audit:  'Step 3 — Check, edit, and approve each extracted statement. Numbers must close before anything exports.',
-              export: 'Step 4 — Download approved statements as CSV files for QuickBooks or Xero. Access the Audit Workbook here too.',
-              dash:   'Projects dashboard — view all projects, statement counts, and last activity. Click a card to switch projects.',
+              upload: 'Step 1 — Drop PDF bank statements here. Set Account Type, Export To, and Tax Jurisdiction.',
+              queue:  'Step 2 — Run the AI extraction engine on your queued files.',
+              audit:  'Step 3 — Check, edit, and approve each extracted statement.',
+              export: 'Step 4 — Download approved statements as CSV files.',
+              dash:   'Projects dashboard — view all projects, statement counts, and last activity.',
             }[n.id];
             return (
-              <Tip key={n.id} text={tabTip} pos="bottom" active={showTips}>
+              <Tip key={n.id} text={tabTip} pos="right" active={showTips}>
               <button onClick={() => setTab(n.id)}
-                style={{display:'flex',alignItems:'center',gap:9,padding:'9px 16px',borderRadius:10,
+                style={{display:'flex',alignItems:'center',gap:sidebarCollapsed?0:9,
+                  width:'100%',padding:sidebarCollapsed?'9px 0':'9px 10px',
+                  justifyContent:sidebarCollapsed?'center':'flex-start',
+                  borderRadius:8,marginBottom:2,position:'relative',overflow:'hidden',
                   background:on?C.bluDim:'transparent',
-                  border:`1px solid ${on?C.bluBrd:'transparent'}`,
-                  color:on?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:on?600:500,
-                  fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
-                <span style={{width:24,height:24,borderRadius:'50%',display:'flex',alignItems:'center',
-                  justifyContent:'center',fontSize:13,fontWeight:600,flexShrink:0,
+                  color:on?C.blu:done?C.t2:C.t3,
+                  cursor:'pointer',fontSize:13,fontWeight:on?600:500,
+                  fontFamily:'Inter,sans-serif',transition:'all 0.14s',
+                  border:'none',textAlign:'left'}}>
+                {on && <span style={{position:'absolute',left:0,top:4,bottom:4,width:4,borderRadius:'0 3px 3px 0',background:C.blu}}/>}
+                <span style={{width:22,height:22,borderRadius:'50%',display:'flex',alignItems:'center',
+                  justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0,zIndex:1,
                   background:on?C.blu:done?C.grnDim:'#EEF1F6',
                   color:on?'#fff':done?C.grn:C.t3}}>{done&&!on?'✓':n.n}</span>
-                <span>{n.label}</span>
-                {n.badge > 0 && (
-                  <span style={{background:on?C.blu:C.t3,color:'#fff',borderRadius:10,padding:'0 7px',
-                    fontSize:12,fontWeight:600,lineHeight:'18px'}}>{n.badge}</span>
-                )}
+                {!sidebarCollapsed && <>
+                  <span style={{flex:1,whiteSpace:'nowrap'}}>{n.label}</span>
+                  {n.badge > 0 && (
+                    <span style={{background:on?C.blu:C.bdrBrt,color:on?'#fff':C.t2,
+                      borderRadius:10,padding:'0 6px',fontSize:11,fontWeight:600,lineHeight:'18px'}}>{n.badge}</span>
+                  )}
+                </>}
               </button>
               </Tip>
             );
           })}
-          <Tip text="A log of every extraction, approval, rejection, and cloud save this session." pos="bottom" active={showTips}>
-          <button onClick={() => setShowActivity(v => !v)}
-            title="Activity log"
-            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-              background:showActivity?C.bluDim:'transparent',border:`1px solid ${showActivity?C.bluBrd:'transparent'}`,
-              color:showActivity?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
-            ⧖ Activity
+        </div>
+
+        {/* Utility buttons + collapse toggle */}
+        <div style={{padding:'6px 8px 8px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+          {!sidebarCollapsed && (
+            <div style={{fontSize:10,fontWeight:700,color:C.t4,textTransform:'uppercase',letterSpacing:'0.09em',padding:'4px 8px 6px'}}>Tools</div>
+          )}
+          {[
+            {icon:'☁', label:cloudSyncing?'Syncing…':cloudProvider!=='none'?'Cloud ✓':'Cloud',
+              active:showCloud, green:cloudProvider!=='none'&&!showCloud,
+              tip:cloudProvider!=='none'?'Cloud storage connected. Click to manage.':'Connect Google Drive or OneDrive to auto-save statements.',
+              onClick:()=>{setShowCloud(v=>!v);setCloudError(null);}},
+            {icon:'⧖', label:'Activity', active:showActivity,
+              tip:'A log of every extraction, approval, rejection, and cloud save this session.',
+              onClick:()=>setShowActivity(v=>!v)},
+            {icon:'?', label:'Help', active:showHelp,
+              tip:'Step-by-step guides, troubleshooting, and import instructions for QuickBooks and Xero.',
+              onClick:()=>setShowHelp(v=>!v)},
+            {icon:'💬', label:'Feedback', active:showFeedback,
+              tip:'Send a message, report a bug, or suggest a feature.',
+              onClick:()=>{setShowFeedback(v=>!v);setFeedbackSent(false);}},
+            {icon:'💡', label:showTips?'Guide on':'Guide', active:showTips, green:showTips,
+              tip:'Toggle Guide Mode — hover over any button or tab to see what it does.',
+              onClick:()=>setShowTips(v=>!v)},
+            {icon:'⌨', label:'Keys', active:showShortcuts,
+              tip:'Keyboard shortcuts: A=Approve R=Reject ←→=navigate ?=shortcuts overlay',
+              onClick:()=>setShowShortcuts(v=>!v)},
+          ].map(({icon,label,active,green,tip,onClick}) => (
+            <Tip key={label} text={tip} pos="right" active={showTips}>
+            <button onClick={onClick} title={sidebarCollapsed ? label : undefined}
+              style={{display:'flex',alignItems:'center',gap:sidebarCollapsed?0:8,
+                width:'100%',padding:sidebarCollapsed?'7px 0':'7px 10px',
+                justifyContent:sidebarCollapsed?'center':'flex-start',
+                borderRadius:7,marginBottom:1,
+                background:active?C.bluDim:'transparent',
+                color:active?C.blu:green?C.grn:C.t3,
+                cursor:'pointer',fontSize:12,fontWeight:active?600:500,
+                fontFamily:'Inter,sans-serif',transition:'all 0.12s',border:'none',textAlign:'left'}}>
+              <span style={{fontSize:14,flexShrink:0,width:16,textAlign:'center'}}>{icon}</span>
+              {!sidebarCollapsed && <span style={{whiteSpace:'nowrap'}}>{label}</span>}
+            </button>
+            </Tip>
+          ))}
+          {/* Collapse toggle */}
+          <button onClick={() => setSidebarCollapsed(v => !v)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4,width:'100%',
+              padding:'5px 0',marginTop:3,borderTop:`1px solid ${C.bdr}`,
+              background:'transparent',border:'none',color:C.t4,cursor:'pointer',
+              fontSize:10,fontFamily:'Inter,sans-serif',transition:'all 0.12s'}}>
+            {sidebarCollapsed ? '▶' : '◀'}
           </button>
-          </Tip>
-          <Tip text={cloudProvider!=='none' ? 'Cloud storage is connected. Microsoft users can also create or join a shared Practice Workspace.' : 'Connect Google Drive or OneDrive to auto-save approved statements. Microsoft users can create a shared Practice Workspace.'} pos="bottom" active={showTips}>
-          <button onClick={() => { setShowCloud(v => !v); setCloudError(null); }}
-            title="Cloud storage — Google Drive or OneDrive"
-            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-              background:showCloud?C.bluDim:cloudProvider!=='none'?C.grnDim:'transparent',
-              border:`1px solid ${showCloud?C.bluBrd:cloudProvider!=='none'?C.grnBrd:'transparent'}`,
-              color:showCloud?C.blu:cloudProvider!=='none'?C.grn:C.t2,
-              cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
-            {cloudSyncing ? '↻ Syncing' : cloudProvider !== 'none' ? '☁ Synced' : '☁ Cloud'}
-          </button>
-          </Tip>
-          <Tip text="Step-by-step guides, troubleshooting, and import instructions for QuickBooks and Xero." pos="bottom" active={showTips}>
-          <button onClick={() => setShowHelp(v => !v)}
-            title="Help & guides"
-            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-              background:showHelp?C.bluDim:'transparent',border:`1px solid ${showHelp?C.bluBrd:'transparent'}`,
-              color:showHelp?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
-            ? Help
-          </button>
-          </Tip>
-          <Tip text="Send a message, report a bug, or suggest a feature." pos="bottom" active={showTips}>
-          <button onClick={() => { setShowFeedback(v => !v); setFeedbackSent(false); }}
-            title="Give feedback"
-            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-              background:showFeedback?C.bluDim:'transparent',border:`1px solid ${showFeedback?C.bluBrd:'transparent'}`,
-              color:showFeedback?C.blu:C.t2,cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
-            💬 Feedback
-          </button>
-          </Tip>
-          <Tip text="Toggle Guide Mode — hover over any button or tab to see what it does." pos="bottom" active={showTips}>
-          <button onClick={() => setShowTips(v => !v)}
-            title="Toggle guide mode tooltips"
-            style={{display:'flex',alignItems:'center',gap:5,padding:'9px 12px',borderRadius:10,
-              background:showTips?C.grnDim:'transparent',border:`1px solid ${showTips?C.grnBrd:'transparent'}`,
-              color:showTips?C.grn:C.t3,cursor:'pointer',fontSize:13,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
-            💡{showTips?' Guide on':' Guide'}
-          </button>
-          </Tip>
-          <Tip text="Keyboard shortcuts: A = Approve, R = Reject, ← → = navigate statements, ? = show shortcuts." pos="bottom" active={showTips}>
-          <button onClick={() => setShowShortcuts(v => !v)}
-            title="Keyboard shortcuts"
-            style={{padding:'9px 12px',borderRadius:10,background:'transparent',border:`1px solid transparent`,
-              color:C.t3,cursor:'pointer',fontSize:16,fontFamily:'Inter,sans-serif',transition:'all 0.15s'}}>
-            ⌨
-          </button>
-          </Tip>
-        </nav>
+        </div>
       </div>
 
-      {/* Content */}
-      <div style={{flex:1,overflow:'hidden',padding:tab==='audit'?'22px 22px 22px 0':tab==='dash'?0:22}}>
-        {tab==='upload' && renderUpload()}
-        {tab==='queue'  && renderQueue()}
-        {tab==='audit'  && renderAudit()}
-        {tab==='export' && renderExport()}
-        {tab==='dash'   && renderDashboard()}
+      {/* ── Main area ── */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+
+        {/* Slim context header */}
+        <div style={{flexShrink:0,padding:'0 24px',background:C.card,
+          borderBottom:`1px solid ${C.bdr}`,zIndex:9,
+          display:'flex',alignItems:'center',justifyContent:'space-between',height:46}}>
+          <div style={{fontSize:15,fontWeight:600,color:C.t1}}>
+            {tab==='upload' && 'Upload Statements'}
+            {tab==='queue'  && 'Processing Queue'}
+            {tab==='audit'  && 'Review & Approve'}
+            {tab==='export' && 'Export'}
+            {tab==='dash'   && 'Projects'}
+          </div>
+          {TRIAL_MODE && trialUsed >= TRIAL_LIMIT && (
+            <button onClick={() => setShowTrialCap(true)}
+              style={{fontSize:11,fontWeight:600,color:C.red,background:C.redDim,
+                border:`1.5px solid ${C.redBrd}`,borderRadius:7,padding:'4px 10px',cursor:'pointer'}}>
+              Trial limit — Upgrade →
+            </button>
+          )}
+        </div>
+
+        {/* Content */}
+        <div style={{flex:1,overflow:'hidden',padding:tab==='audit'?'18px 18px 18px 0':tab==='dash'?0:18}}>
+          {tab==='upload' && renderUpload()}
+          {tab==='queue'  && renderQueue()}
+          {tab==='audit'  && renderAudit()}
+          {tab==='export' && renderExport()}
+          {tab==='dash'   && renderDashboard()}
+        </div>
       </div>
       {renderQboImportModal()}
 
