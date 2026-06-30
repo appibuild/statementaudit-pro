@@ -2569,7 +2569,7 @@ export default function App() {
                           ? 'Pathway 2 — confirm an account code for each line, then export one precoded Xero import file. For empty periods only.'
                           : 'Confirm an account code for each line and export a QBO CSV with reference codes for manual categorisation in QBO.'} pos="bottom" active={showTips}>
                         <button onClick={() => openCodingModal(s.id)}
-                          style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>
+                          style={{...btn('outline'),borderColor:C.blu,color:C.blu}}>
                           ✎ {s.platform === 'xero' ? 'Code & Create' : 'Code & Reference'}
                         </button>
                         </Tip>
@@ -2578,7 +2578,8 @@ export default function App() {
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
                     <Tip text="Downloads a three-sheet Excel file — full transaction register, clean import data, and receipts list. Includes VAT/GST Treatment column for Xero Pathway 2." pos="bottom" active={showTips}>
-                    <button onClick={() => dlWorkbook(s, s.reconciliation, treatmentMemoryRef.current)} style={{...btn('outline'),borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                    <button onClick={() => dlWorkbook(s, s.reconciliation, treatmentMemoryRef.current)}
+                      style={{...btn('outline'),borderColor:C.bdr,color:C.t3,fontWeight:500}}>↓ Audit Workbook</button>
                     </Tip>
                   )}
                   {!fastTrack && canEdit && (
@@ -2680,8 +2681,8 @@ export default function App() {
                   border:recCollapsed?`1px solid ${C.bdr}`:'none',
                   borderRadius:recCollapsed?9:0}}>
                 <span style={{fontSize:10,color:C.t3,flexShrink:0}}>{recCollapsed?'▶':'▼'}</span>
-                <span style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',whiteSpace:'nowrap'}}>
-                  The numbers
+                <span style={{fontSize:12,fontWeight:600,color:C.t2,whiteSpace:'nowrap'}}>
+                  Statement figures
                 </span>
                 {recCollapsed && (<>
                   <span style={{fontSize:11,color:C.t3}}>·</span>
@@ -3439,18 +3440,18 @@ export default function App() {
             </div>
           </div>
           {/* Backup help panel */}
-          <div style={{background:'#FFF3CD',border:'2px solid #F5A623',borderRadius:8,padding:'12px 16px',lineHeight:1.6}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-              <span style={{fontSize:18,lineHeight:1}}>⚠️</span>
-              <span style={{fontSize:13,fontWeight:700,color:'#92400E'}}>Backup your rules — do this now</span>
+          <div style={{background:C.ambDim,border:`1.5px solid ${C.ambBrd}`,borderRadius:10,padding:'16px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+              <span style={{fontSize:16,lineHeight:1}}>⚠️</span>
+              <span style={{fontSize:13,fontWeight:700,color:C.amb}}>Backup your rules — do this now</span>
             </div>
-            <div style={{fontSize:12,color:'#78350F',marginBottom:6}}>
-              <strong>Rules live in this browser only</strong> (OneDrive Practice Workspace users: rules also sync to your shared folder — manual backups are still recommended as a secondary copy). Clear your browser data or switch devices and they are gone permanently unless backed up or synced.
+            <div style={{fontSize:12,color:C.t2,lineHeight:1.6,marginBottom:8}}>
+              Rules live in this browser only. A backup file downloads automatically each time you Approve —
+              move it to OneDrive, Google Drive or iCloud Drive after every session.
+              OneDrive Practice Workspace users: rules also sync to your shared folder; manual backups are still recommended as a secondary copy.
             </div>
-            <div style={{fontSize:11,color:'#92400E',lineHeight:1.6}}>
-              A backup file downloads automatically each time you Approve.{' '}
-              <strong>Move that file to OneDrive, Google Drive, or iCloud Drive after every session</strong> — it is your only recovery if localStorage is wiped.
-              <br/>To restore: click <em>Import Rules (.json)</em> and select your backup file.
+            <div style={{fontSize:11,color:C.t3,lineHeight:1.6,borderTop:`1px solid ${C.ambBrd}`,paddingTop:8}}>
+              To restore: click <em>Import Rules (.json)</em> and select your backup file.
               To import QBO rules: <em>Transactions → Bank Transactions → Rules → Export Rules</em>, then <em>Import QBO Rules (.xls)</em>.
             </div>
           </div>
@@ -3586,11 +3587,16 @@ export default function App() {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 28px',
         borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.card}}>
         <div style={{display:'flex',alignItems:'center',gap:13}}>
-          <div style={{width:40,height:40,borderRadius:10,background:C.blu,display:'flex',
-            alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:19}}>£</div>
-          <div>
-            <div style={{fontSize:19,fontWeight:700,color:C.t1,letterSpacing:'-0.01em'}}>StatementAudit Pro</div>
-            <div style={{fontSize:13,color:C.t3}}>Bank statement audit &amp; reconciliation → QuickBooks, Xero &amp; Excel</div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{background:`linear-gradient(135deg,#1a3570,${C.blu})`,color:'#fff',
+              borderRadius:8,padding:'5px 10px',fontSize:13,fontWeight:700,letterSpacing:'-0.3px',
+              flexShrink:0}}>SA</div>
+            <div>
+              <div style={{fontSize:18,fontWeight:700,color:C.t1,letterSpacing:'-0.02em',lineHeight:1.2}}>
+                StatementAudit <span style={{color:C.blu}}>Pro</span>
+              </div>
+              <div style={{fontSize:12,color:C.t3,lineHeight:1.2,marginTop:2}}>Audit · Code · Export</div>
+            </div>
           </div>
           {TRIAL_MODE && (
             <div style={{marginLeft:8,display:'flex',alignItems:'center',gap:8,padding:'5px 12px',
@@ -3731,14 +3737,15 @@ export default function App() {
             style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:900,display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
             <div onClick={e => e.stopPropagation()}
               style={{width:400,maxWidth:'95vw',height:'100vh',background:C.card,borderLeft:`1px solid ${C.bdr}`,display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
-              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.surf}}>
+              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.blu}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div>
-                    <div style={{fontSize:17,fontWeight:700,color:C.t1}}>Activity Log</div>
-                    <div style={{fontSize:12,color:C.t3,marginTop:2}}>This session only — {events.length} event{events.length!==1?'s':''}</div>
+                    <div style={{fontSize:17,fontWeight:700,color:'#fff'}}>Activity Log</div>
+                    <div style={{fontSize:12,color:'rgba(255,255,255,0.7)',marginTop:2}}>This session only — {events.length} event{events.length!==1?'s':''}</div>
                   </div>
                   <button onClick={() => setShowActivity(false)}
-                    style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:8,color:C.t3,fontSize:18,cursor:'pointer',width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                    style={{background:'rgba(255,255,255,0.15)',border:'none',color:'#fff',fontSize:20,cursor:'pointer',
+                      width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
                 </div>
               </div>
               <div style={{flex:1,overflowY:'auto',padding:'12px 24px'}}>
@@ -4287,14 +4294,14 @@ export default function App() {
             style={{width:380,background:'#fff',borderRadius:16,boxShadow:'0 16px 48px rgba(0,0,0,0.22)',
               border:`1px solid ${C.bdr}`,overflow:'hidden'}}>
             {/* Header */}
-            <div style={{padding:'20px 20px 14px',borderBottom:`1px solid ${C.bdr}`,
+            <div style={{padding:'20px 20px 16px',borderBottom:`1px solid ${C.bdr}`,background:C.blu,
               display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <div style={{fontSize:15,fontWeight:700,color:C.t1,flex:1,paddingRight:8}}>
+              <div style={{fontSize:15,fontWeight:700,color:'#fff',flex:1,paddingRight:8}}>
                 {feedbackSent ? 'Thanks for your feedback!' : 'Share your thoughts about StatementAudit Pro'}
               </div>
               <button onClick={() => setShowFeedback(false)}
-                style={{background:'none',border:'none',fontSize:18,color:C.t3,cursor:'pointer',
-                  lineHeight:1,padding:'0 0 0 4px',flexShrink:0}}>×</button>
+                style={{background:'rgba(255,255,255,0.15)',border:'none',color:'#fff',fontSize:20,cursor:'pointer',
+                  width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>×</button>
             </div>
             {feedbackSent ? (
               <div style={{padding:'32px 20px',textAlign:'center'}}>
@@ -4478,19 +4485,21 @@ export default function App() {
                   </div>
                 )}
                 {hasTaxCol && activePack && (
-                  <div style={{display:'flex',alignItems:'center',gap:8,flex:'0 1 auto',
-                    background: rulePackOk ? C.grnDim : C.redDim,
-                    border:`1px solid ${rulePackOk ? C.grnBrd : C.redBrd}`,
-                    borderRadius:8,padding:'10px 14px'}}>
-                    <span style={{fontSize:18,lineHeight:1,flexShrink:0}}>{rulePackOk ? '🏛' : '⚠️'}</span>
-                    <span style={{fontSize:11,color: rulePackOk ? C.grn : C.red,lineHeight:1.4}}>
-                      <strong>{jur === 'jersey' ? `Jersey GST Rule-Pack v${gstJersey.version}` : `UK VAT Rule-Pack v${vatUK.version}`}</strong>
-                      <span style={{display:'block',fontWeight:400,marginTop:1}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10,flex:'0 1 auto',
+                    background: rulePackOk ? C.bluDim : C.redDim,
+                    border:`1.5px solid ${rulePackOk ? C.bluBrd : C.redBrd}`,
+                    borderRadius:10,padding:'12px 16px',minWidth:220}}>
+                    <span style={{fontSize:20,lineHeight:1,flexShrink:0,marginTop:1}}>{rulePackOk ? '🛡️' : '⚠️'}</span>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:700,color: rulePackOk ? C.blu : C.red,lineHeight:1.3}}>
+                        {jur === 'jersey' ? `Jersey GST Rule-Pack v${gstJersey.version}` : `UK VAT Rule-Pack v${vatUK.version}`}
+                      </div>
+                      <div style={{fontSize:11,color: rulePackOk ? C.blu : C.red,marginTop:2,lineHeight:1.4,opacity:rulePackOk?0.75:1}}>
                         {rulePackOk
                           ? `Effective ${activePack.effectiveDate} · Verified ${activePack.verifiedAt} · Source: ${jur === 'jersey' ? 'Revenue Jersey' : 'HMRC'}`
                           : `Rule-pack expired — precoded export blocked. Update ${jur === 'jersey' ? 'gstJersey' : 'vatUK'}.verifiedAt before continuing.`}
-                      </span>
-                    </span>
+                      </div>
+                    </div>
                   </div>
                 )}
                 <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',
@@ -4681,12 +4690,12 @@ export default function App() {
                           onClick={() => updateCodingLine(l.id||i, {confirmed: !l.confirmed})}
                           disabled={!l.code.trim() || (hasTaxCol && !l.gstTreatment)}
                           title={l.confirmed ? 'Un-confirm' : 'Confirm this code'}
-                          style={{width:28,height:28,borderRadius:6,flexShrink:0,
-                            border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
+                          style={{width:36,height:36,borderRadius:8,flexShrink:0,
+                            border:`2px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
                             background: l.confirmed ? C.grn : 'none',
                             color: l.confirmed ? '#fff' : C.t4,
                             cursor: l.code.trim() ? 'pointer' : 'default',
-                            fontSize:14,fontWeight:700,
+                            fontSize:16,fontWeight:700,
                             display:'flex',alignItems:'center',justifyContent:'center'}}>
                           ✓
                         </button>
