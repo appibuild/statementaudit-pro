@@ -4,14 +4,15 @@ import * as XLSX from 'xlsx';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const C = {
-  bg:'#EEF2F7', surf:'#F6F9FC', card:'#FFFFFF', cardHov:'#F2F6FB',
-  bdr:'#E3E8EF', bdrBrt:'#D3DBE6',
+  bg:'#F4F5FA', surf:'#F8FAFD', card:'#FFFFFF', cardHov:'#F8F9FE',
+  bdr:'#E8ECF2', bdrBrt:'#D8DEE9',
   grn:'#0FA968', grnDim:'#E6F7EF', grnBrd:'#BCE6D2',
   amb:'#D9870B', ambDim:'#FCF3E1', ambBrd:'#F2D79E',
   red:'#DC4646', redDim:'#FBEBEB', redBrd:'#F1C5C5',
   blu:'#2D6FF0', bluDim:'#EAF1FE', bluBrd:'#C2D8FB',
   pur:'#7A5AF0', purDim:'#EEEAFD', purBrd:'#D2C7F7',
   t1:'#0F1B2D', t2:'#475467', t3:'#7B8698', t4:'#C8D0DC',
+  sh1:'0 1px 4px rgba(15,27,45,0.06)', sh2:'0 4px 16px rgba(15,27,45,0.08)', sh3:'0 8px 32px rgba(15,27,45,0.13)',
 };
 
 // ── Trial / demo mode ────────────────────────────────────────────────────────
@@ -2061,13 +2062,13 @@ export default function App() {
 
   // ── Style helpers ──────────────────────────────────────────────────────
   const btn = (v, dis=false) => {
-    const base = { padding:'10px 18px', borderRadius:9, fontWeight:600, fontSize:14, cursor:dis?'not-allowed':'pointer',
-      border:'1px solid transparent', transition:'all 0.15s', opacity:dis?0.5:1, fontFamily:'Inter,sans-serif', lineHeight:1.4 };
+    const base = { padding:'10px 18px', borderRadius:10, fontWeight:600, fontSize:14, cursor:dis?'not-allowed':'pointer',
+      border:'none', transition:'all 0.15s', opacity:dis?0.5:1, fontFamily:'Inter,sans-serif', lineHeight:1.4 };
     const vs = {
-      primary: { background:C.grn,    color:'#fff' },
-      outline: { background:C.card, color:C.t2, border:`1px solid ${C.bdrBrt}` },
-      danger:  { background:C.redDim, color:C.red, border:`1px solid ${C.redBrd}` },
-      success: { background:C.grnDim, color:C.grn, border:`1px solid ${C.grnBrd}` },
+      primary: { background:C.grn, color:'#fff', boxShadow:dis?'none':'0 2px 8px rgba(15,169,104,0.24)' },
+      outline: { background:C.card, color:C.t2, border:`1.5px solid ${C.bdrBrt}`, boxShadow:'none' },
+      danger:  { background:C.redDim, color:C.red, border:`1.5px solid ${C.redBrd}`, boxShadow:'none' },
+      success: { background:C.grnDim, color:C.grn, border:`1.5px solid ${C.grnBrd}`, boxShadow:'none' },
     };
     return {...base, ...(vs[v]||vs.outline)};
   };
@@ -2156,8 +2157,8 @@ export default function App() {
         onClick={() => fileInputRef.current?.click()}
         style={{width:'100%',maxWidth:520,border:`2px dashed ${dragging?C.grn:C.bdrBrt}`,borderRadius:16,
           padding:'52px 40px',textAlign:'center',cursor:'pointer',
-          background:dragging?C.grnDim:C.surf,transition:'all 0.2s',
-          boxShadow:dragging?`0 0 40px rgba(0,212,126,0.12)`:'none'}}>
+          background:dragging?C.grnDim:C.card,transition:'all 0.2s',
+          boxShadow:dragging?`0 0 0 4px ${C.grnBrd}, ${C.sh2}`:C.sh2}}>
         <div style={{fontSize:40,marginBottom:12}}>📄</div>
         <div style={{fontSize:20,fontWeight:700,color:C.t1,marginBottom:8,fontFamily:'Inter,sans-serif'}}>
           Drop bank statement PDFs here
@@ -2174,8 +2175,8 @@ export default function App() {
         Every statement requires human approval before CSV is generated.
       </div>
       {/* Data handling notice — required before external customers */}
-      <div style={{maxWidth:520,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:9,
-        padding:'10px 16px',fontSize:11,color:C.t3,lineHeight:1.7,textAlign:'left'}}>
+      <div style={{maxWidth:520,background:C.card,borderRadius:12,boxShadow:C.sh1,
+        padding:'12px 18px',fontSize:11,color:C.t3,lineHeight:1.7,textAlign:'left'}}>
         <span style={{fontWeight:600,color:C.t2}}>Data handling:</span>{' '}
         Your PDF is sent securely over an encrypted connection to our server in Frankfurt (EU) and then to Anthropic's AI in the US for text extraction.
         No file or transaction data is stored on our servers at any point — everything stays in your browser until you export.
@@ -2251,8 +2252,9 @@ export default function App() {
           const editLock = ['processing','approved'].includes(s.status); // dropdowns still locked on approved
           return (
             <div key={s.id} style={{display:'grid',gridTemplateColumns:'28px 1fr 155px 140px 85px 90px',
-              gap:8,alignItems:'center',padding:'10px 14px',borderRadius:9,
-              border:`1px solid ${selIds.has(s.id)?C.bluBrd:C.bdr}`,background:selIds.has(s.id)?C.bluDim:C.card}}>
+              gap:8,alignItems:'center',padding:'12px 16px',borderRadius:12,
+              boxShadow:selIds.has(s.id)?`0 0 0 2px ${C.bluBrd}, ${C.sh1}`:C.sh1,
+              background:selIds.has(s.id)?C.bluDim:C.card}}>
               <input type="checkbox" checked={selIds.has(s.id)} disabled={locked}
                 onChange={() => toggleSel(s.id)} style={{cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1}}/>
               <div style={{minWidth:0}}>
@@ -2410,8 +2412,8 @@ export default function App() {
     const openDetail = () => setDetailIds(prev => { const n = new Set(prev); n.add(s.id); return n; });
 
     const tdBase = (ri, flagged, dp) => ({
-      padding:'10px 12px', borderBottom:`1px solid ${C.bdr}`,
-      background: dp ? C.redDim : flagged ? C.ambDim : ri%2===0 ? C.card : C.surf,
+      padding:'11px 12px',
+      background: dp ? C.redDim : flagged ? C.ambDim : ri%2===0 ? C.card : '#F8FAFD',
       cursor: canEdit ? 'text' : 'default', color:C.t1,
       whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
     });
@@ -2452,8 +2454,9 @@ export default function App() {
     return (
       <div style={{display:'flex',height:'100%',gap:0}}>
         {/* Sidebar */}
-        <div style={{width:sidebarCollapsed?40:210,flexShrink:0,borderRight:`1px solid ${C.bdr}`,background:C.surf,
-          display:'flex',flexDirection:'column',transition:'width 0.18s',overflow:'hidden',position:'relative'}}>
+        <div style={{width:sidebarCollapsed?40:210,flexShrink:0,background:C.surf,
+          display:'flex',flexDirection:'column',transition:'width 0.18s',overflow:'hidden',position:'relative',
+          borderRight:`1px solid ${C.bdr}`}}>
           {/* Collapse toggle */}
           <button onClick={() => setSidebarCollapsed(v => !v)}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -2545,7 +2548,7 @@ export default function App() {
         {/* Main panel */}
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',padding:'0 0 0 16px'}}>
           {/* Header */}
-          <div style={{flexShrink:0,paddingBottom:12,borderBottom:`1px solid ${C.bdr}`,marginBottom:10}}>
+          <div style={{flexShrink:0,paddingBottom:14,borderBottom:`1px solid ${C.bdr}`,marginBottom:12}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
               <div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
@@ -2729,7 +2732,7 @@ export default function App() {
                 </>)}
                 {!recCollapsed && <span style={{fontSize:11,fontWeight:400,color:C.t3,textTransform:'none',letterSpacing:0,marginLeft:4}}>— click to collapse</span>}
               </div>
-              {!recCollapsed && <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'18px 20px'}}>
+              {!recCollapsed && <div style={{background:C.card,borderRadius:16,padding:'20px 24px',boxShadow:C.sh2}}>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'16px 22px'}}>
                   {[
                     {label:'Transactions',          val:txList.length,                                                 color:C.t1, od:false},
@@ -2743,7 +2746,7 @@ export default function App() {
                     const canEditField = field && canEdit;
                     return (
                     <div key={label}>
-                      <div style={{fontSize:13,color:C.t3,marginBottom:5}}>{label}{canEditField && <span style={{color:C.blu,marginLeft:5,fontSize:11}}>✎</span>}</div>
+                      <div style={{fontSize:11,color:C.t3,marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600}}>{label}{canEditField && <span style={{color:C.blu,marginLeft:5,fontSize:10}}>✎</span>}</div>
                       {editing ? (
                         <input autoFocus type="number" value={balVal}
                           onChange={e => setBalVal(e.target.value)}
@@ -2753,7 +2756,7 @@ export default function App() {
                             width:'100%',padding:'2px 6px',border:`1px solid ${C.grn}`,borderRadius:5,outline:'none',boxSizing:'border-box'}}/>
                       ) : (
                         <div onClick={() => { if(canEditField){ setBalEdit({sid:s.id,field}); setBalVal(rec[field]==null?'':String(rec[field])); } }}
-                          style={{fontSize:21,fontWeight:600,color,fontFamily:'JetBrains Mono,monospace',cursor:canEditField?'text':'default'}}>{val}</div>
+                          style={{fontSize:23,fontWeight:700,color,fontFamily:'JetBrains Mono,monospace',cursor:canEditField?'text':'default',letterSpacing:'-0.01em'}}>{val}</div>
                       )}
                       {od && <div style={{fontSize:12,color:C.red,marginTop:2}}>overdrawn</div>}
                       {field==='openingBalance' && rec.openingAdjusted && rec.printedOpening!=null && (
@@ -2877,7 +2880,7 @@ export default function App() {
               The reconciliation strip above stays visible; this adds the one-click approve.
               The ⚡ button calls the EXACT same handler as the standard Approve & Export. */}
           {fastTrack && (
-            <div style={{flexShrink:0,marginBottom:12,background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:12,padding:'18px 20px'}}>
+            <div style={{flexShrink:0,marginBottom:12,background:C.grnDim,borderLeft:`4px solid ${C.grn}`,borderRadius:12,padding:'18px 20px',boxShadow:C.sh1}}>
               <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:6}}>
                 <ConfidenceBadge score={score} size="lg" hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                 <span style={{fontSize:15,fontWeight:600,color:C.t1}}>This statement passes every check — reconciled, nothing flagged as unsure, no duplicates.</span>
@@ -3040,7 +3043,7 @@ export default function App() {
           {/* Transaction table (+ optional PDF compare pane) */}
           {!fastTrack && (
           <div ref={splitContainer} style={{flex:1,display:'flex',gap:0,overflow:'hidden'}}>
-            <div style={{flex:1,minWidth:'30%',overflowY:'auto',overflowX:'auto',borderRadius:9,border:`1px solid ${C.bdr}`,marginRight:showPdf?0:0}}>
+            <div style={{flex:1,minWidth:'30%',overflowY:'auto',overflowX:'auto',borderRadius:12,boxShadow:C.sh2,background:C.card}}>
             {txList.length === 0 ? (
               <div style={{padding:'40px 24px',textAlign:'center',color:C.t2}}>
                 <div style={{fontSize:15,fontWeight:600,color:C.t1,marginBottom:6}}>No transactions found in this file</div>
@@ -3054,9 +3057,9 @@ export default function App() {
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
                   {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
                     ...(showNominal?['Nominal']:[]),'Notes','Receipt','⚑','✕','↺'].map((h,i) => (
-                    <th key={i} style={{padding:'12px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
-                      color:C.t2,fontWeight:600,fontSize:12,textTransform:'uppercase',letterSpacing:'0.05em',
-                      whiteSpace:'nowrap',borderBottom:`1px solid ${C.bdr}`,fontFamily:'Inter,sans-serif'}}>
+                    <th key={i} style={{padding:'11px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
+                      color:C.t3,fontWeight:700,fontSize:11,textTransform:'uppercase',letterSpacing:'0.06em',
+                      whiteSpace:'nowrap',borderBottom:`2px solid ${C.bdr}`,background:C.surf,fontFamily:'Inter,sans-serif'}}>
                       {h}
                     </th>
                   ))}
@@ -3420,9 +3423,9 @@ export default function App() {
             {label:'Total Debits',       val:fmtCcy(totalDeb), color:C.red},
             {label:'Total Credits',      val:fmtCcy(totalCred),color:C.grn},
           ].map(({label,val,color}) => (
-            <div key={label} style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'14px 16px'}}>
-              <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:7,fontFamily:'Inter,sans-serif'}}>{label}</div>
-              <div style={{fontSize:22,fontWeight:700,color,fontFamily:'JetBrains Mono,monospace'}}>{val}</div>
+            <div key={label} style={{background:C.card,borderRadius:14,padding:'16px 20px',boxShadow:C.sh2}}>
+              <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontFamily:'Inter,sans-serif',fontWeight:600}}>{label}</div>
+              <div style={{fontSize:24,fontWeight:700,color,fontFamily:'JetBrains Mono,monospace',letterSpacing:'-0.01em'}}>{val}</div>
             </div>
           ))}
         </div>
@@ -3434,8 +3437,8 @@ export default function App() {
             const platLbl = s.platform==='xero'?'Xero':'QBO';
             const atCfg   = ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current;
             return (
-              <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',
-                background:C.card,border:`1px solid ${C.bdr}`,borderRadius:9}}>
+              <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 18px',
+                background:C.card,borderRadius:12,boxShadow:C.sh1}}>
                 <div style={{width:3,height:36,borderRadius:2,background:atCfg.color,flexShrink:0}}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:600,color:C.t1,marginBottom:2}}>{s.bankName} — {atCfg.label}</div>
@@ -3568,9 +3571,10 @@ export default function App() {
             return (
               <div key={p.id}
                 onClick={() => { setActiveProjectId(p.id); localStorage.setItem('sa_activeProject',p.id); setTab('audit'); }}
-                style={{background:isActive?C.bluDim:C.card,border:`1px solid ${isActive?C.bluBrd:C.bdr}`,
-                  borderRadius:12,padding:'18px 20px',cursor:'pointer',
-                  transition:'all 0.15s',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                style={{background:isActive?C.bluDim:C.card,
+                  borderRadius:14,padding:'20px 22px',cursor:'pointer',
+                  transition:'all 0.15s',
+                  boxShadow:isActive?`0 0 0 2px ${C.bluBrd}, ${C.sh2}`:C.sh2}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
                   <div style={{fontSize:15,fontWeight:700,color:isActive?C.blu:C.t1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{p.name}</div>
                   {isActive && <span style={{fontSize:10,fontWeight:700,color:C.blu,background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:4,padding:'1px 6px',flexShrink:0,marginLeft:6}}>Active</span>}
@@ -3632,8 +3636,8 @@ export default function App() {
       color:C.t1,fontFamily:'Inter,system-ui,sans-serif',overflow:'hidden'}}>
 
       {/* Topbar */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 28px',
-        borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.card}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 28px',
+        boxShadow:C.sh2,flexShrink:0,background:C.card,zIndex:10,position:'relative'}}>
         <div style={{display:'flex',alignItems:'center',gap:13}}>
           <div style={{width:40,height:40,borderRadius:10,background:C.blu,display:'flex',
             alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:19}}>£</div>
