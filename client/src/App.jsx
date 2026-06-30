@@ -957,9 +957,6 @@ export default function App() {
   const [balVal,   setBalVal]   = useState('');
   const [showPdf,  setShowPdf]  = useState(false); // PDF compare pane on the review screen
   const [pdfUrl,   setPdfUrl]   = useState(null);
-  const [pdfSplit, setPdfSplit] = useState(50);    // % width of PDF panel (20–70)
-  const splitDragging  = useRef(false);
-  const splitContainer = useRef(null);
   const [selIds,   setSelIds]   = useState(() => new Set()); // selected files in the processing queue
   const [showRaw,  setShowRaw]  = useState(() => new Set()); // raw response toggle — error rows only
   const [showDupeViewer, setShowDupeViewer] = useState(false);
@@ -2336,29 +2333,6 @@ export default function App() {
     </div>
   );
 
-  // ── PDF split-pane drag handler ──────────────────────────────────────
-  const startSplitDrag = useCallback(e => {
-    e.preventDefault();
-    splitDragging.current = true;
-    const onMove = ev => {
-      if (!splitDragging.current || !splitContainer.current) return;
-      const rect = splitContainer.current.getBoundingClientRect();
-      const pdfPct = ((rect.right - ev.clientX) / rect.width) * 100;
-      setPdfSplit(Math.min(70, Math.max(20, Math.round(pdfPct))));
-    };
-    const onUp = () => {
-      splitDragging.current = false;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, []);
-
   // ─────────────────────────────────────────────────────────────────────
   // AUDIT
   // ─────────────────────────────────────────────────────────────────────
@@ -3034,8 +3008,8 @@ export default function App() {
 
           {/* Transaction table (+ optional PDF compare pane) */}
           {!fastTrack && (
-          <div ref={splitContainer} style={{flex:1,display:'flex',gap:0,overflow:'hidden'}}>
-            <div style={{flex:1,minWidth:'30%',overflowY:'auto',overflowX:'auto',borderRadius:9,border:`1px solid ${C.bdr}`,marginRight:showPdf?0:0}}>
+          <div style={{flex:1,display:'flex',gap:12,overflow:'hidden'}}>
+            <div style={{flex:1,minWidth:0,overflowY:'auto',overflowX:'auto',borderRadius:9,border:`1px solid ${C.bdr}`}}>
             {txList.length === 0 ? (
               <div style={{padding:'40px 24px',textAlign:'center',color:C.t2}}>
                 <div style={{fontSize:15,fontWeight:600,color:C.t1,marginBottom:6}}>No transactions found in this file</div>
@@ -3195,28 +3169,12 @@ export default function App() {
             </table>
             )}
             </div>
-            {showPdf && (<>
-              {/* Drag handle */}
-              <div onMouseDown={startSplitDrag}
-                style={{flex:'0 0 10px',cursor:'col-resize',display:'flex',alignItems:'center',
-                  justifyContent:'center',zIndex:10,flexShrink:0,margin:'0 1px'}}
-                title="Drag to resize · double-click to reset 50/50">
-                <div onDoubleClick={() => setPdfSplit(50)}
-                  style={{width:4,height:48,borderRadius:2,background:C.bdrBrt,transition:'background 0.15s'}}
-                  onMouseEnter={e => e.currentTarget.style.background=C.blu}
-                  onMouseLeave={e => e.currentTarget.style.background=C.bdrBrt}/>
-              </div>
-              {/* PDF panel */}
-              <div style={{flex:`0 0 ${pdfSplit}%`,minWidth:'20%',borderRadius:9,border:`1px solid ${C.bdr}`,
-                overflow:'hidden',background:C.card,display:'flex',flexDirection:'column'}}>
-                <div style={{padding:'6px 10px',borderBottom:`1px solid ${C.bdr}`,display:'flex',
-                  alignItems:'center',justifyContent:'space-between',flexShrink:0,background:C.surf}}>
+            {showPdf && (
+              <div style={{flex:'0 0 50%',minWidth:0,borderRadius:9,border:`1px solid ${C.bdr}`,overflow:'hidden',background:C.card,display:'flex',flexDirection:'column'}}>
+                <div style={{padding:'6px 10px',borderBottom:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,background:C.surf}}>
                   <span style={{fontSize:11,fontWeight:600,color:C.t2}}>{s.bankName||s.filename} — Original PDF</span>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:10,color:C.t4}}>{pdfSplit}%</span>
-                    <button onClick={() => { setShowPdf(false); setSidebarCollapsed(false); setRecCollapsed(false); setPdfSplit(50); }}
-                      style={{background:'none',border:'none',cursor:'pointer',color:C.t3,fontSize:16,padding:'0 2px',lineHeight:1}}>×</button>
-                  </div>
+                  <button onClick={() => { setShowPdf(false); setSidebarCollapsed(false); setRecCollapsed(false); }}
+                    style={{background:'none',border:'none',cursor:'pointer',color:C.t3,fontSize:16,padding:'0 2px',lineHeight:1}}>×</button>
                 </div>
                 {pdfUrl ? (
                   <object data={pdfUrl} type="application/pdf" style={{width:'100%',flex:1,border:'none'}}>
@@ -3224,7 +3182,7 @@ export default function App() {
                   </object>
                 ) : <div style={{padding:20,fontSize:13,color:C.t3}}>Loading PDF…</div>}
               </div>
-            </>)}
+            )}
           </div>
           )}
         </div>
