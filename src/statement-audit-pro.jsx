@@ -948,10 +948,90 @@ const Tip = ({ text, pos = 'bottom', active, children }) => {
     </span>
   );
 };
+// ── Demo seed data (design review) ───────────────────────────────────────────
+const DEMO_ACTIVE = true;
+const _mkTx = (id,date,pt,desc,payee,deb,crd,bal,o={}) => ({
+  id,date,paymentType:pt,description:desc,payee,debit:deb,credit:crd,balance:bal,
+  flagged:o.flagged||false,notes:o.notes||'',
+  nominalCode:o.code||(deb!=null?'Misc Expense':'Misc Revenue'),
+  codeSource:o.code?'remembered':'holding',
+  rememberCode:false,category:o.cat||'',wrapped:false,ambiguous:false,
+});
+const _D1 = [ // HSBC Business Current — March 2024
+  _mkTx(1, '01 Mar 2024','DD','HMRC PAYE',              'HMRC',                1850.00,null,   10600.00,{code:'7000',cat:'Payroll'}),
+  _mkTx(2, '03 Mar 2024','SO','LANDLORD RENT',           'Landlord Properties', 1200.00,null,    9400.00,{code:'7100',cat:'Rent'}),
+  _mkTx(3, '05 Mar 2024','CR','STRIPE PAYMENTS LTD',     'Stripe',              null,   3450.25,12850.25,{code:'4000',cat:'Revenue'}),
+  _mkTx(4, '07 Mar 2024','VIS','AMAZON UK',              'Amazon',               127.49,null,   12722.76,{code:'7400',cat:'Office Supplies'}),
+  _mkTx(5, '10 Mar 2024','BP','EDF ENERGY LTD',          'EDF Energy',            89.50,null,   12633.26,{code:'7200',cat:'Utilities'}),
+  _mkTx(6, '13 Mar 2024','CR','CLIENT INV-0042',         'Design Client Ltd',   null,   2400.00,15033.26,{code:'4000',cat:'Revenue'}),
+  _mkTx(7, '15 Mar 2024','DD','VODAFONE UK LTD',         'Vodafone',              45.00,null,   14988.26,{code:'7300',cat:'Telecoms'}),
+  _mkTx(8, '18 Mar 2024','VIS','OFFICE DEPOT UK',        'Office Depot',         234.60,null,   14753.66,{code:'7400',cat:'Office Supplies'}),
+  _mkTx(9, '21 Mar 2024','TFR','TRANSFER TO SAVINGS',    'Internal Transfer',   4000.00,null,   10753.66,{code:'1230',cat:'Transfers'}),
+  _mkTx(10,'24 Mar 2024','BP','BT BROADBAND LTD',        'BT',                    38.99,null,   10714.67,{code:'7300',cat:'Telecoms'}),
+  _mkTx(11,'27 Mar 2024','CR','STRIPE PAYMENTS LTD',     'Stripe',              null,   1875.00,12589.67,{code:'4000',cat:'Revenue'}),
+  _mkTx(12,'31 Mar 2024','DD','STAFF WAGES PAYROLL',     'Staff Payroll',        2344.07,null,  10245.60,{code:'7000',cat:'Payroll'}),
+];
+// deb=9929.65 crd=7725.25 close=12450+(7725.25-9929.65)=10245.60
+const _R1 = recalc(_D1,{statementPaymentsOut:9929.65,statementPaymentsIn:7725.25,openingBalance:12450.00,closingBalance:10245.60},'current');
+
+const _D2 = [ // Barclays Personal Current — February 2024
+  _mkTx(1,'01 Feb 2024','SO','MORTGAGE PAYMENT',         'Halifax Mortgage',     895.00,null,    2305.50,{code:'7100',cat:'Mortgage'}),
+  _mkTx(2,'05 Feb 2024','DD','SKY TV',                   'Sky UK',                52.00,null,    2253.50,{code:'7350',cat:'Entertainment'}),
+  _mkTx(3,'08 Feb 2024','CR','SALARY ABC COMPANY LTD',   'ABC Company Ltd',     null,   2450.00, 4703.50,{code:'4000',cat:'Salary'}),
+  _mkTx(4,'12 Feb 2024','VIS','TESCO SUPERSTORE',        'Tesco',                 87.35,null,    4616.15,{code:'7500',cat:'Groceries'}),
+  _mkTx(5,'15 Feb 2024','VIS','SAINSBURYS ONLINE',       'Sainsburys',            64.20,null,    4551.95,{code:'7500',cat:'Groceries'}),
+  _mkTx(6,'20 Feb 2024','BP','BRITISH GAS',              'British Gas',           145.00,null,   4406.95,{code:'7200',cat:'Utilities'}),
+  _mkTx(7,'22 Feb 2024','VIS','COSTA COFFEE',            'Costa',                  8.50,null,    4398.45,{code:'7600',cat:'Hospitality',flagged:true,notes:'Review — possible personal purchase'}),
+  _mkTx(8,'28 Feb 2024','DD','COUNCIL TAX',              'Local Authority',       186.00,null,   4212.45,{code:'7250',cat:'Council Tax'}),
+];
+// deb=1438.05 crd=2450 close=3200.50+(2450-1438.05)=4212.45
+const _R2 = recalc(_D2,{statementPaymentsOut:1438.05,statementPaymentsIn:2450.00,openingBalance:3200.50,closingBalance:4212.45},'current');
+
+const _D3 = [ // Starling Bank Business — January 2024
+  _mkTx(1, '02 Jan 2024','BP','GOOGLE WORKSPACE',        'Google',                75.00,null,    8825.00,{code:'7300',cat:'Software'}),
+  _mkTx(2, '05 Jan 2024','SO','OFFICE RENT Q1',          'Acorn Properties Ltd',  850.00,null,   7975.00,{code:'7100',cat:'Rent'}),
+  _mkTx(3, '08 Jan 2024','CR','CLIENT REF-0891',         'Northern Solutions Ltd',null,  3200.00,11175.00,{code:'4000',cat:'Revenue'}),
+  _mkTx(4, '10 Jan 2024','VIS','ARGOS LTD',              'Argos',                 189.99,null,  10985.01,{code:'7400',cat:'Equipment'}),
+  _mkTx(5, '14 Jan 2024','DD','ZURICH INSURANCE',        'Zurich',                120.00,null,  10865.01,{code:'7500',cat:'Insurance'}),
+  _mkTx(6, '17 Jan 2024','CR','STRIPE PAYOUT',           'Stripe',              null,   1150.00,12015.01,{code:'4000',cat:'Revenue'}),
+  _mkTx(7, '20 Jan 2024','VIS','ROYAL MAIL GROUP',       'Royal Mail',             34.80,null,  11980.21,{code:'7400',cat:'Postage'}),
+  _mkTx(8, '22 Jan 2024','BP','VODAFONE BUSINESS',       'Vodafone',               68.00,null,  11912.21,{code:'7300',cat:'Telecoms'}),
+  _mkTx(9, '25 Jan 2024','TFR','TRANSFER TO TAX RESERVE','Internal Transfer',    2000.00,null,   9912.21,{code:'1230',cat:'Transfers'}),
+  _mkTx(10,'31 Jan 2024','DD','XERO SUBSCRIPTION',       'Xero',                   62.00,null,   9850.21,{code:'7300',cat:'Software'}),
+];
+// deb=3399.79 crd=4350 close=8900+(4350-3399.79)=9850.21
+const _R3 = recalc(_D3,{statementPaymentsOut:3399.79,statementPaymentsIn:4350.00,openingBalance:8900.00,closingBalance:9850.21},'current');
+
+const DEMO_STATEMENTS = [
+  { id:'demo-hsbc-01',    file:null, filename:'HSBC_Business_Mar2024.pdf',
+    status:'approved',  projectId:'default', accountType:'current', platform:'qbo', jurisdiction:'uk',
+    bankName:'HSBC',        accountName:'Business Current Account',   period:'01 Mar 2024 – 31 Mar 2024',
+    openingBalance:12450.00, closingBalance:10245.60,
+    transactions:_D1, editedTransactions:null,
+    reconciliation:_R1, baseReconciliation:_R1, baseAccountType:'current',
+    confidenceScore:calcConfidence(_R1,_D1,null),
+    crossCheck:null, error:null, rawResponse:null, extractedAt:1711756800000, approvedAt:1711843200000 },
+  { id:'demo-barclays-02', file:null, filename:'Barclays_Personal_Feb2024.pdf',
+    status:'review',    projectId:'default', accountType:'current', platform:'qbo', jurisdiction:'uk',
+    bankName:'Barclays',    accountName:'Personal Current Account',   period:'01 Feb 2024 – 29 Feb 2024',
+    openingBalance:3200.50,  closingBalance:4212.45,
+    transactions:_D2, editedTransactions:null,
+    reconciliation:_R2, baseReconciliation:_R2, baseAccountType:'current',
+    confidenceScore:calcConfidence(_R2,_D2,null),
+    crossCheck:null, error:null, rawResponse:null, extractedAt:1709251200000, approvedAt:null },
+  { id:'demo-starling-03', file:null, filename:'Starling_Business_Jan2024.pdf',
+    status:'approved',  projectId:'default', accountType:'current', platform:'xero', jurisdiction:'uk',
+    bankName:'Starling Bank', accountName:'Business Account',        period:'01 Jan 2024 – 31 Jan 2024',
+    openingBalance:8900.00,  closingBalance:9850.21,
+    transactions:_D3, editedTransactions:null,
+    reconciliation:_R3, baseReconciliation:_R3, baseAccountType:'current',
+    confidenceScore:calcConfidence(_R3,_D3,null),
+    crossCheck:null, error:null, rawResponse:null, extractedAt:1706745600000, approvedAt:1706832000000 },
+];
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [stmts,    setStmts]    = useState([]);
+  const [stmts,    setStmts]    = useState(() => DEMO_ACTIVE ? DEMO_STATEMENTS : []);
   const [activeId, setActiveId] = useState(null);
   const [tab,      setTab]      = useState('home');
   const [editCell, setEditCell] = useState(null);
