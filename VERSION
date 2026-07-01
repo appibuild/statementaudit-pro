@@ -1,9 +1,9 @@
 StatementAudit Pro — canonical source of truth
-build_date: 2026-07-01
+build_date: 2026-07-02
 source_file: src/statement-audit-pro.jsx
-expected_lines: 5317
+expected_lines: 5398
 model_pinned: claude-sonnet-4-6
 max_tokens: 32000
 json_extractor: robust indexOf/lastIndexOf (NO assistant prefill)
-last_resolved: Compliance fixes (security, a11y, privacy, UI tokens) + Home/Welcome landing page (2026-07-01)
+last_resolved: Design token sweep — C.num tabular-nums, QBO border colours, google/microsoft tokens, ux-blueprint.md checkpoint (2026-07-02)
 open_item: Job: Capture HSBC Balance column; Job 4 parser robustness; scenario 1 upload-time dupe deferred

@@ -4,8 +4,8 @@ import * as XLSX from 'xlsx';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const C = {
-  bg:'#F4F5FA', surf:'#F8FAFD', card:'#FFFFFF', cardHov:'#F8F9FE',
-  bdr:'#E8ECF2', bdrBrt:'#D8DEE9',
+  bg:'#F4F5FA', surf:'#F8FAFC', card:'#FFFFFF', cardHov:'#F8F9FE',
+  bdr:'#E2E8F0', bdrBrt:'#CBD5E1',
   grn:'#0FA968', grnDim:'#E6F7EF', grnBrd:'#BCE6D2',
   amb:'#D9870B', ambDim:'#FCF3E1', ambBrd:'#F2D79E',
   red:'#DC4646', redDim:'#FBEBEB', redBrd:'#F1C5C5',
@@ -13,9 +13,10 @@ const C = {
   pur:'#7A5AF0', purDim:'#EEEAFD', purBrd:'#D2C7F7',
   t1:'#0F1B2D', t2:'#475467', t3:'#606B78', t4:'#C8D0DC',
   sh1:'0 1px 4px rgba(15,27,45,0.06)', sh2:'0 4px 16px rgba(15,27,45,0.08)', sh3:'0 8px 32px rgba(15,27,45,0.13)',
-  xero:'#13B5EA', qbo:'#2CA01C',
+  xero:'#13B5EA', qbo:'#2CA01C', google:C.google, microsoft:C.microsoft,
   fontUI:  'Plus Jakarta Sans, system-ui, sans-serif',
   fontData:'JetBrains Mono, monospace',
+  num: { fontFamily:'JetBrains Mono, monospace', fontVariantNumeric:'tabular-nums' },
 };
 
 // ── Trial / demo mode ────────────────────────────────────────────────────────
@@ -686,7 +687,7 @@ const CLOUD_CFG = {
     tokenUrl: 'https://oauth2.googleapis.com/token',
     scope:    'https://www.googleapis.com/auth/drive.appdata openid email profile',
     label:    'Google Drive',
-    color:    '#4285F4',
+    color:    C.google,
   },
   microsoft: {
     clientId: import.meta.env.VITE_MICROSOFT_CLIENT_ID || '',
@@ -698,7 +699,7 @@ const CLOUD_CFG = {
     // Broad scope decision: Compliance adviser sign-off required before real client data is processed.
     scope:    'Files.ReadWrite User.Read offline_access',
     label:    'OneDrive / M365',
-    color:    '#0078D4',
+    color:    C.microsoft,
   },
 };
 
@@ -2364,7 +2365,7 @@ export default function App() {
                     </button>
                     {showRaw.has(s.id) && (
                       <div style={{marginTop:4,position:'relative'}}>
-                        <pre style={{margin:0,fontSize:10,color:C.t2,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'8px',maxHeight:160,overflowY:'auto',fontFamily:C.fontData,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{s.rawResponse}</pre>
+                        <pre style={{margin:0,fontSize:10,color:C.t2,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'8px',maxHeight:160,overflowY:'auto',...C.num,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{s.rawResponse}</pre>
                         <button onClick={() => navigator.clipboard.writeText(s.rawResponse)} style={{position:'absolute',top:4,right:4,fontSize:10,color:C.t3,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Copy</button>
                       </div>
                     )}
@@ -2572,7 +2573,7 @@ export default function App() {
                   <span style={{fontSize:10,fontWeight:700,color:platColor,background:`${platColor}14`,border:`1px solid ${platColor}28`,padding:'2px 7px',borderRadius:3}}>{platLabel}</span>
                 </div>
                 {s.accountName && <div style={{fontSize:12,color:C.t2}}>{s.accountName}</div>}
-                {s.period && <div style={{fontSize:12,color:C.t2,fontFamily:C.fontData}}>{s.period.from} — {s.period.to}</div>}
+                {s.period && <div style={{fontSize:12,color:C.t2,...C.num}}>{s.period.from} — {s.period.to}</div>}
                 <div style={{display:'flex',alignItems:'center',gap:8,marginTop:7,flexWrap:'wrap'}}>
                   <select value={s.accountType}
                     onChange={e => updateS(s.id,{accountType:e.target.value})}
@@ -2602,7 +2603,7 @@ export default function App() {
               </div>
               <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                 <button onClick={() => idx>0 && setActiveId(reviewable[idx-1].id)} disabled={idx<=0} style={btn('outline')}>← Prev</button>
-                <span style={{fontSize:11,color:C.t2,fontFamily:C.fontData,padding:'0 4px'}}>{idx+1}/{reviewable.length}</span>
+                <span style={{fontSize:11,color:C.t2,...C.num,padding:'0 4px'}}>{idx+1}/{reviewable.length}</span>
                 <button onClick={() => idx<reviewable.length-1 && setActiveId(reviewable[idx+1].id)} disabled={idx>=reviewable.length-1} style={btn('outline')}>Next →</button>
                 {canEdit && <>
                   <Tip text="Mark this statement as rejected. It stays in the list but won't export. You can reverse this at any time." pos="bottom" active={showTips}>
@@ -2687,7 +2688,7 @@ export default function App() {
                     const stmtLabel = s => s ? `${s.bankName||'Bank'}${s.period ? ` · ${s.period.from}–${s.period.to}` : ''}` : '—';
                     return (
                       <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i < dupes.crossPairs.length-1 ? `1px solid ${C.redBrd}` : 'none'}}>
-                        <div style={{fontSize:12,color:C.red,fontFamily:C.fontData,marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
+                        <div style={{fontSize:12,color:C.red,...C.num,marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                           <button onClick={() => { setActiveId(pair.a.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sA)} ↗</button>
                           <button onClick={() => { setActiveId(pair.b.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sB)} ↗</button>
@@ -2708,10 +2709,10 @@ export default function App() {
                   style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:`1px solid ${C.bdr}`,cursor:'pointer'}}>
                   <TypeTag type={tx.paymentType}/>
                   <span style={{fontSize:14,fontWeight:500,color:C.t1}}>{tx.payee||tx.description}</span>
-                  <span style={{fontSize:13,color:C.t3,fontFamily:C.fontData}}>{tx.date}</span>
+                  <span style={{fontSize:13,color:C.t3,...C.num}}>{tx.date}</span>
                   <span style={{fontSize:13,color:C.t3,marginLeft:'auto',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{stmt.bankName||stmt.filename}</span>
-                  {tx.debit!=null && <span style={{fontSize:14,fontWeight:600,color:C.red,fontFamily:C.fontData}}>{fmtCcy(tx.debit)}</span>}
-                  {tx.credit!=null && <span style={{fontSize:14,fontWeight:600,color:C.grn,fontFamily:C.fontData}}>{fmtCcy(tx.credit)}</span>}
+                  {tx.debit!=null && <span style={{fontSize:14,fontWeight:600,color:C.red,...C.num}}>{fmtCcy(tx.debit)}</span>}
+                  {tx.credit!=null && <span style={{fontSize:14,fontWeight:600,color:C.grn,...C.num}}>{fmtCcy(tx.credit)}</span>}
                 </div>
               ))}
             </div>
@@ -2733,11 +2734,11 @@ export default function App() {
                 </span>
                 {recCollapsed && (<>
                   <span style={{fontSize:11,color:C.t3}}>·</span>
-                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.t2,whiteSpace:'nowrap'}}>Open {fmtBal(rec.openingBalance)}</span>
-                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.red,whiteSpace:'nowrap'}}>Out {fmtCcy(rec.csvDebitTotal)}</span>
-                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.grn,whiteSpace:'nowrap'}}>In {fmtCcy(rec.csvCreditTotal)}</span>
+                  <span style={{fontSize:12,...C.num,color:C.t2,whiteSpace:'nowrap'}}>Open {fmtBal(rec.openingBalance)}</span>
+                  <span style={{fontSize:12,...C.num,color:C.red,whiteSpace:'nowrap'}}>Out {fmtCcy(rec.csvDebitTotal)}</span>
+                  <span style={{fontSize:12,...C.num,color:C.grn,whiteSpace:'nowrap'}}>In {fmtCcy(rec.csvCreditTotal)}</span>
                   <span style={{fontSize:11,color:C.t3}}>·</span>
-                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.t2,whiteSpace:'nowrap'}}>Close {fmtBal(rec.closingBalance)}</span>
+                  <span style={{fontSize:12,...C.num,color:C.t2,whiteSpace:'nowrap'}}>Close {fmtBal(rec.closingBalance)}</span>
                   <span style={{marginLeft:'auto',fontSize:12,fontWeight:700,whiteSpace:'nowrap',
                     color:rec.reconciled?C.grn:C.red}}>
                     {rec.reconciled ? '✓ Reconciles' : `⚠ £${rec.variance?.toFixed(2)} variance`}
@@ -2765,11 +2766,11 @@ export default function App() {
                           onChange={e => setBalVal(e.target.value)}
                           onKeyDown={e => { if(e.key==='Enter') commitBalEdit(); if(e.key==='Escape') setBalEdit(null); }}
                           onBlur={commitBalEdit}
-                          style={{fontSize:19,fontWeight:600,color:C.t1,fontFamily:C.fontData,
+                          style={{fontSize:19,fontWeight:600,color:C.t1,...C.num,
                             width:'100%',padding:'2px 6px',border:`1px solid ${C.grn}`,borderRadius:5,outline:'none',boxSizing:'border-box'}}/>
                       ) : (
                         <div onClick={() => { if(canEditField){ setBalEdit({sid:s.id,field}); setBalVal(rec[field]==null?'':String(rec[field])); } }}
-                          style={{fontSize:23,fontWeight:700,color,fontFamily:C.fontData,cursor:canEditField?'text':'default',letterSpacing:'-0.01em'}}>{val}</div>
+                          style={{fontSize:23,fontWeight:700,color,...C.num,cursor:canEditField?'text':'default',letterSpacing:'-0.01em'}}>{val}</div>
                       )}
                       {od && <div style={{fontSize:12,color:C.red,marginTop:2}}>overdrawn</div>}
                       {field==='openingBalance' && rec.openingAdjusted && rec.printedOpening!=null && (
@@ -2813,23 +2814,23 @@ export default function App() {
                           ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
                               onBlur={commitBalEdit}
-                              style={{width:90,fontFamily:C.fontData,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                              style={{width:90,...C.num,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
                           : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsOut'}),setBalVal(String(sOut)))}
-                              style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:C.t1,
+                              style={{fontSize:13,fontWeight:600,...C.num,color:C.t1,
                                 cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sOut)}</div>}
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:oGap>=0.02?C.red:C.grn}}>{fmtCcy(cDeb)}</div>
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:oGap>=0.02?C.red:C.t3}}>{oGap>=0.02?fmtCcy(oGap):'—'}</div>
+                        <div style={{fontSize:13,fontWeight:600,...C.num,color:oGap>=0.02?C.red:C.grn}}>{fmtCcy(cDeb)}</div>
+                        <div style={{fontSize:13,fontWeight:600,...C.num,color:oGap>=0.02?C.red:C.t3}}>{oGap>=0.02?fmtCcy(oGap):'—'}</div>
                         <div style={{fontSize:12,color:C.t2,whiteSpace:'nowrap'}}>Payments in</div>
                         {balEdit?.sid===s.id && balEdit?.field==='statementPaymentsIn'
                           ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
                               onBlur={commitBalEdit}
-                              style={{width:90,fontFamily:C.fontData,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                              style={{width:90,...C.num,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
                           : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsIn'}),setBalVal(String(sIn)))}
-                              style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:C.t1,
+                              style={{fontSize:13,fontWeight:600,...C.num,color:C.t1,
                                 cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sIn)}</div>}
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:iGap>=0.02?C.amb:C.grn}}>{fmtCcy(cCrd)}</div>
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:iGap>=0.02?C.amb:C.t3}}>{iGap>=0.02?fmtCcy(iGap):'—'}</div>
+                        <div style={{fontSize:13,fontWeight:600,...C.num,color:iGap>=0.02?C.amb:C.grn}}>{fmtCcy(cCrd)}</div>
+                        <div style={{fontSize:13,fontWeight:600,...C.num,color:iGap>=0.02?C.amb:C.t3}}>{iGap>=0.02?fmtCcy(iGap):'—'}</div>
                       </div>
                     </div>
                   );
@@ -2898,7 +2899,7 @@ export default function App() {
                 <ConfidenceBadge score={score} size="lg" hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                 <span style={{fontSize:15,fontWeight:600,color:C.t1}}>This statement passes every check — reconciled, nothing flagged as unsure, no duplicates.</span>
               </div>
-              <div style={{fontSize:13,color:C.t2,marginBottom:14,fontFamily:C.fontData}}>
+              <div style={{fontSize:13,color:C.t2,marginBottom:14,...C.num}}>
                 Confidence: {score}/100 · {s.bankName||s.filename} · {atCfg.label} · {platLabel}
                 {s.period && <> · {s.period.from} — {s.period.to}</>} · {txList.length} txn
               </div>
@@ -2950,7 +2951,7 @@ export default function App() {
                   const flip = rec.flipSuggestions?.find(f => f.fromDate === b.fromDate && f.toDate === b.toDate);
                   return (
                     <div key={i} style={{color:C.t1,fontSize:11,marginTop:2}}>
-                      <strong style={{fontFamily:C.fontData}}>£{Math.abs(b.gap).toFixed(2)}</strong> unaccounted between <strong>{b.fromDate}</strong> and <strong>{b.toDate==='closing'?'the closing balance':b.toDate}</strong>
+                      <strong style={{...C.num}}>£{Math.abs(b.gap).toFixed(2)}</strong> unaccounted between <strong>{b.fromDate}</strong> and <strong>{b.toDate==='closing'?'the closing balance':b.toDate}</strong>
                       {flip ? ' — likely sign flip highlighted in amber below. Accept the suggestion to correct it.' : (b.hint || ' — check this stretch against the statement.')}
                     </div>
                   );
@@ -2974,7 +2975,7 @@ export default function App() {
                 fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                 <span style={{flex:'1 1 320px'}}>
                   💡 The transactions match the statement's own totals, but the opening balance doesn't fit the closing balance.
-                  The <strong style={{fontFamily:C.fontData}}>{fmtBal(rec.openingBalance)}</strong> shown is the balance after the first transaction; the true brought-forward opening is <strong style={{fontFamily:C.fontData}}>{fmtBal(rec.derivedOpening)}</strong>.
+                  The <strong style={{...C.num}}>{fmtBal(rec.openingBalance)}</strong> shown is the balance after the first transaction; the true brought-forward opening is <strong style={{...C.num}}>{fmtBal(rec.derivedOpening)}</strong>.
                 </span>
                 <button onClick={() => useDerivedOpening(s.id)} style={{...btn('primary'),padding:'6px 12px',fontSize:12}}>Use {fmtBal(rec.derivedOpening)}</button>
               </div>
@@ -3088,8 +3089,8 @@ export default function App() {
                   const td      = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id) || !!flipSug || hasDataIssue, dp);
                   return (
                     <tr key={t.id}>
-                      <td style={{...td,color:C.t3,fontFamily:C.fontData,fontSize:10,textAlign:'center',width:28}}>{ri+1}</td>
-                      <td style={{...td,fontFamily:C.fontData,width:88}} onClick={() => canEdit && startEdit(s.id,t.id,'date',t.date)}>
+                      <td style={{...td,color:C.t3,...C.num,fontSize:10,textAlign:'center',width:28}}>{ri+1}</td>
+                      <td style={{...td,...C.num,width:88}} onClick={() => canEdit && startEdit(s.id,t.id,'date',t.date)}>
                         {isEd(t.id,'date') ? <EI field="date"/> : t.date}
                       </td>
                       <td style={{...td,width:58}} onClick={() => canEdit && startEdit(s.id,t.id,'paymentType',t.paymentType)}>
@@ -3125,11 +3126,11 @@ export default function App() {
                       <td style={{...td,maxWidth:130}} onClick={() => canEdit && startEdit(s.id,t.id,'payee',t.payee)}>
                         {isEd(t.id,'payee') ? <EI field="payee"/> : <span title={t.payee}>{t.payee}</span>}
                       </td>
-                      <td style={{...td,textAlign:'right',color:t.debit?C.red:C.t3,fontFamily:C.fontData,width:78}}
+                      <td style={{...td,textAlign:'right',color:t.debit?C.red:C.t3,...C.num,width:78}}
                         onClick={() => canEdit && startEdit(s.id,t.id,'debit',t.debit)}>
                         {isEd(t.id,'debit') ? <EI field="debit" type="number"/> : fmtN(t.debit)}
                       </td>
-                      <td style={{...td,textAlign:'right',color:t.credit?C.grn:C.t3,fontFamily:C.fontData,width:78}}
+                      <td style={{...td,textAlign:'right',color:t.credit?C.grn:C.t3,...C.num,width:78}}
                         onClick={() => canEdit && startEdit(s.id,t.id,'credit',t.credit)}>
                         {isEd(t.id,'credit') ? <EI field="credit" type="number"/> : fmtN(t.credit)}
                       </td>
@@ -3139,7 +3140,7 @@ export default function App() {
                         const matched = prtBal != null && expBal != null && Math.abs(prtBal - expBal) < 0.01;
                         const broken  = prtBal != null && expBal != null && !matched;
                         return (
-                          <td style={{...td,textAlign:'right',fontFamily:C.fontData,width:100,
+                          <td style={{...td,textAlign:'right',...C.num,width:100,
                             color: broken ? C.amb : prtBal != null ? C.t1 : C.t3}}>
                             <span>{prtBal != null ? fmtBal(prtBal) : (expBal != null ? fmtBal(expBal) : '—')}</span>
                             {prtBal != null && expBal != null && (
@@ -3160,13 +3161,13 @@ export default function App() {
                           : t.codeSource==='remembered'
                             ? <span style={{display:'flex',alignItems:'center',gap:3}}>
                                 <span style={{fontSize:9,padding:'1px 4px',borderRadius:3,background:C.purDim,color:C.pur,border:`1px solid ${C.purBrd}`,fontWeight:700}}>📌</span>
-                                <span style={{color:C.t1,fontFamily:C.fontData,fontSize:11}}>{t.nominalCode}</span>
+                                <span style={{color:C.t1,...C.num,fontSize:11}}>{t.nominalCode}</span>
                               </span>
                             : t.codeSource==='holding'
-                              ? <span style={{color:C.amb,fontFamily:C.fontData,fontSize:11}} title="Unrecognised — click to assign a code">{t.nominalCode}</span>
+                              ? <span style={{color:C.amb,...C.num,fontSize:11}} title="Unrecognised — click to assign a code">{t.nominalCode}</span>
                               : t.codeSource==='edited'
                                 ? <span style={{display:'flex',alignItems:'center',gap:4}}>
-                                    <span style={{color:C.t1,fontFamily:C.fontData,fontSize:11}}>{t.nominalCode}</span>
+                                    <span style={{color:C.t1,...C.num,fontSize:11}}>{t.nominalCode}</span>
                                     <span onClick={e=>{e.stopPropagation();toggleRemember(s.id,t.id);}}
                                       style={{fontSize:9,padding:'1px 4px',borderRadius:3,cursor:'pointer',userSelect:'none',
                                         background:t.rememberCode?C.grnDim:'transparent',color:t.rememberCode?C.grn:C.t3,
@@ -3291,20 +3292,20 @@ export default function App() {
               <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:4}}>
                 <TypeTag type={tx.paymentType}/>
                 <span style={{fontSize:12,fontWeight:500,color:C.t1}}>{tx.payee||tx.description}</span>
-                <span style={{fontSize:11,color:C.t3,fontFamily:C.fontData}}>{tx.date}</span>
+                <span style={{fontSize:11,color:C.t3,...C.num}}>{tx.date}</span>
               </div>
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
                 <span style={{fontSize:11,color:C.t2}}>{stmt.bankName||stmt.filename}</span>
-                {stmt.period && <span style={{fontSize:10,color:C.t3,fontFamily:C.fontData}}>{stmt.period.from}→{stmt.period.to}</span>}
+                {stmt.period && <span style={{fontSize:10,color:C.t3,...C.num}}>{stmt.period.from}→{stmt.period.to}</span>}
                 {tx.description && tx.description !== tx.payee && (
                   <span style={{fontSize:11,color:C.t3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:200}}>{tx.description}</span>
                 )}
-                {tx.nominalCode && <span style={{fontSize:10,color:C.pur,fontFamily:C.fontData}}>{tx.nominalCode}</span>}
+                {tx.nominalCode && <span style={{fontSize:10,color:C.pur,...C.num}}>{tx.nominalCode}</span>}
               </div>
             </div>
             <div style={{textAlign:'right',flexShrink:0}}>
-              {tx.debit  != null && <div style={{fontSize:14,fontWeight:600,color:C.red, fontFamily:C.fontData}}>{fmtCcy(tx.debit)}</div>}
-              {tx.credit != null && <div style={{fontSize:14,fontWeight:600,color:C.grn, fontFamily:C.fontData}}>{fmtCcy(tx.credit)}</div>}
+              {tx.debit  != null && <div style={{fontSize:14,fontWeight:600,color:C.red, ...C.num}}>{fmtCcy(tx.debit)}</div>}
+              {tx.credit != null && <div style={{fontSize:14,fontWeight:600,color:C.grn, ...C.num}}>{fmtCcy(tx.credit)}</div>}
             </div>
             <div style={{fontSize:10,color:C.t3,flexShrink:0}}>→ View</div>
           </div>
@@ -3357,7 +3358,7 @@ export default function App() {
                   placeholder="Category or nominal code"
                   style={{border:`1px solid ${row.nominalCode ? C.grnBrd : C.bdrBrt}`,
                     borderRadius:6,padding:'5px 8px',fontSize:12,
-                    fontFamily:C.fontData,width:'100%',boxSizing:'border-box',
+                    ...C.num,width:'100%',boxSizing:'border-box',
                     background: row.nominalCode ? C.grnDim : C.card,outline:'none'}}
                 />
               </div>
@@ -3438,7 +3439,7 @@ export default function App() {
           ].map(({label,val,color}) => (
             <div key={label} style={{background:C.card,borderRadius:14,padding:'16px 20px',boxShadow:C.sh2}}>
               <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontFamily:C.fontUI,fontWeight:600}}>{label}</div>
-              <div style={{fontSize:24,fontWeight:700,color,fontFamily:C.fontData,letterSpacing:'-0.01em'}}>{val}</div>
+              <div style={{fontSize:24,fontWeight:700,color,...C.num,letterSpacing:'-0.01em'}}>{val}</div>
             </div>
           ))}
         </div>
@@ -3458,7 +3459,7 @@ export default function App() {
                   <div style={{fontSize:11,color:C.t2}}>
                     {s.period?.from} – {s.period?.to} · {getTx(s).length} txn · D:{fmtCcy(rec?.csvDebitTotal)} C:{fmtCcy(rec?.csvCreditTotal)}
                   </div>
-                  <div style={{fontSize:10,color:C.t3,marginTop:2,fontFamily:C.fontData}}>{makeName(s)}</div>
+                  <div style={{fontSize:10,color:C.t3,marginTop:2,...C.num}}>{makeName(s)}</div>
                 </div>
                 <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                   <ConfidenceBadge score={s.confidenceScore}/>
@@ -4052,7 +4053,7 @@ export default function App() {
                   <div style={{fontSize:11,fontWeight:600,color:C.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:2}}>
                     {x.bankName||x.filename}
                   </div>
-                  <div style={{fontSize:10,color:C.t3,marginBottom:3,fontFamily:C.fontData}}>{x.period?.from||'—'}</div>
+                  <div style={{fontSize:10,color:C.t3,marginBottom:3,...C.num}}>{x.period?.from||'—'}</div>
                   <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap'}}>
                     <span style={{fontSize:10,fontWeight:700,padding:'1px 4px',borderRadius:3,color:atC.color,background:`${atC.color}14`}}>
                       {atC.label.split(' ')[0]}
@@ -4320,7 +4321,7 @@ export default function App() {
               ['?','Toggle this overlay'],
             ].map(([k,d]) => (
               <div key={k} style={{display:'flex',alignItems:'center',gap:12,padding:'7px 0',borderBottom:`1px solid ${C.bdr}`}}>
-                <kbd style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:5,padding:'2px 9px',fontSize:13,fontWeight:600,color:C.t1,fontFamily:C.fontData,minWidth:32,textAlign:'center',flexShrink:0}}>{k}</kbd>
+                <kbd style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:5,padding:'2px 9px',fontSize:13,fontWeight:600,color:C.t1,...C.num,minWidth:32,textAlign:'center',flexShrink:0}}>{k}</kbd>
                 <span style={{fontSize:13,color:C.t2}}>{d}</span>
               </div>
             ))}
@@ -4338,7 +4339,7 @@ export default function App() {
               display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
             {/* Header */}
             <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,
-              background: cloudProvider === 'google' ? '#4285F4' : cloudProvider === 'microsoft' ? '#0078D4' : C.blu}}>
+              background: cloudProvider === 'google' ? C.google : cloudProvider === 'microsoft' ? C.microsoft : C.blu}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
                   <div style={{fontSize:18,fontWeight:700,color:'#fff'}}>Cloud Storage</div>
@@ -4369,7 +4370,7 @@ export default function App() {
                       style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px',borderRadius:10,
                         border:`1px solid #E3E8EF`,background:'#fff',cursor:'pointer',
                         fontSize:14,fontWeight:600,color:C.t1,width:'100%',transition:'border-color 0.15s'}}
-                      onMouseEnter={e => e.currentTarget.style.borderColor='#4285F4'}
+                      onMouseEnter={e => e.currentTarget.style.borderColor=C.google}
                       onMouseLeave={e => e.currentTarget.style.borderColor='#E3E8EF'}>
                       <span style={{fontSize:20}}>📁</span>
                       <span>Connect Google Drive</span>
@@ -4379,7 +4380,7 @@ export default function App() {
                       style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px',borderRadius:10,
                         border:`1px solid #E3E8EF`,background:'#fff',cursor:'pointer',
                         fontSize:14,fontWeight:600,color:C.t1,width:'100%',transition:'border-color 0.15s'}}
-                      onMouseEnter={e => e.currentTarget.style.borderColor='#0078D4'}
+                      onMouseEnter={e => e.currentTarget.style.borderColor=C.microsoft}
                       onMouseLeave={e => e.currentTarget.style.borderColor='#E3E8EF'}>
                       <span style={{fontSize:20}}>🗂</span>
                       <span>Connect OneDrive</span>
@@ -4410,7 +4411,7 @@ export default function App() {
 
                   {/* Setup instructions — expandable per provider */}
                   {[
-                    { provider:'google', label:'Google Drive', color:'#4285F4', icon:'📁', steps:[
+                    { provider:'google', label:'Google Drive', color:C.google, icon:'📁', steps:[
                       'Go to console.cloud.google.com and sign in.',
                       'Click "Select a project" → New Project → name it (e.g. StatementAudit Pro) → Create.',
                       'Left menu: APIs & Services → Library → search "Google Drive API" → Enable.',
@@ -4420,7 +4421,7 @@ export default function App() {
                       'Click Create. Copy the Client ID (ends in .apps.googleusercontent.com).',
                       'In Render dashboard → your service → Environment → add variable VITE_GOOGLE_CLIENT_ID = (paste Client ID) → Save. Render rebuilds automatically.',
                     ]},
-                    { provider:'microsoft', label:'OneDrive', color:'#0078D4', icon:'🗂', steps:[
+                    { provider:'microsoft', label:'OneDrive', color:C.microsoft, icon:'🗂', steps:[
                       'Go to portal.azure.com and sign in with your Microsoft account.',
                       'Search "App registrations" in the top bar → + New registration.',
                       'Name: StatementAudit Pro. Supported account types: "Accounts in any organizational directory and personal Microsoft accounts (e.g. Skype, Xbox)".',
@@ -4464,7 +4465,7 @@ export default function App() {
                   {/* Connected state header */}
                   <div style={{background:cloudProvider==='google'?'#E8F0FE':'#E6F2FB',border:`1px solid ${cloudProvider==='google'?'#C2D8FB':'#B8DCFB'}`,
                     borderRadius:10,padding:'14px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
-                    <div style={{width:36,height:36,borderRadius:'50%',background:cloudProvider==='google'?'#4285F4':'#0078D4',
+                    <div style={{width:36,height:36,borderRadius:'50%',background:cloudProvider==='google'?C.google:C.microsoft,
                       display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff',flexShrink:0}}>
                       {cloudProvider === 'google' ? '📁' : '🗂'}
                     </div>
@@ -4472,7 +4473,7 @@ export default function App() {
                       <div style={{fontSize:13,fontWeight:600,color:C.t1}}>{cloudUser?.name || CLOUD_CFG[cloudProvider].label}</div>
                       <div style={{fontSize:11,color:C.t3,marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{cloudUser?.email || 'Connected'}</div>
                     </div>
-                    <div style={{fontSize:11,fontWeight:600,color:cloudProvider==='google'?'#4285F4':'#0078D4',flexShrink:0}}>
+                    <div style={{fontSize:11,fontWeight:600,color:cloudProvider==='google'?C.google:C.microsoft,flexShrink:0}}>
                       {cloudSyncing ? '↻ Syncing…' : '✓ Active'}
                     </div>
                   </div>
@@ -4500,7 +4501,7 @@ export default function App() {
                           {workspaceMode==='active' ? workspaceName : 'Practice Workspace'}
                         </span>
                         {workspaceMode==='active' && (
-                          <span style={{fontSize:11,fontWeight:600,color:'#0078D4'}}>
+                          <span style={{fontSize:11,fontWeight:600,color:C.microsoft}}>
                             {workspaceSyncing ? '↻ Syncing…' : '✓ Active'}
                           </span>
                         )}
@@ -4524,7 +4525,7 @@ export default function App() {
                               <div style={{display:'flex',gap:8}}>
                                 <button onClick={() => { setWsView('create'); setWorkspaceError(null); }}
                                   style={{flex:1,padding:'9px 12px',borderRadius:8,border:`1px solid #0078D4`,
-                                    background:'#0078D4',color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                    background:C.microsoft,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer'}}>
                                   + Create workspace
                                 </button>
                                 <button onClick={() => { setWsView('join'); setWorkspaceError(null); }}
@@ -4548,7 +4549,7 @@ export default function App() {
                                 <div style={{display:'flex',gap:8}}>
                                   <button onClick={wsCreate} disabled={workspaceSyncing}
                                     style={{flex:1,padding:'8px',borderRadius:7,border:'none',
-                                      background:'#0078D4',color:'#fff',fontSize:12,fontWeight:600,
+                                      background:C.microsoft,color:'#fff',fontSize:12,fontWeight:600,
                                       cursor:workspaceSyncing?'default':'pointer',opacity:workspaceSyncing?0.6:1}}>
                                     {workspaceSyncing ? 'Creating…' : 'Create'}
                                   </button>
@@ -4572,7 +4573,7 @@ export default function App() {
                                 <div style={{display:'flex',gap:8}}>
                                   <button onClick={wsJoin} disabled={workspaceSyncing || !wsJoinInput.trim()}
                                     style={{flex:1,padding:'8px',borderRadius:7,border:'none',
-                                      background:'#0078D4',color:'#fff',fontSize:12,fontWeight:600,
+                                      background:C.microsoft,color:'#fff',fontSize:12,fontWeight:600,
                                       cursor:(workspaceSyncing||!wsJoinInput.trim())?'default':'pointer',
                                       opacity:(workspaceSyncing||!wsJoinInput.trim())?0.5:1}}>
                                     {workspaceSyncing ? 'Joining…' : 'Join'}
@@ -4951,7 +4952,7 @@ export default function App() {
               style={{width:'100%',boxSizing:'border-box',padding:'13px 16px',fontSize:17,
                 fontWeight:700,letterSpacing:'0.12em',textAlign:'center',
                 border:`2px solid ${trialCodeError ? C.red : C.bdr}`,borderRadius:10,outline:'none',
-                color:C.t1,fontFamily:C.fontData,marginBottom:trialCodeError?6:14,
+                color:C.t1,...C.num,marginBottom:trialCodeError?6:14,
                 background:C.surf,transition:'border-color 0.15s'}}
             />
             {trialCodeError && (
@@ -5184,7 +5185,7 @@ export default function App() {
                         borderBottom:`1px solid ${C.bdr}`,transition:'background 0.1s'}}>
                       <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
                         padding:'6px 24px',alignItems:'start'}}>
-                      <div style={{fontSize:11,color:C.t3,fontFamily:C.fontData}}>{l.date}</div>
+                      <div style={{fontSize:11,color:C.t3,...C.num}}>{l.date}</div>
                       <div style={{paddingRight:8,display:'flex',flexDirection:'column',gap:3,overflow:'hidden'}}>
                         <div style={{display:'flex',alignItems:'center',gap:4,minWidth:0}}>
                           <input value={l.payee||''}
@@ -5207,7 +5208,7 @@ export default function App() {
                             border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t3,fontSize:11,
                             fontFamily:C.fontUI,outline:'none',boxSizing:'border-box'}}/>
                       </div>
-                      <div style={{fontSize:12,fontFamily:C.fontData,
+                      <div style={{fontSize:12,...C.num,
                         textAlign:'right',color:isPos ? C.grn : C.red}}>{amt}</div>
                       <div style={{paddingLeft:8}}>
                         <input value={l.code} list="sa-chart-datalist"
@@ -5216,7 +5217,7 @@ export default function App() {
                           style={{width:'100%',padding:'4px 8px',background:C.bg,
                             border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
                             borderRadius:6,color:C.t1,fontSize:12,
-                            fontFamily:C.fontData,outline:'none',boxSizing:'border-box'}}/>
+                            ...C.num,outline:'none',boxSizing:'border-box'}}/>
                         {(() => {
                           const key = normKey(l.payee, l.description);
                           const sug = !l.fromMemory && key && codingSuggestions[key];
@@ -5295,7 +5296,7 @@ export default function App() {
                               onChange={e => updateCodingLine(l.id||i, {fxRate: e.target.value})}
                               placeholder="e.g. 1.2650"
                               style={{width:90,padding:'2px 6px',background:C.bg,border:'1px solid #C9B8FF',
-                                borderRadius:5,color:C.t1,fontSize:11,fontFamily:C.fontData,outline:'none'}}/>
+                                borderRadius:5,color:C.t1,fontSize:11,...C.num,outline:'none'}}/>
                             <button
                               onClick={async () => {
                                 const isoDate = txDateToISO(l.date);
