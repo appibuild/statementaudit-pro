@@ -1,5 +1,5 @@
 // StatementAudit Pro — canonical build. Last updated: 2026-06-23 (remove dead renderDash; single duplicate-alert definition in renderAudit)
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from "react";
 import * as XLSX from 'xlsx';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -13,6 +13,8 @@ const C = {
   pur:'#7A5AF0', purDim:'#EEEAFD', purBrd:'#D2C7F7',
   t1:'#0F1B2D', t2:'#475467', t3:'#7B8698', t4:'#C8D0DC',
   sh1:'0 1px 4px rgba(15,27,45,0.06)', sh2:'0 4px 16px rgba(15,27,45,0.08)', sh3:'0 8px 32px rgba(15,27,45,0.13)',
+  fontUI:  'Plus Jakarta Sans, system-ui, sans-serif',
+  fontData:'JetBrains Mono, monospace',
 };
 
 // ── Trial / demo mode ────────────────────────────────────────────────────────
@@ -925,7 +927,7 @@ const Tip = ({ text, pos = 'bottom', active, children }) => {
           maxWidth:250, minWidth:140, whiteSpace:'normal',
           boxShadow:'0 4px 20px rgba(0,0,0,0.4)',
           pointerEvents:'none', textAlign:'left',
-          fontWeight:400, fontFamily:'Inter,sans-serif',
+          fontWeight:400, fontFamily:C.fontUI,
         }}>
           {text}
           <span style={{
@@ -1015,7 +1017,10 @@ export default function App() {
   const [feedbackSent,      setFeedbackSent]      = useState(false);
   const [feedbackSending,   setFeedbackSending]   = useState(false);
   const [showActivity,      setShowActivity]      = useState(false);
-  const [sidebarCollapsed,  setSidebarCollapsed]  = useState(false);
+  const [sidebarCollapsed,  setSidebarCollapsed]  = useState(() => window.innerWidth < 1024);
+  const [sidebarProjectOpen, setSidebarProjectOpen] = useState(true);
+  const [showPageGuide,     setShowPageGuide]     = useState(false);
+  const [windowWidth,       setWindowWidth]       = useState(window.innerWidth);
   const [recCollapsed,      setRecCollapsed]      = useState(false);
   const [trialUsed,      setTrialUsed]      = useState(() => TRIAL_MODE ? parseInt(localStorage.getItem('sa_trialUsed') || '0', 10) : 0);
   const [showTrialGate,  setShowTrialGate]  = useState(() => TRIAL_MODE && !!TRIAL_CODE && localStorage.getItem('sa_trialUnlocked') !== TRIAL_CODE);
@@ -1171,6 +1176,11 @@ export default function App() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { localStorage.setItem('sa_showTips', String(showTips)); }, [showTips]);
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   useEffect(() => { localStorage.setItem('sa_wsMode',      workspaceMode);     }, [workspaceMode]);
   useEffect(() => { localStorage.setItem('sa_wsName',      workspaceName);     }, [workspaceName]);
   useEffect(() => { localStorage.setItem('sa_wsFolderId',  workspaceFolderId); }, [workspaceFolderId]);
@@ -2063,7 +2073,7 @@ export default function App() {
   // ── Style helpers ──────────────────────────────────────────────────────
   const btn = (v, dis=false) => {
     const base = { padding:'10px 18px', borderRadius:10, fontWeight:600, fontSize:14, cursor:dis?'not-allowed':'pointer',
-      border:'none', transition:'all 0.15s', opacity:dis?0.5:1, fontFamily:'Inter,sans-serif', lineHeight:1.4 };
+      border:'none', transition:'all 0.15s', opacity:dis?0.5:1, fontFamily:C.fontUI, lineHeight:1.4 };
     const vs = {
       primary: { background:C.grn, color:'#fff', boxShadow:dis?'none':'0 2px 8px rgba(15,169,104,0.24)' },
       outline: { background:C.card, color:C.t2, border:`1.5px solid ${C.bdrBrt}`, boxShadow:'none' },
@@ -2077,12 +2087,12 @@ export default function App() {
     const cfg = STATUS_CFG[status]||STATUS_CFG.queued;
     return <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,color:cfg.color,
       background:`${cfg.color}14`,border:`1px solid ${cfg.color}28`,letterSpacing:'0.04em',
-      fontFamily:'Inter,sans-serif'}}>{cfg.label}</span>;
+      fontFamily:C.fontUI}}>{cfg.label}</span>;
   };
 
   const TypeTag = ({type}) => {
     const col = TYPE_COL[type]||C.t2;
-    return <span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:'0.05em',
+    return <span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:'0.07em',
       background:`${col}16`,color:col}}>{type}</span>;
   };
 
@@ -2098,7 +2108,7 @@ export default function App() {
     return <span title={!hi && hint && !big ? hint : undefined}
       style={{display:'inline-flex',alignItems:'center',gap:4,
         fontSize:big?13:10,fontWeight:700,padding:big?'4px 11px':'2px 8px',borderRadius:big?7:4,
-        letterSpacing:'0.04em',fontFamily:'Inter,sans-serif',
+        letterSpacing:'0.04em',fontFamily:C.fontUI,
         color:hi?C.grn:col,background:hi?C.grnDim:bg,border:`1px solid ${hi?C.grnBrd:bdr}`}}>
       {hi
         ? <>⚡ {big?'Passes every check':'High conf'}</>
@@ -2113,6 +2123,11 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────────────
   const renderUpload = () => (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:24}}>
+      {/* Page title */}
+      <div style={{flexShrink:0,marginBottom:14}}>
+        <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Upload Statements</div>
+        <div style={{fontSize:12,color:C.t2,marginTop:3}}>Drag & drop PDF bank statements to get started</div>
+      </div>
       {/* Pre-upload configuration — matches simple converter pattern */}
       <div style={{display:'flex',gap:16,alignItems:'flex-end',justifyContent:'center',flexWrap:'wrap'}}>
         <div>
@@ -2121,7 +2136,7 @@ export default function App() {
           <select value={uploadDefaultType} onChange={e => setUploadDefaultType(e.target.value)}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
               color:ACCOUNT_TYPES[uploadDefaultType]?.color||C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
-              fontFamily:'Inter,sans-serif',fontWeight:500}}>
+              fontFamily:C.fontUI,fontWeight:500}}>
             {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           </Tip>
@@ -2132,7 +2147,7 @@ export default function App() {
           <select value={uploadDefaultPlatform} onChange={e => { setUploadDefaultPlatform(e.target.value); localStorage.setItem('sa_defaultPlatform', e.target.value); }}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
               color:uploadDefaultPlatform==='xero'?'#13B5EA':'#2CA01C',fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
-              fontFamily:'Inter,sans-serif',fontWeight:500}}>
+              fontFamily:C.fontUI,fontWeight:500}}>
             <option value="qbo">QuickBooks Online</option>
             <option value="xero">Xero</option>
           </select>
@@ -2144,7 +2159,7 @@ export default function App() {
           <select value={uploadDefaultJurisdiction} onChange={e => { setUploadDefaultJurisdiction(e.target.value); localStorage.setItem('sa_defaultJurisdiction', e.target.value); }}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
               color:C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
-              fontFamily:'Inter,sans-serif',fontWeight:500}}>
+              fontFamily:C.fontUI,fontWeight:500}}>
             <option value="uk">United Kingdom (VAT)</option>
             <option value="jersey">Jersey (GST)</option>
             <option value="other">Other / No Tax Column</option>
@@ -2160,7 +2175,7 @@ export default function App() {
           background:dragging?C.grnDim:C.card,transition:'all 0.2s',
           boxShadow:dragging?`0 0 0 4px ${C.grnBrd}, ${C.sh2}`:C.sh2}}>
         <div style={{fontSize:40,marginBottom:12}}>📄</div>
-        <div style={{fontSize:20,fontWeight:700,color:C.t1,marginBottom:8,fontFamily:'Inter,sans-serif'}}>
+        <div style={{fontSize:17,fontWeight:700,color:C.t1,marginBottom:8,fontFamily:C.fontUI}}>
           Drop bank statement PDFs here
         </div>
         <div style={{fontSize:13,color:C.t2,marginBottom:22,lineHeight:1.8}}>
@@ -2194,7 +2209,7 @@ export default function App() {
     <div style={{display:'flex',flexDirection:'column',height:'100%',gap:14}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
         <div>
-          <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:'Inter,sans-serif'}}>Processing Queue</div>
+          <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Processing Queue</div>
           <div style={{fontSize:12,color:C.t2,marginTop:3}}>
             {stmts.length} file{stmts.length!==1?'s':''} · Set account type and platform before processing · Max 50 files
           </div>
@@ -2252,7 +2267,7 @@ export default function App() {
           const editLock = ['processing','approved'].includes(s.status); // dropdowns still locked on approved
           return (
             <div key={s.id} style={{display:'grid',gridTemplateColumns:'28px 1fr 155px 140px 85px 90px',
-              gap:8,alignItems:'center',padding:'12px 16px',borderRadius:12,
+              gap:8,alignItems:'center',padding:'12px 16px',borderRadius:4,
               boxShadow:selIds.has(s.id)?`0 0 0 2px ${C.bluBrd}, ${C.sh1}`:C.sh1,
               background:selIds.has(s.id)?C.bluDim:C.card}}>
               <input type="checkbox" checked={selIds.has(s.id)} disabled={locked}
@@ -2330,6 +2345,9 @@ export default function App() {
         {stmts.length === 0 && (
           <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:C.t2,padding:40}}>
             <div style={{fontSize:32}}>📂</div>
+            <div style={{fontSize:13,color:C.t2,textAlign:'center',lineHeight:1.7,maxWidth:320}}>
+              Upload PDFs on the Upload tab first, then process them here to extract transactions.
+            </div>
             <button onClick={() => setTab('upload')} style={btn('primary')}>Upload Statements</button>
           </div>
         )}
@@ -2452,107 +2470,23 @@ export default function App() {
     };
 
     return (
-      <div style={{display:'flex',height:'100%',gap:0}}>
-        {/* Sidebar */}
-        <div style={{width:sidebarCollapsed?40:210,flexShrink:0,background:C.surf,
-          display:'flex',flexDirection:'column',transition:'width 0.18s',overflow:'hidden',position:'relative',
-          borderRight:`1px solid ${C.bdr}`}}>
-          {/* Collapse toggle */}
-          <button onClick={() => setSidebarCollapsed(v => !v)}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            style={{position:'absolute',top:8,right:6,zIndex:2,background:C.card,border:`1px solid ${C.bdr}`,
-              borderRadius:6,cursor:'pointer',color:C.t3,fontSize:13,padding:'3px 6px',lineHeight:1,flexShrink:0}}>
-            {sidebarCollapsed ? '▶' : '◀'}
-          </button>
-          {sidebarCollapsed ? (
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:40,gap:8}}>
-              <div style={{fontSize:10,fontWeight:700,color:C.t3,writingMode:'vertical-rl',letterSpacing:'0.08em',textTransform:'uppercase',transform:'rotate(180deg)'}}>
-                Statements
-              </div>
-              {reviewable.length > 0 && (
-                <span style={{background:C.blu,color:'#fff',borderRadius:10,fontSize:10,fontWeight:700,padding:'1px 6px'}}>{reviewable.length}</span>
-              )}
-            </div>
-          ) : (
-          <div style={{flex:1,overflowY:'auto',padding:'10px 8px',display:'flex',flexDirection:'column',gap:0}}>
-          {/* Project selector — inline rename on ✏ click */}
-          <div style={{marginBottom:8,padding:'0 2px',paddingRight:28}}>
-            <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
-              {renamingProjectId === activeProjectId
-                ? <input autoFocus value={renameProjectVal}
-                    onChange={e => setRenameProjectVal(e.target.value)}
-                    onKeyDown={e => { if(e.key==='Enter') commitRename(); if(e.key==='Escape') setRenamingProjectId(null); }}
-                    onBlur={commitRename}
-                    style={{flex:1,minWidth:0,background:C.card,border:`1px solid ${C.grn}`,borderRadius:6,
-                      padding:'5px 7px',color:C.t1,fontSize:12,outline:'none',fontFamily:'Inter,sans-serif'}}/>
-                : <select value={activeProjectId} onChange={e => setActiveProjectId(e.target.value)}
-                    style={{flex:1,minWidth:0,background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:6,
-                      padding:'5px 7px',color:C.t1,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'Inter,sans-serif'}}>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-              }
-              <button onClick={() => renameProject(activeProjectId)} title="Rename project"
-                style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',
-                  color:C.t2,fontSize:12,padding:'4px 7px',lineHeight:1}}>✏</button>
-            </div>
-            <button onClick={addProject}
-              style={{width:'100%',background:'none',border:`1px solid ${C.bdr}`,borderRadius:6,
-                cursor:'pointer',color:C.t3,fontSize:11,padding:'4px 0',fontFamily:'Inter,sans-serif'}}>+ New Project</button>
+      <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+        {/* Page title */}
+        <div style={{flexShrink:0,marginBottom:14}}>
+          <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Review &amp; Approve</div>
+          <div style={{fontSize:12,color:C.t2,marginTop:3}}>
+            {reviewable.length} statement{reviewable.length!==1?'s':''} · reviewing {idx+1} of {reviewable.length}
           </div>
-          <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',padding:'4px 8px 6px',fontWeight:600}}>Statements</div>
-          {reviewable.map(x => {
-            const cfg   = STATUS_CFG[x.status];
-            const isA   = x.id === s.id;
-            const atC   = ACCOUNT_TYPES[x.accountType]||ACCOUNT_TYPES.current;
-            const hasDp = getTx(x).some(t => dupes.cross.has(`${x.id}:${t.id}`));
-            return (
-              <div key={x.id} onClick={() => setActiveId(x.id)}
-                style={{padding:'8px 10px',borderRadius:8,marginBottom:3,cursor:'pointer',
-                  background:isA?C.card:'transparent',
-                  border:`1px solid ${isA?C.bdrBrt:'transparent'}`,transition:'all 0.12s'}}>
-                <div style={{fontSize:11,fontWeight:600,color:C.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:2}}>
-                  {x.bankName||x.filename}
-                </div>
-                <div style={{fontSize:10,color:C.t3,marginBottom:4,fontFamily:'JetBrains Mono,monospace'}}>{x.period?.from||'—'}</div>
-                <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap'}}>
-                  <span style={{fontSize:11,fontWeight:700,padding:'1px 5px',borderRadius:3,color:atC.color,background:`${atC.color}14`}}>
-                    {atC.label.split(' ')[0]}
-                  </span>
-                  <span style={{fontSize:11,fontWeight:700,padding:'1px 5px',borderRadius:3,color:cfg.color,background:`${cfg.color}14`}}>
-                    {cfg.label}
-                  </span>
-                  {hasDp && <span style={{fontSize:11,fontWeight:700,color:C.red}}>DUPE</span>}
-                  {x.reconciliation && !x.reconciliation.reconciled && <span style={{fontSize:11,color:C.amb}}>⚑</span>}
-                  <ConfidenceBadge score={x.confidenceScore}/>
-                  {(() => { const rc = getTx(x).filter(t => t.receipt).length; return rc > 0 ? <span title={`${rc} receipt${rc>1?'s':''} attached`} style={{fontSize:10,color:C.grn}}>📎{rc}</span> : null; })()}
-                </div>
-                <div style={{fontSize:10,color:C.t4,marginTop:3}}>
-                  {x.approvedAt ? `Approved ${fmtTime(x.approvedAt)}` : x.extractedAt ? `Extracted ${fmtTime(x.extractedAt)}` : ''}
-                </div>
-                {projects.length > 1 && isA && (
-                  <select value={x.projectId || 'default'}
-                    onChange={e => { e.stopPropagation(); moveStmt(x.id, e.target.value); }}
-                    onClick={e => e.stopPropagation()}
-                    style={{marginTop:5,width:'100%',background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:4,
-                      padding:'2px 5px',color:C.t2,fontSize:10,outline:'none',cursor:'pointer'}}>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                )}
-              </div>
-            );
-          })}
-          </div>
-          )} {/* end !sidebarCollapsed */}
         </div>
 
         {/* Main panel */}
-        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',padding:'0 0 0 16px'}}>
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
           {/* Header */}
           <div style={{flexShrink:0,paddingBottom:14,borderBottom:`1px solid ${C.bdr}`,marginBottom:12}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
               <div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
-                  <div style={{fontSize:17,fontWeight:700,color:C.t1,fontFamily:'Inter,sans-serif'}}>{s.bankName||s.filename}</div>
+                  <div style={{fontSize:17,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>{s.bankName||s.filename}</div>
                   <Pill status={s.status}/>
                   <ConfidenceBadge score={score} hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                   <span style={{fontSize:10,fontWeight:700,color:atCfg.color,background:`${atCfg.color}14`,border:`1px solid ${atCfg.color}28`,padding:'2px 7px',borderRadius:3}}>{atCfg.label}</span>
@@ -2609,7 +2543,7 @@ export default function App() {
                         </button>
                         </Tip>
                       </>
-                    : <Tip text="The approval gate is blocked. Closing balance or statement figures don't match — fix the variance first." pos="bottom" active={showTips}><span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:'Inter,sans-serif',lineHeight:1.4}}>⛔ Fix required</span></Tip>
+                    : <Tip text="The approval gate is blocked. Closing balance or statement figures don't match — fix the variance first." pos="bottom" active={showTips}><span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:C.fontUI,lineHeight:1.4}}>⛔ Fix required</span></Tip>
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
                     <Tip text="Downloads a three-sheet Excel file — full transaction register, clean import data, and receipts list. Includes VAT/GST Treatment column for Xero Pathway 2." pos="bottom" active={showTips}>
@@ -2650,16 +2584,16 @@ export default function App() {
             <input value={searchQ} onChange={e=>setSearchQ(e.target.value)}
               placeholder="Search all statements — payee, amount, date…"
               style={{flex:'1 1 280px',minWidth:220,padding:'10px 14px',background:C.card,border:`1px solid ${C.bdrBrt}`,
-                borderRadius:9,color:C.t1,fontSize:14,outline:'none',fontFamily:'Inter,sans-serif',boxSizing:'border-box'}}/>
-            {cnts.dupeCount>0 && <span onClick={() => setShowDupeViewer(v => !v)} style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'8px 12px',cursor:'pointer'}}>⚠ {cnts.dupeCount} possible duplicate{cnts.dupeCount>1?'s':''} across statements — click to review</span>}
-            {periods.overs.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'8px 12px'}}>⚠ {periods.overs.length} overlapping period{periods.overs.length>1?'s':''}</span>}
-            {periods.gaps.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,padding:'8px 12px'}}>⚑ {periods.gaps.length} possible missing statement{periods.gaps.length>1?'s':''}</span>}
+                borderRadius:9,color:C.t1,fontSize:14,outline:'none',fontFamily:C.fontUI,boxSizing:'border-box'}}/>
+            {cnts.dupeCount>0 && <span onClick={() => setShowDupeViewer(v => !v)} style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,padding:'8px 12px',cursor:'pointer'}}>⚠ {cnts.dupeCount} possible duplicate{cnts.dupeCount>1?'s':''} across statements — click to review</span>}
+            {periods.overs.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,padding:'8px 12px'}}>⚠ {periods.overs.length} overlapping period{periods.overs.length>1?'s':''}</span>}
+            {periods.gaps.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,padding:'8px 12px'}}>⚑ {periods.gaps.length} possible missing statement{periods.gaps.length>1?'s':''}</span>}
           </div>
           {/* Cross-statement duplicate viewer — opened by clicking the dupe alert above */}
           {showDupeViewer && cnts.dupeCount > 0 && (
             <div style={{flexShrink:0,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:9,padding:'12px 16px',marginBottom:10}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <div style={{fontSize:11,color:C.red,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>Cross-Statement Duplicates — Read Only</div>
+                <div style={{fontSize:11,color:C.red,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.07em'}}>Cross-Statement Duplicates — Read Only</div>
                 <button onClick={() => setShowDupeViewer(false)} style={{fontSize:11,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>✕ Close</button>
               </div>
               {dupes.crossPairs.length === 0
@@ -2715,7 +2649,7 @@ export default function App() {
                   border:recCollapsed?`1px solid ${C.bdr}`:'none',
                   borderRadius:recCollapsed?9:0}}>
                 <span style={{fontSize:10,color:C.t3,flexShrink:0}}>{recCollapsed?'▶':'▼'}</span>
-                <span style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',whiteSpace:'nowrap'}}>
+                <span style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',whiteSpace:'nowrap'}}>
                   The numbers
                 </span>
                 {recCollapsed && (<>
@@ -2746,7 +2680,7 @@ export default function App() {
                     const canEditField = field && canEdit;
                     return (
                     <div key={label}>
-                      <div style={{fontSize:11,color:C.t3,marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600}}>{label}{canEditField && <span style={{color:C.blu,marginLeft:5,fontSize:10}}>✎</span>}</div>
+                      <div style={{fontSize:11,color:C.t3,marginBottom:4,textTransform:'uppercase',letterSpacing:'0.07em',fontWeight:600}}>{label}{canEditField && <span style={{color:C.blu,marginLeft:5,fontSize:10}}>✎</span>}</div>
                       {editing ? (
                         <input autoFocus type="number" value={balVal}
                           onChange={e => setBalVal(e.target.value)}
@@ -2778,7 +2712,7 @@ export default function App() {
                   const iGap = +(Math.abs(cCrd - sIn)).toFixed(2);
                   return (
                     <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.bdr}`}}>
-                      <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8,fontWeight:600}}>
+                      <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontWeight:600}}>
                         Statement figures vs. your CSV {canEdit && <span style={{fontSize:10,fontWeight:400,textTransform:'none',letterSpacing:0,color:C.t3}}> — click Statement figure to correct if wrong</span>}
                       </div>
                       {figuresMissing && canEdit && (
@@ -2792,9 +2726,9 @@ export default function App() {
                       )}
                       <div style={{display:'grid',gridTemplateColumns:'auto 1fr 1fr 1fr',gap:'5px 18px',alignItems:'center'}}>
                         <div/>
-                        <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Statement</div>
-                        <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Your CSV</div>
-                        <div style={{fontSize:10,color:C.t3,fontFamily:'Inter,sans-serif',textTransform:'uppercase',letterSpacing:'0.05em'}}>Gap</div>
+                        <div style={{fontSize:10,color:C.t3,fontFamily:C.fontUI,textTransform:'uppercase',letterSpacing:'0.07em'}}>Statement</div>
+                        <div style={{fontSize:10,color:C.t3,fontFamily:C.fontUI,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your CSV</div>
+                        <div style={{fontSize:10,color:C.t3,fontFamily:C.fontUI,textTransform:'uppercase',letterSpacing:'0.07em'}}>Gap</div>
                         <div style={{fontSize:12,color:C.t2,whiteSpace:'nowrap'}}>Payments out</div>
                         {balEdit?.sid===s.id && balEdit?.field==='statementPaymentsOut'
                           ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
@@ -2880,7 +2814,7 @@ export default function App() {
               The reconciliation strip above stays visible; this adds the one-click approve.
               The ⚡ button calls the EXACT same handler as the standard Approve & Export. */}
           {fastTrack && (
-            <div style={{flexShrink:0,marginBottom:12,background:C.grnDim,borderLeft:`4px solid ${C.grn}`,borderRadius:12,padding:'18px 20px',boxShadow:C.sh1}}>
+            <div style={{flexShrink:0,marginBottom:12,background:C.grnDim,borderLeft:`4px solid ${C.grn}`,borderRadius:4,padding:'18px 20px',boxShadow:C.sh1}}>
               <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:6}}>
                 <ConfidenceBadge score={score} size="lg" hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                 <span style={{fontSize:15,fontWeight:600,color:C.t1}}>This statement passes every check — reconciled, nothing flagged as unsure, no duplicates.</span>
@@ -3058,8 +2992,8 @@ export default function App() {
                   {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
                     ...(showNominal?['Nominal']:[]),'Notes','Receipt','⚑','✕','↺'].map((h,i) => (
                     <th key={i} style={{padding:'11px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
-                      color:C.t3,fontWeight:700,fontSize:11,textTransform:'uppercase',letterSpacing:'0.06em',
-                      whiteSpace:'nowrap',borderBottom:`2px solid ${C.bdr}`,background:C.surf,fontFamily:'Inter,sans-serif'}}>
+                      color:C.t3,fontWeight:700,fontSize:11,textTransform:'uppercase',letterSpacing:'0.07em',
+                      whiteSpace:'nowrap',borderBottom:`2px solid ${C.bdr}`,background:C.surf,fontFamily:C.fontUI}}>
                       {h}
                     </th>
                   ))}
@@ -3254,13 +3188,13 @@ export default function App() {
   const renderSearch = () => (
     <div style={{display:'flex',flexDirection:'column',height:'100%',gap:14}}>
       <div style={{flexShrink:0}}>
-        <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:'Inter,sans-serif',marginBottom:3}}>Search All Statements</div>
+        <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI,marginBottom:3}}>Search All Statements</div>
         <div style={{fontSize:12,color:C.t2}}>Search by payee, description, date, amount, or nominal code across every loaded statement</div>
       </div>
       <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
         placeholder="e.g.  Barclaycard   /   31/01/2024   /   234.50   /   7200"
         style={{width:'100%',padding:'12px 16px',background:C.card,border:`1px solid ${C.bdrBrt}`,
-          borderRadius:9,color:C.t1,fontSize:14,outline:'none',fontFamily:'Inter,sans-serif',
+          borderRadius:9,color:C.t1,fontSize:14,outline:'none',fontFamily:C.fontUI,
           boxSizing:'border-box',flexShrink:0}}/>
       <div style={{fontSize:11,color:C.t3,flexShrink:0}}>
         {searchQ.length < 2
@@ -3325,7 +3259,7 @@ export default function App() {
           {/* Column headers */}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 130px',gap:8,padding:'6px 10px',
             background:C.bg,borderRadius:7,fontSize:11,fontWeight:600,color:C.t3,
-            textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
+            textTransform:'uppercase',letterSpacing:'0.07em',flexShrink:0}}>
             <div>Payee / Bank keyword</div>
             <div>QBO category (pre-filled)</div>
             <div>Account Category / Nominal Code</div>
@@ -3398,7 +3332,7 @@ export default function App() {
       <div style={{display:'flex',flexDirection:'column',height:'100%',gap:16,overflowY:'auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
           <div>
-            <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:'Inter,sans-serif'}}>Export to Accounting Platform</div>
+            <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Export to Accounting Platform</div>
             <div style={{fontSize:12,color:C.t2,marginTop:3}}>{approved.length} statement{approved.length!==1?'s':''} approved · {totalTx} transactions ready</div>
           </div>
           <div style={{display:'flex',gap:8}}>
@@ -3417,14 +3351,14 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{flexShrink:0,display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+        <div style={{flexShrink:0,display:'grid',gridTemplateColumns:isNarrow?'1fr':'repeat(3,1fr)',gap:10}}>
           {[
             {label:'Total Transactions', val:totalTx,        color:C.t1},
             {label:'Total Debits',       val:fmtCcy(totalDeb), color:C.red},
             {label:'Total Credits',      val:fmtCcy(totalCred),color:C.grn},
           ].map(({label,val,color}) => (
             <div key={label} style={{background:C.card,borderRadius:14,padding:'16px 20px',boxShadow:C.sh2}}>
-              <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontFamily:'Inter,sans-serif',fontWeight:600}}>{label}</div>
+              <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontFamily:C.fontUI,fontWeight:600}}>{label}</div>
               <div style={{fontSize:24,fontWeight:700,color,fontFamily:'JetBrains Mono,monospace',letterSpacing:'-0.01em'}}>{val}</div>
             </div>
           ))}
@@ -3508,37 +3442,25 @@ export default function App() {
           </div>
         </div>
 
-        {/* Import guides */}
-        <div style={{flexShrink:0,display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-          {[
-            { title:'QuickBooks Online', color:'#2CA01C', steps:[
-              'Banking → Upload transactions → Select bank account',
-              'Upload CSV — QBO auto-detects column layout',
-              'Map: Date · Payment Type · Description · Payee · Debit · Credit · Category · Nominal Code · Notes',
-              'Review auto-matched transactions against existing bank rules',
-              'Accept matches, categorise new transactions, click Add All',
-            ]},
-            { title:'Xero', color:'#13B5EA', steps:[
-              'Accounting → Bank Accounts → Select account → Import Statement',
-              'Upload CSV — Xero reads Date, Amount, Payee, Description',
-              'Amount: negative = money out, positive = money in',
-              'Reference column carries the payment type (DD, SO, BACS). Analysis Code carries the nominal code from payee memory — visible in Xero as a bank reference, not an account code',
-              'To post directly to account codes, use ✎ Code & Create — confirm a code per line, then export a precoded CSV with Account Code, Tax Rate (VAT/GST) and Tracking columns',
-              'Review matches against rules, accept and post',
-            ]},
-          ].map(({title,color,steps}) => (
-            <div key={title} style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:9,padding:'14px 16px'}}>
-              <div style={{fontSize:10,fontWeight:700,color,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>{title} Import Steps</div>
-              {steps.map((step,i) => (
-                <div key={i} style={{display:'flex',gap:9,marginBottom:7,fontSize:12,color:C.t2,alignItems:'flex-start'}}>
-                  <span style={{color,fontFamily:'JetBrains Mono,monospace',fontWeight:700,fontSize:10,
-                    background:`${color}14`,border:`1px solid ${color}28`,borderRadius:4,
-                    padding:'1px 6px',flexShrink:0,marginTop:1}}>{i+1}</span>
-                  <span style={{lineHeight:1.5}}>{step}</span>
-                </div>
-              ))}
-            </div>
-          ))}
+        {/* Import guides — quick links to Help panel */}
+        <div style={{flexShrink:0}}>
+          <div style={{fontSize:11,fontWeight:600,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8}}>Import Guides</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {[
+              { label:'How to import into QuickBooks Online', q:'import into qbo or xero', openXero: false },
+              { label:'How to import into Xero', q:'import into xero or qbo', openXero: true },
+            ].map(({label, q, openXero}) => (
+              <button key={q} onClick={() => { setShowHelp(true); setHelpQuery(q); }}
+                style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',
+                  background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:4,
+                  cursor:'pointer',fontFamily:C.fontUI,width:'100%',textAlign:'left'}}>
+                <span style={{fontSize:14}}>💡</span>
+                <span style={{flex:1,fontSize:13,fontWeight:500,color:C.t1}}>{label}</span>
+                <span style={{fontSize:11,color:C.t3,marginRight:4}}>step-by-step</span>
+                <span style={{fontSize:15,color:C.t3}}>›</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -3550,10 +3472,10 @@ export default function App() {
   const renderDashboard = () => {
     const fmtDate = ts => { const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); };
     return (
-      <div style={{padding:'22px 28px',overflowY:'auto',height:'100%',boxSizing:'border-box'}}>
+      <div style={{padding:'18px',overflowY:'auto',height:'100%',boxSizing:'border-box'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
           <div>
-            <div style={{fontSize:19,fontWeight:700,color:C.t1}}>Projects</div>
+            <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Projects</div>
             <div style={{fontSize:12,color:C.t2,marginTop:3}}>
               {projects.length} project{projects.length!==1?'s':''} · click a card to switch and review
             </div>
@@ -3614,8 +3536,72 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────────────
-  // LAYOUT
   // ─────────────────────────────────────────────────────────────────────
+  // LAYOUT — responsive breakpoints, page guides, tool items
+  // ─────────────────────────────────────────────────────────────────────
+  const isTablet = windowWidth < 1024;
+  const isNarrow = windowWidth < 840;
+
+  const PAGE_GUIDES = {
+    upload: { title:'How to Upload Statements', steps:[
+      'Drag & drop one or more bank statement PDFs onto the upload area, or click "Browse files".',
+      'Each file is parsed locally in your browser — no data leaves your device at this stage.',
+      'Once uploaded, files move automatically to the Processing Queue.',
+      'Supported banks: HSBC, Barclays, Starling, Lloyds, NatWest, and more.',
+      'For best results, use the original PDF download from your online banking portal.',
+    ]},
+    queue: { title:'How to Process Statements', steps:[
+      'Statements waiting for AI extraction appear here as cards.',
+      'Click "Extract" on any card to send it to the AI for transaction parsing.',
+      'Queue multiple statements and extract them one at a time or in batch.',
+      'Once extraction completes, statements move to the Review & Approve tab.',
+      'If extraction fails, click "Retry" — the original PDF is never modified.',
+    ]},
+    audit: { title:'How to Review & Approve', steps:[
+      'Check THE NUMBERS panel at the top — it shows the reconciliation summary.',
+      'Scroll through the transaction table and verify rows flagged in amber.',
+      'Click any figure in the table to edit it directly if the AI mis-read a value.',
+      'Use "Approve" once the figures match your records, or "Reject" to re-process.',
+      'Layer 2 AI suggestions appear as proposals — review each before accepting.',
+    ]},
+    export: { title:'How to Export Data', steps:[
+      'Only approved statements appear here — approve at least one in Review first.',
+      'Each statement card has a ↓ Download button — exports your QBO or Xero CSV.',
+      'Use Merge QBO / Merge Xero (top-right) to combine all approved statements into one file.',
+      'No data is posted to any ledger automatically — import the CSV manually into your software.',
+      'Back up Payee Code Memory with "↓ Save Rules" — codes are stored in this browser only.',
+    ]},
+    dash: { title:'How to Use Projects', steps:[
+      'Projects let you group statements by client, entity, or accounting period.',
+      'Click "New Project" to create a workspace and give it a name.',
+      'Switch projects from the dropdown in the sidebar to change the active workspace.',
+      'Each project maintains its own statement history and approval status.',
+      'Use M365 to link a shared OneDrive folder for team access.',
+    ]},
+  };
+
+  const toolItems = [
+    {icon:'☁',  label:cloudSyncing?'Syncing…':cloudProvider!=='none'?'Cloud ✓':'Cloud',
+      active:showCloud, green:cloudProvider!=='none'&&!showCloud,
+      tip:'Connect Google Drive or OneDrive to auto-save statements.',
+      onClick:()=>{setShowCloud(v=>!v);setCloudError(null);}},
+    {icon:'⧖', label:'Activity', active:showActivity,
+      tip:'A log of every extraction, approval, rejection, and cloud save this session.',
+      onClick:()=>setShowActivity(v=>!v)},
+    {icon:'?',  label:'Help', active:showHelp,
+      tip:'Step-by-step guides, troubleshooting, and import instructions.',
+      onClick:()=>setShowHelp(v=>!v)},
+    {icon:'💬', label:'Feedback', active:showFeedback,
+      tip:'Send a message, report a bug, or suggest a feature.',
+      onClick:()=>{setShowFeedback(v=>!v);setFeedbackSent(false);}},
+    {icon:'💡', label:showTips?'Guide on':'Guide', active:showTips, green:showTips,
+      tip:'Toggle Guide Mode.',
+      onClick:()=>setShowTips(v=>!v)},
+    {icon:'⌨', label:'Keys', active:showShortcuts,
+      tip:'Keyboard shortcuts: A=Approve R=Reject ←→=navigate',
+      onClick:()=>setShowShortcuts(v=>!v)},
+  ];
+
   const navItems = [
     {id:'upload', n:'1', label:'Upload',  badge:null},
     {id:'queue',  n:'2', label:'Process', badge:stmts.length||null},
@@ -3633,7 +3619,7 @@ export default function App() {
 
   return (
     <div style={{display:'flex',height:'100vh',background:C.bg,
-      color:C.t1,fontFamily:'Inter,system-ui,sans-serif',overflow:'hidden'}}>
+      color:C.t1,fontFamily:C.fontUI,overflow:'hidden'}}>
 
       {/* ── Left Sidebar ── */}
       <div style={{width:sidebarCollapsed?56:220,flexShrink:0,background:C.card,
@@ -3671,99 +3657,103 @@ export default function App() {
           )}
         </div>
 
-        {/* Nav items */}
-        <div style={{flex:1,overflowY:'auto',padding:'10px 8px 6px'}}>
+        {/* Section 1: File / Project */}
+        {!sidebarCollapsed && (
+          <div style={{flexShrink:0,borderBottom:`1px solid ${C.bdr}`}}>
+            <button onClick={() => setSidebarProjectOpen(v => !v)}
+              style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                width:'100%',padding:'8px 14px',background:'transparent',border:'none',
+                cursor:'pointer',fontFamily:C.fontUI}}>
+              <span style={{fontSize:10,fontWeight:700,color:C.t4,textTransform:'uppercase',letterSpacing:'0.09em'}}>File / Project</span>
+              <span style={{fontSize:10,color:C.t4}}>{sidebarProjectOpen?'▴':'▾'}</span>
+            </button>
+            {sidebarProjectOpen && (
+              <div style={{padding:'0 8px 10px'}}>
+                {renamingProjectId === activeProjectId
+                  ? <input autoFocus value={renameProjectVal}
+                      onChange={e => setRenameProjectVal(e.target.value)}
+                      onKeyDown={e => { if(e.key==='Enter') commitRename(); if(e.key==='Escape') setRenamingProjectId(null); }}
+                      onBlur={commitRename}
+                      style={{width:'100%',boxSizing:'border-box',background:C.card,border:`1px solid ${C.grn}`,borderRadius:6,
+                        padding:'5px 7px',color:C.t1,fontSize:12,outline:'none',fontFamily:C.fontUI}}/>
+                  : <div style={{display:'flex',gap:4}}>
+                      <select value={activeProjectId} onChange={e => setActiveProjectId(e.target.value)}
+                        style={{flex:1,minWidth:0,background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:6,
+                          padding:'5px 7px',color:C.t1,fontSize:12,outline:'none',cursor:'pointer',fontFamily:C.fontUI}}>
+                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                      <button onClick={() => renameProject(activeProjectId)} title="Rename"
+                        style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',
+                          color:C.t2,fontSize:12,padding:'4px 6px',lineHeight:1}}>✏</button>
+                    </div>
+                }
+                <button onClick={addProject}
+                  style={{width:'100%',marginTop:5,background:'none',border:`1px solid ${C.bdr}`,borderRadius:6,
+                    cursor:'pointer',color:C.t3,fontSize:11,padding:'4px 0',fontFamily:C.fontUI}}>+ New Project</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Section 2: Statements list */}
+        <div style={{flex:1,overflowY:'auto',padding:'8px 6px 6px'}}>
           {!sidebarCollapsed && (
-            <div style={{fontSize:10,fontWeight:700,color:C.t4,textTransform:'uppercase',letterSpacing:'0.09em',padding:'2px 8px 8px'}}>Workflow</div>
+            <div style={{fontSize:10,fontWeight:700,color:C.t4,textTransform:'uppercase',letterSpacing:'0.09em',padding:'2px 8px 6px'}}>
+              Statements {stmts.length > 0 && `(${stmts.length})`}
+            </div>
           )}
-          {navItems.map(n => {
-            const on   = tab===n.id;
-            const done = stepDone(n.id);
-            const tabTip = {
-              upload: 'Step 1 — Drop PDF bank statements here. Set Account Type, Export To, and Tax Jurisdiction.',
-              queue:  'Step 2 — Run the AI extraction engine on your queued files.',
-              audit:  'Step 3 — Check, edit, and approve each extracted statement.',
-              export: 'Step 4 — Download approved statements as CSV files.',
-              dash:   'Projects dashboard — view all projects, statement counts, and last activity.',
-            }[n.id];
-            return (
-              <Tip key={n.id} text={tabTip} pos="right" active={showTips}>
-              <button onClick={() => setTab(n.id)}
-                style={{display:'flex',alignItems:'center',gap:sidebarCollapsed?0:9,
-                  width:'100%',padding:sidebarCollapsed?'9px 0':'9px 10px',
-                  justifyContent:sidebarCollapsed?'center':'flex-start',
-                  borderRadius:8,marginBottom:2,position:'relative',overflow:'hidden',
-                  background:on?C.bluDim:'transparent',
-                  color:on?C.blu:done?C.t2:C.t3,
-                  cursor:'pointer',fontSize:13,fontWeight:on?600:500,
-                  fontFamily:'Inter,sans-serif',transition:'all 0.14s',
-                  border:'none',textAlign:'left'}}>
-                {on && <span style={{position:'absolute',left:0,top:4,bottom:4,width:4,borderRadius:'0 3px 3px 0',background:C.blu}}/>}
-                <span style={{width:22,height:22,borderRadius:'50%',display:'flex',alignItems:'center',
-                  justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0,zIndex:1,
-                  background:on?C.blu:done?C.grnDim:'#EEF1F6',
-                  color:on?'#fff':done?C.grn:C.t3}}>{done&&!on?'✓':n.n}</span>
-                {!sidebarCollapsed && <>
-                  <span style={{flex:1,whiteSpace:'nowrap'}}>{n.label}</span>
-                  {n.badge > 0 && (
-                    <span style={{background:on?C.blu:C.bdrBrt,color:on?'#fff':C.t2,
-                      borderRadius:10,padding:'0 6px',fontSize:11,fontWeight:600,lineHeight:'18px'}}>{n.badge}</span>
-                  )}
-                </>}
-              </button>
-              </Tip>
-            );
-          })}
+          {sidebarCollapsed ? (
+            stmts.length > 0 && (
+              <div style={{display:'flex',justifyContent:'center',paddingTop:4}}>
+                <span style={{background:C.blu,color:'#fff',borderRadius:10,fontSize:10,fontWeight:700,padding:'1px 6px'}}>{stmts.length}</span>
+              </div>
+            )
+          ) : stmts.length === 0 ? (
+            <div style={{fontSize:11,color:C.t4,textAlign:'center',padding:'16px 8px',lineHeight:1.5}}>
+              No statements yet — upload PDFs to get started.
+            </div>
+          ) : (
+            stmts.slice().reverse().map(x => {
+              const cfg  = STATUS_CFG[x.status];
+              const atC  = ACCOUNT_TYPES[x.accountType]||ACCOUNT_TYPES.current;
+              const isA  = x.id === activeId;
+              const hasDp = getTx(x).some(t => dupes.cross.has(`${x.id}:${t.id}`));
+              const destTab = ['review','approved','rejected'].includes(x.status) ? 'audit'
+                : ['queued','processing'].includes(x.status) ? 'queue' : 'upload';
+              return (
+                <div key={x.id} onClick={() => { setActiveId(x.id); setTab(destTab); }}
+                  style={{padding:'7px 8px',borderRadius:6,marginBottom:2,cursor:'pointer',
+                    background:isA&&tab===destTab?C.bluDim:'transparent',
+                    border:`1px solid ${isA&&tab===destTab?C.bluBrd:'transparent'}`,
+                    transition:'all 0.12s'}}>
+                  <div style={{fontSize:11,fontWeight:600,color:C.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:2}}>
+                    {x.bankName||x.filename}
+                  </div>
+                  <div style={{fontSize:10,color:C.t3,marginBottom:3,fontFamily:C.fontData}}>{x.period?.from||'—'}</div>
+                  <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap'}}>
+                    <span style={{fontSize:10,fontWeight:700,padding:'1px 4px',borderRadius:3,color:atC.color,background:`${atC.color}14`}}>
+                      {atC.label.split(' ')[0]}
+                    </span>
+                    <span style={{fontSize:10,fontWeight:700,padding:'1px 4px',borderRadius:3,color:cfg.color,background:`${cfg.color}14`}}>
+                      {cfg.label}
+                    </span>
+                    {hasDp && <span style={{fontSize:10,fontWeight:700,color:C.red}}>DUPE</span>}
+                    {x.reconciliation && !x.reconciliation.reconciled && <span style={{fontSize:10,color:C.amb}}>⚑</span>}
+                    <ConfidenceBadge score={x.confidenceScore}/>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
-        {/* Utility buttons + collapse toggle */}
-        <div style={{padding:'6px 8px 8px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
-          {!sidebarCollapsed && (
-            <div style={{fontSize:10,fontWeight:700,color:C.t4,textTransform:'uppercase',letterSpacing:'0.09em',padding:'4px 8px 6px'}}>Tools</div>
-          )}
-          {[
-            {icon:'☁', label:cloudSyncing?'Syncing…':cloudProvider!=='none'?'Cloud ✓':'Cloud',
-              active:showCloud, green:cloudProvider!=='none'&&!showCloud,
-              tip:cloudProvider!=='none'?'Cloud storage connected. Click to manage.':'Connect Google Drive or OneDrive to auto-save statements.',
-              onClick:()=>{setShowCloud(v=>!v);setCloudError(null);}},
-            {icon:'⧖', label:'Activity', active:showActivity,
-              tip:'A log of every extraction, approval, rejection, and cloud save this session.',
-              onClick:()=>setShowActivity(v=>!v)},
-            {icon:'?', label:'Help', active:showHelp,
-              tip:'Step-by-step guides, troubleshooting, and import instructions for QuickBooks and Xero.',
-              onClick:()=>setShowHelp(v=>!v)},
-            {icon:'💬', label:'Feedback', active:showFeedback,
-              tip:'Send a message, report a bug, or suggest a feature.',
-              onClick:()=>{setShowFeedback(v=>!v);setFeedbackSent(false);}},
-            {icon:'💡', label:showTips?'Guide on':'Guide', active:showTips, green:showTips,
-              tip:'Toggle Guide Mode — hover over any button or tab to see what it does.',
-              onClick:()=>setShowTips(v=>!v)},
-            {icon:'⌨', label:'Keys', active:showShortcuts,
-              tip:'Keyboard shortcuts: A=Approve R=Reject ←→=navigate ?=shortcuts overlay',
-              onClick:()=>setShowShortcuts(v=>!v)},
-          ].map(({icon,label,active,green,tip,onClick}) => (
-            <Tip key={label} text={tip} pos="right" active={showTips}>
-            <button onClick={onClick} title={sidebarCollapsed ? label : undefined}
-              style={{display:'flex',alignItems:'center',gap:sidebarCollapsed?0:8,
-                width:'100%',padding:sidebarCollapsed?'7px 0':'7px 10px',
-                justifyContent:sidebarCollapsed?'center':'flex-start',
-                borderRadius:7,marginBottom:1,
-                background:active?C.bluDim:'transparent',
-                color:active?C.blu:green?C.grn:C.t3,
-                cursor:'pointer',fontSize:12,fontWeight:active?600:500,
-                fontFamily:'Inter,sans-serif',transition:'all 0.12s',border:'none',textAlign:'left'}}>
-              <span style={{fontSize:14,flexShrink:0,width:16,textAlign:'center'}}>{icon}</span>
-              {!sidebarCollapsed && <span style={{whiteSpace:'nowrap'}}>{label}</span>}
-            </button>
-            </Tip>
-          ))}
-          {/* Collapse toggle */}
+        {/* Collapse toggle */}
+        <div style={{padding:'6px 8px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
           <button onClick={() => setSidebarCollapsed(v => !v)}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4,width:'100%',
-              padding:'5px 0',marginTop:3,borderTop:`1px solid ${C.bdr}`,
-              background:'transparent',border:'none',color:C.t4,cursor:'pointer',
-              fontSize:10,fontFamily:'Inter,sans-serif',transition:'all 0.12s'}}>
+              padding:'5px 0',background:'transparent',border:'none',color:C.t4,cursor:'pointer',
+              fontSize:10,fontFamily:C.fontUI,transition:'all 0.12s'}}>
             {sidebarCollapsed ? '▶' : '◀'}
           </button>
         </div>
@@ -3772,28 +3762,93 @@ export default function App() {
       {/* ── Main area ── */}
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
 
-        {/* Slim context header */}
-        <div style={{flexShrink:0,padding:'0 24px',background:C.card,
-          borderBottom:`1px solid ${C.bdr}`,zIndex:9,
-          display:'flex',alignItems:'center',justifyContent:'space-between',height:46}}>
-          <div style={{fontSize:15,fontWeight:600,color:C.t1}}>
-            {tab==='upload' && 'Upload Statements'}
-            {tab==='queue'  && 'Processing Queue'}
-            {tab==='audit'  && 'Review & Approve'}
-            {tab==='export' && 'Export'}
-            {tab==='dash'   && 'Projects'}
-          </div>
+        {/* ── Top tool bar ── */}
+        <div style={{flexShrink:0,background:C.card,borderBottom:`1px solid ${C.bdr}`,
+          zIndex:9,display:'flex',alignItems:'center',justifyContent:'flex-end',height:42,
+          paddingRight:8,gap:2}}>
           {TRIAL_MODE && trialUsed >= TRIAL_LIMIT && (
             <button onClick={() => setShowTrialCap(true)}
               style={{fontSize:11,fontWeight:600,color:C.red,background:C.redDim,
-                border:`1.5px solid ${C.redBrd}`,borderRadius:7,padding:'4px 10px',cursor:'pointer'}}>
+                border:`1.5px solid ${C.redBrd}`,borderRadius:7,padding:'4px 10px',cursor:'pointer',
+                fontFamily:C.fontUI,marginRight:4}}>
               Trial limit — Upgrade →
             </button>
           )}
+          {toolItems.map(({icon,label,active,green,tip,onClick}) => (
+            <Tip key={label} text={isTablet ? label : tip} pos="bottom" active={showTips||isTablet}>
+              <button onClick={onClick}
+                style={{display:'flex',alignItems:'center',gap:5,
+                  padding:isTablet?'6px 8px':'6px 10px',
+                  borderRadius:4,border:'none',cursor:'pointer',fontSize:12,fontWeight:active?600:400,
+                  fontFamily:C.fontUI,transition:'all 0.12s',whiteSpace:'nowrap',
+                  background:active?C.bluDim:'transparent',
+                  color:active?C.blu:green?C.grn:C.t2}}>
+                <span style={{fontSize:13}}>{icon}</span>
+                {!isTablet && <span>{label}</span>}
+              </button>
+            </Tip>
+          ))}
+        </div>
+
+        {/* ── Page title bar — workflow tabs + guide pill ── */}
+        <div style={{flexShrink:0,background:C.card,borderBottom:`1px solid ${C.bdr}`,
+          zIndex:9,display:'flex',alignItems:'stretch',height:46}}>
+          <div style={{flex:1,display:'flex',alignItems:'stretch',paddingLeft:8,gap:0}}>
+            {navItems.map((n, i) => {
+              const on = tab===n.id; const done = stepDone(n.id);
+              const tip = {
+                upload:'Step 1 — Drop PDF bank statements here.',
+                queue: 'Step 2 — Run the AI extraction engine on queued files.',
+                audit: 'Step 3 — Check, edit, and approve each statement.',
+                export:'Step 4 — Download approved statements as CSV files.',
+                dash:  'Projects dashboard — view all projects and status.',
+              }[n.id];
+              return (
+                <Fragment key={n.id}>
+                  {i > 0 && <span style={{display:'flex',alignItems:'center',color:C.bdrBrt,
+                    fontSize:12,userSelect:'none',flexShrink:0,padding:'0 1px'}}>›</span>}
+                  <Tip text={tip} pos="bottom" active={showTips}>
+                    <button onClick={() => setTab(n.id)}
+                      style={{display:'flex',alignItems:'center',gap:6,
+                        padding:isNarrow?'0 7px':'0 11px',
+                        height:'100%',background:'transparent',border:'none',
+                        cursor:'pointer',fontSize:12,fontWeight:on?600:500,fontFamily:C.fontUI,
+                        color:on?C.blu:done?C.t2:C.t3,transition:'all 0.12s',whiteSpace:'nowrap',
+                        borderBottom:on?`2px solid ${C.blu}`:'2px solid transparent'}}>
+                      <span style={{width:18,height:18,borderRadius:'50%',display:'flex',alignItems:'center',
+                        justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0,
+                        background:on?C.blu:done?C.grnDim:'#EEF1F6',
+                        color:on?'#fff':done?C.grn:C.t3}}>{done&&!on?'✓':n.n}</span>
+                      {!isNarrow && <span>{n.label}</span>}
+                      {n.badge > 0 && !isNarrow && (
+                        <span style={{background:on?C.blu:C.bdrBrt,color:on?'#fff':C.t2,
+                          borderRadius:10,padding:'0 6px',fontSize:10,fontWeight:600,
+                          lineHeight:'16px',flexShrink:0}}>{n.badge}</span>
+                      )}
+                    </button>
+                  </Tip>
+                </Fragment>
+              );
+            })}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,paddingRight:16,flexShrink:0}}>
+            <button onClick={() => setShowPageGuide(v => !v)}
+              title={PAGE_GUIDES[tab]?.title || 'How to use this page'}
+              style={{display:'flex',alignItems:'center',gap:6,
+                padding:isNarrow?'4px 8px':'4px 12px',
+                borderRadius:20,fontFamily:C.fontUI,fontSize:12,fontWeight:500,cursor:'pointer',
+                transition:'all 0.15s',whiteSpace:'nowrap',
+                background: showPageGuide ? C.bluDim : 'transparent',
+                color: showPageGuide ? C.blu : C.t3,
+                border: `1px solid ${showPageGuide ? C.bluBrd : C.bdr}`}}>
+              <span style={{fontSize:13}}>💡</span>
+              {!isNarrow && <span>{PAGE_GUIDES[tab]?.title || 'How to use this page'}</span>}
+            </button>
+          </div>
         </div>
 
         {/* Content */}
-        <div style={{flex:1,overflow:'hidden',padding:tab==='audit'?'18px 18px 18px 0':tab==='dash'?0:18}}>
+        <div style={{flex:1,overflow:'hidden',padding:tab==='dash'?0:isTablet?12:18}}>
           {tab==='upload' && renderUpload()}
           {tab==='queue'  && renderQueue()}
           {tab==='audit'  && renderAudit()}
@@ -3802,6 +3857,62 @@ export default function App() {
         </div>
       </div>
       {renderQboImportModal()}
+
+      {/* Page guide overlay */}
+      {showPageGuide && (() => {
+        const guide = PAGE_GUIDES[tab] || PAGE_GUIDES.upload;
+        return (
+          <div onClick={() => setShowPageGuide(false)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:900,
+              display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
+            <div onClick={e => e.stopPropagation()}
+              style={{width:380,maxWidth:'95vw',height:'100vh',background:'#FFFFFF',
+                display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(107,100,114,0.22)'}}>
+              <div style={{background:'#2677CC',padding:'20px 24px 16px',flexShrink:0}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div>
+                    <div style={{fontSize:18,fontWeight:700,color:'#fff',fontFamily:C.fontUI}}>
+                      {guide.title}
+                    </div>
+                    <div style={{fontSize:12,color:'rgba(255,255,255,0.75)',marginTop:3,fontFamily:C.fontUI}}>
+                      Quick-start guide · {guide.steps.length} steps
+                    </div>
+                  </div>
+                  <button onClick={() => setShowPageGuide(false)}
+                    style={{background:'transparent',border:'none',color:'rgba(255,255,255,0.85)',
+                      fontSize:22,cursor:'pointer',lineHeight:1,padding:'2px 4px'}}>✕</button>
+                </div>
+              </div>
+              <div style={{flex:1,overflowY:'auto',background:'#FFFFFF'}}>
+                {guide.steps.map((step, i) => (
+                  <div key={i} style={{display:'flex',gap:14,alignItems:'flex-start',
+                    padding:'14px 24px',borderBottom:'1px solid #EBEBEB'}}>
+                    <span style={{width:22,height:22,borderRadius:'50%',flexShrink:0,
+                      background:C.bluDim,color:C.blu,display:'flex',alignItems:'center',
+                      justifyContent:'center',fontSize:11,fontWeight:700,fontFamily:C.fontUI,marginTop:1}}>
+                      {i+1}
+                    </span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:500,color:C.t1,fontFamily:C.fontUI,lineHeight:1.5}}>{step}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:'#393a3d',fontFamily:C.fontUI,marginTop:2}}>by StatementAudit Pro</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0,
+                background:'#F8F9FA',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span style={{fontSize:12,color:C.t3,fontFamily:C.fontUI}}>Need more help?</span>
+                <button onClick={() => { setShowPageGuide(false); setShowHelp(true); }}
+                  style={{fontSize:12,fontWeight:600,color:'#2677CC',background:'transparent',
+                    border:'1px solid #2677CC',borderRadius:4,padding:'5px 12px',cursor:'pointer',
+                    fontFamily:C.fontUI}}>
+                  Open Help panel →
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Activity log panel */}
       {showActivity && (() => {
@@ -3825,7 +3936,7 @@ export default function App() {
               <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.surf}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div>
-                    <div style={{fontSize:17,fontWeight:700,color:C.t1}}>Activity Log</div>
+                    <div style={{fontSize:19,fontWeight:700,color:C.t1}}>Activity Log</div>
                     <div style={{fontSize:12,color:C.t3,marginTop:2}}>This session only — {events.length} event{events.length!==1?'s':''}</div>
                   </div>
                   <button onClick={() => setShowActivity(false)}
@@ -4232,9 +4343,30 @@ export default function App() {
             { q:'Can I re-open an approved statement?', a:'Yes — click the ↺ Roll back to Review button that appears on any Approved statement. This returns it to Review status so you can make changes. Rolling back does not delete any previously downloaded CSVs — those are already on your machine.' },
           ]},
           { section:'Exporting', items:[
-            { q:'How do I import into QuickBooks Online?', a:'In QBO, go to Banking → Upload → drag the downloaded CSV file. Match the columns to QBO\'s format. StatementAudit Pro exports in QBO-native column order.' },
-            { q:'How do I import into Xero?', a:'Standard import: Accounting → Bank Accounts → select account → Import Statement → upload the CSV. For Pathway 2 (Code & Create), import the _PRECODED.csv file the same way — it lands coded with the account code already applied and reconciles against the bank feed in one pass. Do not import a separate statement file alongside it.' },
-            { q:'Can I merge multiple statements into one export?', a:'Yes — on the Export tab, use the "Merge & Export" button to combine all approved statements from the current project into a single QBO or Xero file.' },
+            { q:'How do I import into QBO or Xero?',
+              a:'Step-by-step import guides for QuickBooks Online and Xero.',
+              platforms:[
+                { label:'QuickBooks Online', steps:[
+                  'Go to Banking → Upload transactions → Select bank account',
+                  'Upload the CSV file — QBO auto-detects the column layout',
+                  'Map columns: Date · Payment Type · Description · Payee · Debit · Credit · Category · Nominal Code · Notes',
+                  'Review auto-matched transactions against your existing bank rules',
+                  'Accept matches, categorise any new transactions, then click Add All',
+                ]},
+                { label:'Xero', steps:[
+                  'Go to Accounting → Bank Accounts → select the account → Import Statement',
+                  'Upload the CSV — Xero reads Date, Amount, Payee, Description',
+                  'Amount convention: negative = money out, positive = money in',
+                  'Reference column carries the payment type (DD, SO, BACS); Analysis Code carries the nominal code from payee memory',
+                  'For Pathway 2 (Code & Create): import the _PRECODED.csv instead — it lands already coded and reconciles against the bank feed in one pass',
+                  'Review matches against existing rules, accept and post',
+                ]},
+              ]},
+            { q:'Can I merge multiple statements into one export?', a:'Yes — on the Export tab, use the Merge QBO or Merge Xero button (top-right) to combine all approved statements from the current project into a single file.' },
+            { q:'What is Payee Code Memory?', a:'Payee Code Memory records the account code you confirm for each payee the first time you code them. On the next statement, if the same payee appears, the code is pre-filled automatically — you just tick ✓ to confirm. Rules are stored in your browser\'s localStorage and persist between sessions. OneDrive Practice Workspace users: rules also sync to the shared folder automatically.' },
+            { q:'How do I back up my payee rules?', a:'Click "↓ Save Rules" in the Payee Code Memory section on the Export tab. A JSON file downloads — store it in OneDrive, Google Drive, or iCloud. A backup also downloads automatically each time you approve a statement. Rules live in this browser only; clearing browser data or switching devices deletes them unless you have a backup.' },
+            { q:'How do I restore rules from a backup?', a:'Click "↑ Import Rules (.json)" in the Payee Code Memory section and select your backup file. Rules are merged with existing memory. To import rules from QBO, go to Transactions → Bank Transactions → Rules → Export Rules in QBO, then click "↑ Import QBO Rules (.xls)".' },
+            { q:'How do I save exported files to cloud storage?', a:'After downloading a CSV, move it to your cloud storage folder (OneDrive, Google Drive, or iCloud Drive) as you would any file. If you use the M365 Practice Workspace, approved CSVs can be auto-saved to the linked OneDrive folder — click ☁ Cloud in the top bar and connect your OneDrive account to enable this.' },
           ]},
           { section:'Code & Create / Code & Reference', items:[
             { q:'What is Code & Create?', a:'Code & Create is Pathway 2 for Xero statements. It\'s designed for empty periods — months where no entries exist yet (catch-up or new-client onboarding). You confirm an account code for every transaction line before anything exports. The result is a single precoded CSV that, when imported into Xero, creates the transactions already coded and reconciles them against the bank feed in one pass.' },
@@ -4334,25 +4466,47 @@ export default function App() {
                     '::placeholder':{color:'rgba(255,255,255,0.5)'}}}/>
               </div>
               {/* Content */}
-              <div style={{flex:1,overflowY:'auto',padding:'16px 24px'}}>
+              <div style={{flex:1,overflowY:'auto'}}>
                 {filtered.length === 0
-                  ? <div style={{fontSize:13,color:C.t3,textAlign:'center',marginTop:40}}>No results for "{helpQuery}"</div>
+                  ? <div style={{fontSize:13,color:C.t3,textAlign:'center',marginTop:40,padding:'0 24px'}}>No results for "{helpQuery}"</div>
                   : filtered.map(sec => (
-                    <div key={sec.section} style={{marginBottom:20}}>
-                      <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:10}}>{sec.section}</div>
+                    <div key={sec.section} style={{marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',
+                        letterSpacing:'0.08em',padding:'10px 24px 8px',
+                        borderBottom:`1px solid #EBEBEB`,marginBottom:0}}>{sec.section}</div>
                       {sec.items.map(item => (
-                        <details key={item.q} style={{marginBottom:6}}>
-                          <summary style={{fontSize:13,fontWeight:600,color:C.t1,cursor:'pointer',padding:'9px 12px',
-                            background:C.surf,borderRadius:8,border:`1px solid ${C.bdr}`,listStyle:'none',
-                            display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                        <div key={item.q} style={{borderBottom:'1px solid #EBEBEB',padding:'16px 24px'}}>
+                          <div style={{fontSize:14,fontWeight:600,color:'#0077C5',
+                            fontFamily:C.fontUI,lineHeight:1.4,marginBottom:2}}>
                             {item.q}
-                            <span style={{fontSize:11,color:C.t4,flexShrink:0,marginLeft:8}}>▾</span>
-                          </summary>
-                          <div style={{fontSize:13,color:C.t2,lineHeight:1.6,padding:'10px 12px',
-                            background:C.card,borderRadius:'0 0 8px 8px',border:`1px solid ${C.bdr}`,borderTop:'none'}}>
-                            {item.a}
                           </div>
-                        </details>
+                          <div style={{fontSize:12,fontWeight:700,color:'#393a3d',
+                            fontFamily:C.fontUI,marginBottom:6}}>
+                            by StatementAudit Pro
+                          </div>
+                          <div style={{fontSize:13,color:'#393a3d',lineHeight:1.65,fontFamily:C.fontUI}}>
+                            {item.platforms ? (() => {
+                              const xeroFirst = helpQuery.toLowerCase().includes('xero');
+                              const ordered = xeroFirst ? [...item.platforms].reverse() : item.platforms;
+                              return ordered.map(({label,steps},pi) => (
+                                <div key={label} style={{marginBottom: pi < ordered.length-1 ? 16 : 0}}>
+                                  <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',
+                                    letterSpacing:'0.07em',marginBottom:8,paddingBottom:4,
+                                    borderBottom:`1px solid ${C.bdr}`}}>{label}</div>
+                                  <ol style={{margin:0,paddingLeft:18,display:'flex',flexDirection:'column',gap:7}}>
+                                    {steps.map((step,i) => <li key={i} style={{lineHeight:1.5}}>{step}</li>)}
+                                  </ol>
+                                </div>
+                              ));
+                            })() : item.steps ? (
+                              <ol style={{margin:0,paddingLeft:18,display:'flex',flexDirection:'column',gap:7}}>
+                                {item.steps.map((step,i) => (
+                                  <li key={i} style={{lineHeight:1.5}}>{step}</li>
+                                ))}
+                              </ol>
+                            ) : item.a}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   ))
@@ -4410,7 +4564,7 @@ export default function App() {
                   rows={6}
                   style={{width:'100%',boxSizing:'border-box',resize:'vertical',padding:'12px',
                     fontSize:13,color:C.t1,border:`1px solid ${C.bdr}`,borderRadius:9,
-                    outline:'none',fontFamily:'Inter,sans-serif',lineHeight:1.6,
+                    outline:'none',fontFamily:C.fontUI,lineHeight:1.6,
                     background:C.surf,transition:'border-color 0.15s'}}
                   onFocus={e => e.target.style.borderColor=C.bluBrd}
                   onBlur={e => e.target.style.borderColor=C.bdr}
@@ -4423,7 +4577,7 @@ export default function App() {
                   type="email"
                   style={{width:'100%',boxSizing:'border-box',marginTop:8,padding:'9px 12px',
                     fontSize:12,color:C.t1,border:`1px solid ${C.bdr}`,borderRadius:8,
-                    outline:'none',fontFamily:'Inter,sans-serif',background:C.surf,
+                    outline:'none',fontFamily:C.fontUI,background:C.surf,
                     transition:'border-color 0.15s'}}
                   onFocus={e => e.target.style.borderColor=C.bluBrd}
                   onBlur={e => e.target.style.borderColor=C.bdr}
@@ -4688,7 +4842,7 @@ export default function App() {
                   position:'sticky',top:0,zIndex:1}}>
                   {['Date','Payee / Description','Amount','Account Code', hasTaxCol ? taxLabel : '',''].map((h,i) => (
                     <div key={i} style={{fontSize:10,color:C.t4,fontWeight:700,
-                      textTransform:'uppercase',letterSpacing:'0.06em',
+                      textTransform:'uppercase',letterSpacing:'0.07em',
                       textAlign:i===2?'right':i===5?'center':'left'}}>{h}</div>
                   ))}
                 </div>
@@ -4710,7 +4864,7 @@ export default function App() {
                             placeholder="Payee"
                             style={{flex:1,minWidth:0,padding:'3px 6px',background:C.bg,
                               border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t1,fontSize:12,
-                              fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
+                              fontFamily:C.fontUI,outline:'none',boxSizing:'border-box'}}/>
                           {l.fromMemory && (
                             <span style={{flexShrink:0,fontSize:10,color:C.blu,background:C.bluDim,
                               border:`1px solid ${C.bluBrd}`,borderRadius:3,padding:'1px 5px'}}>
@@ -4723,7 +4877,7 @@ export default function App() {
                           placeholder="Description (optional)"
                           style={{width:'100%',padding:'3px 6px',background:C.bg,
                             border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t3,fontSize:11,
-                            fontFamily:'Inter,sans-serif',outline:'none',boxSizing:'border-box'}}/>
+                            fontFamily:C.fontUI,outline:'none',boxSizing:'border-box'}}/>
                       </div>
                       <div style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',
                         textAlign:'right',color:isPos ? C.grn : C.red}}>{amt}</div>
@@ -4744,7 +4898,7 @@ export default function App() {
                               style={{marginTop:3,width:'100%',padding:'2px 6px',background:C.purDim,
                                 border:`1px solid ${C.purBrd}`,borderRadius:4,color:C.pur,fontSize:10,
                                 cursor:'pointer',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',
-                                whiteSpace:'nowrap',fontFamily:'Inter,sans-serif'}}>
+                                whiteSpace:'nowrap',fontFamily:C.fontUI}}>
                               ✦ {sug.code}{sug.name ? ` — ${sug.name}` : ''}
                             </button>
                           ) : null;

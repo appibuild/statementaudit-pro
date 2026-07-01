@@ -1,9 +1,9 @@
 StatementAudit Pro — canonical source of truth
-build_date: 2026-06-29
+build_date: 2026-07-01
 source_file: src/statement-audit-pro.jsx
-expected_lines: 4915
+expected_lines: 5069
 model_pinned: claude-sonnet-4-6
 max_tokens: 32000
 json_extractor: robust indexOf/lastIndexOf (NO assistant prefill)
-last_resolved: Remove dead renderDash; single duplicate-alert definition in renderAudit (2026-06-23)
+last_resolved: UX/UI overhaul — responsive layout, two-section sidebar, workflow tab bar, page guides, Help panel always-expanded, Export quick-links, Payee Memory FAQ (2026-07-01)
 open_item: Job: Capture HSBC Balance column; Job 4 parser robustness; scenario 1 upload-time dupe deferred
