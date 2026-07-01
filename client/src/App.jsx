@@ -11,8 +11,9 @@ const C = {
   red:'#DC4646', redDim:'#FBEBEB', redBrd:'#F1C5C5',
   blu:'#2D6FF0', bluDim:'#EAF1FE', bluBrd:'#C2D8FB',
   pur:'#7A5AF0', purDim:'#EEEAFD', purBrd:'#D2C7F7',
-  t1:'#0F1B2D', t2:'#475467', t3:'#7B8698', t4:'#C8D0DC',
+  t1:'#0F1B2D', t2:'#475467', t3:'#606B78', t4:'#C8D0DC',
   sh1:'0 1px 4px rgba(15,27,45,0.06)', sh2:'0 4px 16px rgba(15,27,45,0.08)', sh3:'0 8px 32px rgba(15,27,45,0.13)',
+  xero:'#13B5EA', qbo:'#2CA01C',
   fontUI:  'Plus Jakarta Sans, system-ui, sans-serif',
   fontData:'JetBrains Mono, monospace',
 };
@@ -505,8 +506,10 @@ const makeName = (s, suffix='') => {
 
 const dlFile = (content, name) => {
   const blob = new Blob(['\uFEFF' + content], { type:'text/csv;charset=utf-8;' });
-  const a = Object.assign(document.createElement('a'), { href:URL.createObjectURL(blob), download:name });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href:url, download:name });
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };
 
 const buildAuditWorkbook = (s, rec, treatmentLabels = {}) => {
@@ -654,6 +657,7 @@ const dlReceipt = (receipt, tx, stmt) => {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  if (a.href.startsWith('blob:')) URL.revokeObjectURL(a.href);
 };
 
 const confidenceHint = (score, rec, txList, crossCheck) => {
@@ -949,7 +953,7 @@ const Tip = ({ text, pos = 'bottom', active, children }) => {
 export default function App() {
   const [stmts,    setStmts]    = useState([]);
   const [activeId, setActiveId] = useState(null);
-  const [tab,      setTab]      = useState('upload');
+  const [tab,      setTab]      = useState('home');
   const [editCell, setEditCell] = useState(null);
   const [editVal,  setEditVal]  = useState('');
   const [dragging, setDragging] = useState(false);
@@ -1028,7 +1032,7 @@ export default function App() {
   const [trialCodeError, setTrialCodeError] = useState(false);
   const [showTrialCap,   setShowTrialCap]   = useState(false);
   const [cloudProvider, setCloudProvider] = useState(() => localStorage.getItem('sa_cloudProvider') || 'none');
-  const [cloudToken,    setCloudToken]    = useState(() => localStorage.getItem('sa_cloudToken')    || null);
+  const [cloudToken,    setCloudToken]    = useState(() => sessionStorage.getItem('sa_cloudToken') || localStorage.getItem('sa_cloudToken') || null);
   const [cloudUser,     setCloudUser]     = useState(() => { try { return JSON.parse(localStorage.getItem('sa_cloudUser')); } catch { return null; } });
   const [cloudSyncing,  setCloudSyncing]  = useState(false);
   const [cloudError,    setCloudError]    = useState(null);
@@ -1187,13 +1191,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem('sa_wsDriveId',   workspaceDriveId);  }, [workspaceDriveId]);
   useEffect(() => { localStorage.setItem('sa_wsShareUrl',  workspaceShareUrl); }, [workspaceShareUrl]);
 
-  useEffect(() => {
-    const l = document.createElement('link');
-    l.rel  = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap';
-    document.head.appendChild(l);
-    return () => document.head.removeChild(l);
-  }, []);
 
   // Keyboard shortcuts: A=approve, R=reject, ←→=prev/next, ?=shortcut help
   useEffect(() => {
@@ -1244,7 +1241,7 @@ export default function App() {
     if (!TRIAL_MODE) return;
     const p = new URLSearchParams(window.location.search);
     const r = p.get('reset');
-    if (r && (r === TRIAL_CODE || r === 'owner')) {
+    if (r && r === TRIAL_CODE) {
       localStorage.removeItem('sa_trialUsed');
       localStorage.removeItem('sa_trialUnlocked');
       setTrialUsed(0);
@@ -1276,7 +1273,8 @@ export default function App() {
         const user = await cloudGetUser(provider, r.access_token);
         setCloudProvider(provider); setCloudToken(r.access_token); setCloudUser(user);
         localStorage.setItem('sa_cloudProvider', provider);
-        localStorage.setItem('sa_cloudToken', r.access_token);
+        sessionStorage.setItem('sa_cloudToken', r.access_token);
+        localStorage.removeItem('sa_cloudToken'); // migrate any legacy stored token
         localStorage.setItem('sa_cloudUser', JSON.stringify(user));
         setCloudSyncing(true);
         cloudLoadAll(provider, r.access_token).then(loaded => {
@@ -1892,6 +1890,7 @@ export default function App() {
   const disconnectCloud = () => {
     setCloudProvider('none'); setCloudToken(null); setCloudUser(null); setCloudError(null);
     localStorage.removeItem('sa_cloudProvider');
+    sessionStorage.removeItem('sa_cloudToken');
     localStorage.removeItem('sa_cloudToken');
     localStorage.removeItem('sa_cloudUser');
     wsLeave();
@@ -2013,11 +2012,11 @@ export default function App() {
         });
         setFeedbackSent(true);
       } catch {
-        window.location.href = `mailto:csmm1964@gmail.com?subject=StatementAudit%20Pro%20Feedback&body=${encodeURIComponent(feedbackText)}`;
+        window.location.href = `mailto:support@statementaudit.pro?subject=StatementAudit%20Pro%20Feedback&body=${encodeURIComponent(feedbackText)}`;
         setFeedbackSent(true);
       }
     } else {
-      window.location.href = `mailto:csmm1964@gmail.com?subject=StatementAudit%20Pro%20Feedback&body=${encodeURIComponent(feedbackText)}`;
+      window.location.href = `mailto:support@statementaudit.pro?subject=StatementAudit%20Pro%20Feedback&body=${encodeURIComponent(feedbackText)}`;
       setFeedbackSent(true);
     }
     setFeedbackSending(false);
@@ -2146,7 +2145,7 @@ export default function App() {
           <Tip text="Choose your accounting platform — this determines which CSV format is produced on export. Xero unlocks Pathway 2 (Code & Create) for empty periods." pos="bottom" active={showTips}>
           <select value={uploadDefaultPlatform} onChange={e => { setUploadDefaultPlatform(e.target.value); localStorage.setItem('sa_defaultPlatform', e.target.value); }}
             style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
-              color:uploadDefaultPlatform==='xero'?'#13B5EA':'#2CA01C',fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
+              color:uploadDefaultPlatform==='xero'?C.xero:C.qbo,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
               fontFamily:C.fontUI,fontWeight:500}}>
             <option value="qbo">QuickBooks Online</option>
             <option value="xero">Xero</option>
@@ -2251,7 +2250,7 @@ export default function App() {
       {stmts.length > 0 && (
         <div style={{display:'grid',gridTemplateColumns:'28px 1fr 155px 140px 85px 90px',gap:8,
           padding:'5px 12px',fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',flexShrink:0,alignItems:'center'}}>
-          <input type="checkbox"
+          <input type="checkbox" aria-label="Select all statements"
             checked={(() => { const sel = stmts.filter(s => s.status !== 'processing'); return sel.length > 0 && sel.every(s => selIds.has(s.id)); })()}
             onChange={e => setSelIds(e.target.checked
               ? new Set(stmts.filter(s => s.status !== 'processing').map(s => s.id))
@@ -2285,7 +2284,7 @@ export default function App() {
                     </button>
                     {showRaw.has(s.id) && (
                       <div style={{marginTop:4,position:'relative'}}>
-                        <pre style={{margin:0,fontSize:10,color:C.t2,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'8px',maxHeight:160,overflowY:'auto',fontFamily:'JetBrains Mono,monospace',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{s.rawResponse}</pre>
+                        <pre style={{margin:0,fontSize:10,color:C.t2,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'8px',maxHeight:160,overflowY:'auto',fontFamily:C.fontData,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{s.rawResponse}</pre>
                         <button onClick={() => navigator.clipboard.writeText(s.rawResponse)} style={{position:'absolute',top:4,right:4,fontSize:10,color:C.t3,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Copy</button>
                       </div>
                     )}
@@ -2303,7 +2302,7 @@ export default function App() {
                 <select value={s.platform} disabled={editLock}
                   onChange={e => updateS(s.id,{platform:e.target.value})}
                   style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'5px 8px',
-                    color:s.platform==='xero'?'#13B5EA':'#2CA01C',fontSize:11,outline:'none',
+                    color:s.platform==='xero'?C.xero:C.qbo,fontSize:11,outline:'none',
                     cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
                   <option value="qbo">QuickBooks Online</option>
                   <option value="xero">Xero</option>
@@ -2421,7 +2420,7 @@ export default function App() {
     const isRepeat    = tid => dupes.same.has(`${s.id}:${tid}`);   // same-statement: amber, does NOT block
     const isEd       = (tid,f) => editCell?.sid === s.id && editCell?.tid === tid && editCell?.field === f;
     const atCfg      = ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current;
-    const platColor  = s.platform==='xero'?'#13B5EA':'#2CA01C';
+    const platColor  = s.platform==='xero'?C.xero:C.qbo;
     const platLabel  = s.platform==='xero'?'Xero':'QBO';
     const score      = s.confidenceScore;
     const hasDupeStmt = txList.some(t => isDupe(t.id));
@@ -2443,7 +2442,7 @@ export default function App() {
         onBlur={commitEdit}
         style={{background:C.bg,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 6px',
           color:C.t1,fontSize:12,width:'100%',outline:'none',
-          fontFamily:type==='number'?'JetBrains Mono,monospace':'inherit'}}/>
+          fontFamily:type==='number'?C.fontData:'inherit'}}/>
     );
 
     const ES = ({field, opts}) => (
@@ -2493,7 +2492,7 @@ export default function App() {
                   <span style={{fontSize:10,fontWeight:700,color:platColor,background:`${platColor}14`,border:`1px solid ${platColor}28`,padding:'2px 7px',borderRadius:3}}>{platLabel}</span>
                 </div>
                 {s.accountName && <div style={{fontSize:12,color:C.t2}}>{s.accountName}</div>}
-                {s.period && <div style={{fontSize:12,color:C.t2,fontFamily:'JetBrains Mono,monospace'}}>{s.period.from} — {s.period.to}</div>}
+                {s.period && <div style={{fontSize:12,color:C.t2,fontFamily:C.fontData}}>{s.period.from} — {s.period.to}</div>}
                 <div style={{display:'flex',alignItems:'center',gap:8,marginTop:7,flexWrap:'wrap'}}>
                   <select value={s.accountType}
                     onChange={e => updateS(s.id,{accountType:e.target.value})}
@@ -2523,7 +2522,7 @@ export default function App() {
               </div>
               <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                 <button onClick={() => idx>0 && setActiveId(reviewable[idx-1].id)} disabled={idx<=0} style={btn('outline')}>← Prev</button>
-                <span style={{fontSize:11,color:C.t2,fontFamily:'JetBrains Mono,monospace',padding:'0 4px'}}>{idx+1}/{reviewable.length}</span>
+                <span style={{fontSize:11,color:C.t2,fontFamily:C.fontData,padding:'0 4px'}}>{idx+1}/{reviewable.length}</span>
                 <button onClick={() => idx<reviewable.length-1 && setActiveId(reviewable[idx+1].id)} disabled={idx>=reviewable.length-1} style={btn('outline')}>Next →</button>
                 {canEdit && <>
                   <Tip text="Mark this statement as rejected. It stays in the list but won't export. You can reverse this at any time." pos="bottom" active={showTips}>
@@ -2608,7 +2607,7 @@ export default function App() {
                     const stmtLabel = s => s ? `${s.bankName||'Bank'}${s.period ? ` · ${s.period.from}–${s.period.to}` : ''}` : '—';
                     return (
                       <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i < dupes.crossPairs.length-1 ? `1px solid ${C.redBrd}` : 'none'}}>
-                        <div style={{fontSize:12,color:C.red,fontFamily:'JetBrains Mono,monospace',marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
+                        <div style={{fontSize:12,color:C.red,fontFamily:C.fontData,marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                           <button onClick={() => { setActiveId(pair.a.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sA)} ↗</button>
                           <button onClick={() => { setActiveId(pair.b.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sB)} ↗</button>
@@ -2624,15 +2623,15 @@ export default function App() {
               <div style={{padding:'9px 14px',fontSize:13,color:C.t3,borderBottom:`1px solid ${C.bdr}`}}>
                 {searchResults.length} match{searchResults.length!==1?'es':''} across all statements
               </div>
-              {searchResults.map(({stmt,tx},i)=>(
-                <div key={i} onClick={()=>{setActiveId(stmt.id);setSearchQ('');}}
+              {searchResults.map(({stmt,tx})=>(
+                <div key={`${stmt.id}:${tx.id}`} onClick={()=>{setActiveId(stmt.id);setSearchQ('');}}
                   style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:`1px solid ${C.bdr}`,cursor:'pointer'}}>
                   <TypeTag type={tx.paymentType}/>
                   <span style={{fontSize:14,fontWeight:500,color:C.t1}}>{tx.payee||tx.description}</span>
-                  <span style={{fontSize:13,color:C.t3,fontFamily:'JetBrains Mono,monospace'}}>{tx.date}</span>
+                  <span style={{fontSize:13,color:C.t3,fontFamily:C.fontData}}>{tx.date}</span>
                   <span style={{fontSize:13,color:C.t3,marginLeft:'auto',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{stmt.bankName||stmt.filename}</span>
-                  {tx.debit!=null && <span style={{fontSize:14,fontWeight:600,color:C.red,fontFamily:'JetBrains Mono,monospace'}}>{fmtCcy(tx.debit)}</span>}
-                  {tx.credit!=null && <span style={{fontSize:14,fontWeight:600,color:C.grn,fontFamily:'JetBrains Mono,monospace'}}>{fmtCcy(tx.credit)}</span>}
+                  {tx.debit!=null && <span style={{fontSize:14,fontWeight:600,color:C.red,fontFamily:C.fontData}}>{fmtCcy(tx.debit)}</span>}
+                  {tx.credit!=null && <span style={{fontSize:14,fontWeight:600,color:C.grn,fontFamily:C.fontData}}>{fmtCcy(tx.credit)}</span>}
                 </div>
               ))}
             </div>
@@ -2654,11 +2653,11 @@ export default function App() {
                 </span>
                 {recCollapsed && (<>
                   <span style={{fontSize:11,color:C.t3}}>·</span>
-                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.t2,whiteSpace:'nowrap'}}>Open {fmtBal(rec.openingBalance)}</span>
-                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.red,whiteSpace:'nowrap'}}>Out {fmtCcy(rec.csvDebitTotal)}</span>
-                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.grn,whiteSpace:'nowrap'}}>In {fmtCcy(rec.csvCreditTotal)}</span>
+                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.t2,whiteSpace:'nowrap'}}>Open {fmtBal(rec.openingBalance)}</span>
+                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.red,whiteSpace:'nowrap'}}>Out {fmtCcy(rec.csvDebitTotal)}</span>
+                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.grn,whiteSpace:'nowrap'}}>In {fmtCcy(rec.csvCreditTotal)}</span>
                   <span style={{fontSize:11,color:C.t3}}>·</span>
-                  <span style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',color:C.t2,whiteSpace:'nowrap'}}>Close {fmtBal(rec.closingBalance)}</span>
+                  <span style={{fontSize:12,fontFamily:C.fontData,color:C.t2,whiteSpace:'nowrap'}}>Close {fmtBal(rec.closingBalance)}</span>
                   <span style={{marginLeft:'auto',fontSize:12,fontWeight:700,whiteSpace:'nowrap',
                     color:rec.reconciled?C.grn:C.red}}>
                     {rec.reconciled ? '✓ Reconciles' : `⚠ £${rec.variance?.toFixed(2)} variance`}
@@ -2686,11 +2685,11 @@ export default function App() {
                           onChange={e => setBalVal(e.target.value)}
                           onKeyDown={e => { if(e.key==='Enter') commitBalEdit(); if(e.key==='Escape') setBalEdit(null); }}
                           onBlur={commitBalEdit}
-                          style={{fontSize:19,fontWeight:600,color:C.t1,fontFamily:'JetBrains Mono,monospace',
+                          style={{fontSize:19,fontWeight:600,color:C.t1,fontFamily:C.fontData,
                             width:'100%',padding:'2px 6px',border:`1px solid ${C.grn}`,borderRadius:5,outline:'none',boxSizing:'border-box'}}/>
                       ) : (
                         <div onClick={() => { if(canEditField){ setBalEdit({sid:s.id,field}); setBalVal(rec[field]==null?'':String(rec[field])); } }}
-                          style={{fontSize:23,fontWeight:700,color,fontFamily:'JetBrains Mono,monospace',cursor:canEditField?'text':'default',letterSpacing:'-0.01em'}}>{val}</div>
+                          style={{fontSize:23,fontWeight:700,color,fontFamily:C.fontData,cursor:canEditField?'text':'default',letterSpacing:'-0.01em'}}>{val}</div>
                       )}
                       {od && <div style={{fontSize:12,color:C.red,marginTop:2}}>overdrawn</div>}
                       {field==='openingBalance' && rec.openingAdjusted && rec.printedOpening!=null && (
@@ -2734,23 +2733,23 @@ export default function App() {
                           ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
                               onBlur={commitBalEdit}
-                              style={{width:90,fontFamily:'JetBrains Mono,monospace',fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                              style={{width:90,fontFamily:C.fontData,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
                           : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsOut'}),setBalVal(String(sOut)))}
-                              style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1,
+                              style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:C.t1,
                                 cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sOut)}</div>}
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:oGap>=0.02?C.red:C.grn}}>{fmtCcy(cDeb)}</div>
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:oGap>=0.02?C.red:C.t3}}>{oGap>=0.02?fmtCcy(oGap):'—'}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:oGap>=0.02?C.red:C.grn}}>{fmtCcy(cDeb)}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:oGap>=0.02?C.red:C.t3}}>{oGap>=0.02?fmtCcy(oGap):'—'}</div>
                         <div style={{fontSize:12,color:C.t2,whiteSpace:'nowrap'}}>Payments in</div>
                         {balEdit?.sid===s.id && balEdit?.field==='statementPaymentsIn'
                           ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
                               onBlur={commitBalEdit}
-                              style={{width:90,fontFamily:'JetBrains Mono,monospace',fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                              style={{width:90,fontFamily:C.fontData,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
                           : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsIn'}),setBalVal(String(sIn)))}
-                              style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:C.t1,
+                              style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:C.t1,
                                 cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sIn)}</div>}
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:iGap>=0.02?C.amb:C.grn}}>{fmtCcy(cCrd)}</div>
-                        <div style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:iGap>=0.02?C.amb:C.t3}}>{iGap>=0.02?fmtCcy(iGap):'—'}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:iGap>=0.02?C.amb:C.grn}}>{fmtCcy(cCrd)}</div>
+                        <div style={{fontSize:13,fontWeight:600,fontFamily:C.fontData,color:iGap>=0.02?C.amb:C.t3}}>{iGap>=0.02?fmtCcy(iGap):'—'}</div>
                       </div>
                     </div>
                   );
@@ -2819,7 +2818,7 @@ export default function App() {
                 <ConfidenceBadge score={score} size="lg" hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                 <span style={{fontSize:15,fontWeight:600,color:C.t1}}>This statement passes every check — reconciled, nothing flagged as unsure, no duplicates.</span>
               </div>
-              <div style={{fontSize:13,color:C.t2,marginBottom:14,fontFamily:'JetBrains Mono,monospace'}}>
+              <div style={{fontSize:13,color:C.t2,marginBottom:14,fontFamily:C.fontData}}>
                 Confidence: {score}/100 · {s.bankName||s.filename} · {atCfg.label} · {platLabel}
                 {s.period && <> · {s.period.from} — {s.period.to}</>} · {txList.length} txn
               </div>
@@ -2871,7 +2870,7 @@ export default function App() {
                   const flip = rec.flipSuggestions?.find(f => f.fromDate === b.fromDate && f.toDate === b.toDate);
                   return (
                     <div key={i} style={{color:C.t1,fontSize:11,marginTop:2}}>
-                      <strong style={{fontFamily:'JetBrains Mono,monospace'}}>£{Math.abs(b.gap).toFixed(2)}</strong> unaccounted between <strong>{b.fromDate}</strong> and <strong>{b.toDate==='closing'?'the closing balance':b.toDate}</strong>
+                      <strong style={{fontFamily:C.fontData}}>£{Math.abs(b.gap).toFixed(2)}</strong> unaccounted between <strong>{b.fromDate}</strong> and <strong>{b.toDate==='closing'?'the closing balance':b.toDate}</strong>
                       {flip ? ' — likely sign flip highlighted in amber below. Accept the suggestion to correct it.' : (b.hint || ' — check this stretch against the statement.')}
                     </div>
                   );
@@ -2895,7 +2894,7 @@ export default function App() {
                 fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                 <span style={{flex:'1 1 320px'}}>
                   💡 The transactions match the statement's own totals, but the opening balance doesn't fit the closing balance.
-                  The <strong style={{fontFamily:'JetBrains Mono,monospace'}}>{fmtBal(rec.openingBalance)}</strong> shown is the balance after the first transaction; the true brought-forward opening is <strong style={{fontFamily:'JetBrains Mono,monospace'}}>{fmtBal(rec.derivedOpening)}</strong>.
+                  The <strong style={{fontFamily:C.fontData}}>{fmtBal(rec.openingBalance)}</strong> shown is the balance after the first transaction; the true brought-forward opening is <strong style={{fontFamily:C.fontData}}>{fmtBal(rec.derivedOpening)}</strong>.
                 </span>
                 <button onClick={() => useDerivedOpening(s.id)} style={{...btn('primary'),padding:'6px 12px',fontSize:12}}>Use {fmtBal(rec.derivedOpening)}</button>
               </div>
@@ -2991,7 +2990,7 @@ export default function App() {
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
                   {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
                     ...(showNominal?['Nominal']:[]),'Notes','Receipt','⚑','✕','↺'].map((h,i) => (
-                    <th key={i} style={{padding:'11px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
+                    <th key={i} scope="col" style={{padding:'11px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
                       color:C.t3,fontWeight:700,fontSize:11,textTransform:'uppercase',letterSpacing:'0.07em',
                       whiteSpace:'nowrap',borderBottom:`2px solid ${C.bdr}`,background:C.surf,fontFamily:C.fontUI}}>
                       {h}
@@ -3009,8 +3008,8 @@ export default function App() {
                   const td      = tdBase(ri, t.flagged || t.ambiguous || isRepeat(t.id) || !!flipSug || hasDataIssue, dp);
                   return (
                     <tr key={t.id}>
-                      <td style={{...td,color:C.t3,fontFamily:'JetBrains Mono,monospace',fontSize:10,textAlign:'center',width:28}}>{ri+1}</td>
-                      <td style={{...td,fontFamily:'JetBrains Mono,monospace',width:88}} onClick={() => canEdit && startEdit(s.id,t.id,'date',t.date)}>
+                      <td style={{...td,color:C.t3,fontFamily:C.fontData,fontSize:10,textAlign:'center',width:28}}>{ri+1}</td>
+                      <td style={{...td,fontFamily:C.fontData,width:88}} onClick={() => canEdit && startEdit(s.id,t.id,'date',t.date)}>
                         {isEd(t.id,'date') ? <EI field="date"/> : t.date}
                       </td>
                       <td style={{...td,width:58}} onClick={() => canEdit && startEdit(s.id,t.id,'paymentType',t.paymentType)}>
@@ -3046,11 +3045,11 @@ export default function App() {
                       <td style={{...td,maxWidth:130}} onClick={() => canEdit && startEdit(s.id,t.id,'payee',t.payee)}>
                         {isEd(t.id,'payee') ? <EI field="payee"/> : <span title={t.payee}>{t.payee}</span>}
                       </td>
-                      <td style={{...td,textAlign:'right',color:t.debit?C.red:C.t3,fontFamily:'JetBrains Mono,monospace',width:78}}
+                      <td style={{...td,textAlign:'right',color:t.debit?C.red:C.t3,fontFamily:C.fontData,width:78}}
                         onClick={() => canEdit && startEdit(s.id,t.id,'debit',t.debit)}>
                         {isEd(t.id,'debit') ? <EI field="debit" type="number"/> : fmtN(t.debit)}
                       </td>
-                      <td style={{...td,textAlign:'right',color:t.credit?C.grn:C.t3,fontFamily:'JetBrains Mono,monospace',width:78}}
+                      <td style={{...td,textAlign:'right',color:t.credit?C.grn:C.t3,fontFamily:C.fontData,width:78}}
                         onClick={() => canEdit && startEdit(s.id,t.id,'credit',t.credit)}>
                         {isEd(t.id,'credit') ? <EI field="credit" type="number"/> : fmtN(t.credit)}
                       </td>
@@ -3060,7 +3059,7 @@ export default function App() {
                         const matched = prtBal != null && expBal != null && Math.abs(prtBal - expBal) < 0.01;
                         const broken  = prtBal != null && expBal != null && !matched;
                         return (
-                          <td style={{...td,textAlign:'right',fontFamily:'JetBrains Mono,monospace',width:100,
+                          <td style={{...td,textAlign:'right',fontFamily:C.fontData,width:100,
                             color: broken ? C.amb : prtBal != null ? C.t1 : C.t3}}>
                             <span>{prtBal != null ? fmtBal(prtBal) : (expBal != null ? fmtBal(expBal) : '—')}</span>
                             {prtBal != null && expBal != null && (
@@ -3081,13 +3080,13 @@ export default function App() {
                           : t.codeSource==='remembered'
                             ? <span style={{display:'flex',alignItems:'center',gap:3}}>
                                 <span style={{fontSize:9,padding:'1px 4px',borderRadius:3,background:C.purDim,color:C.pur,border:`1px solid ${C.purBrd}`,fontWeight:700}}>📌</span>
-                                <span style={{color:C.t1,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{t.nominalCode}</span>
+                                <span style={{color:C.t1,fontFamily:C.fontData,fontSize:11}}>{t.nominalCode}</span>
                               </span>
                             : t.codeSource==='holding'
-                              ? <span style={{color:C.amb,fontFamily:'JetBrains Mono,monospace',fontSize:11}} title="Unrecognised — click to assign a code">{t.nominalCode}</span>
+                              ? <span style={{color:C.amb,fontFamily:C.fontData,fontSize:11}} title="Unrecognised — click to assign a code">{t.nominalCode}</span>
                               : t.codeSource==='edited'
                                 ? <span style={{display:'flex',alignItems:'center',gap:4}}>
-                                    <span style={{color:C.t1,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{t.nominalCode}</span>
+                                    <span style={{color:C.t1,fontFamily:C.fontData,fontSize:11}}>{t.nominalCode}</span>
                                     <span onClick={e=>{e.stopPropagation();toggleRemember(s.id,t.id);}}
                                       style={{fontSize:9,padding:'1px 4px',borderRadius:3,cursor:'pointer',userSelect:'none',
                                         background:t.rememberCode?C.grnDim:'transparent',color:t.rememberCode?C.grn:C.t3,
@@ -3103,7 +3102,7 @@ export default function App() {
                       <td style={{...td,textAlign:'center',width:60}}>
                         {t.receipt ? (
                           <div style={{display:'flex',gap:3,justifyContent:'center'}}>
-                            <button onClick={() => window.open(t.receipt.url,'_blank')}
+                            <button onClick={() => window.open(t.receipt.url,'_blank','noopener,noreferrer')}
                               title={`View: ${t.receipt.filename}`}
                               style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:5,cursor:'pointer',color:C.grn,fontSize:12,padding:'2px 6px',fontWeight:600}}>📎 View</button>
                             <button onClick={() => dlReceipt(t.receipt, t, s)}
@@ -3117,16 +3116,16 @@ export default function App() {
                         ) : null}
                       </td>
                       <td style={{...td,textAlign:'center',width:30}}>
-                        <button onClick={() => toggleFlag(s.id,t.id)}
+                        <button aria-label={t.flagged?'Unflag transaction':'Flag transaction'} onClick={() => toggleFlag(s.id,t.id)}
                           style={{background:'none',border:'none',cursor:'pointer',color:t.flagged?C.amb:C.t3,fontSize:13,padding:'1px 3px'}}>⚑</button>
                       </td>
                       <td style={{...td,textAlign:'center',width:30}}>
-                        {canEdit && <button onClick={() => deleteTx(s.id,t.id)}
+                        {canEdit && <button aria-label="Delete transaction" onClick={() => deleteTx(s.id,t.id)}
                           style={{background:'none',border:'none',cursor:'pointer',color:C.t3,fontSize:12,padding:'1px 3px'}}>✕</button>}
                       </td>
                       <td style={{...td,textAlign:'center',width:30}}>
                         {canEdit && s.editedTransactions && (
-                          <button onClick={() => resetRow(s.id,t.id)} title="Reset this row to original AI extraction"
+                          <button aria-label="Reset row to original AI extraction" onClick={() => resetRow(s.id,t.id)} title="Reset this row to original AI extraction"
                             style={{background:'none',border:'none',cursor:'pointer',color:C.amb,fontSize:13,padding:'1px 3px'}}>↺</button>
                         )}
                       </td>
@@ -3157,7 +3156,7 @@ export default function App() {
                   <span style={{fontSize:11,fontWeight:600,color:C.t2}}>{s.bankName||s.filename} — Original PDF</span>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontSize:10,color:C.t4}}>{pdfSplit}%</span>
-                    <button onClick={() => { setShowPdf(false); setSidebarCollapsed(false); setRecCollapsed(false); setPdfSplit(50); }}
+                    <button aria-label="Close PDF panel" onClick={() => { setShowPdf(false); setSidebarCollapsed(false); setRecCollapsed(false); setPdfSplit(50); }}
                       style={{background:'none',border:'none',cursor:'pointer',color:C.t3,fontSize:16,padding:'0 2px',lineHeight:1}}>×</button>
                   </div>
                 </div>
@@ -3204,28 +3203,28 @@ export default function App() {
           : `${searchResults.length} result${searchResults.length!==1?'s':''} across ${new Set(searchResults.map(r=>r.stmt.id)).size} statement${new Set(searchResults.map(r=>r.stmt.id)).size!==1?'s':''}`}
       </div>
       <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
-        {searchResults.map(({stmt,tx}, i) => (
-          <div key={i} onClick={() => { setActiveId(stmt.id); setTab('audit'); }}
+        {searchResults.map(({stmt,tx}) => (
+          <div key={`${stmt.id}:${tx.id}`} onClick={() => { setActiveId(stmt.id); setTab('audit'); }}
             style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:8,
               border:`1px solid ${C.bdr}`,background:C.card,cursor:'pointer',transition:'all 0.12s'}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:4}}>
                 <TypeTag type={tx.paymentType}/>
                 <span style={{fontSize:12,fontWeight:500,color:C.t1}}>{tx.payee||tx.description}</span>
-                <span style={{fontSize:11,color:C.t3,fontFamily:'JetBrains Mono,monospace'}}>{tx.date}</span>
+                <span style={{fontSize:11,color:C.t3,fontFamily:C.fontData}}>{tx.date}</span>
               </div>
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
                 <span style={{fontSize:11,color:C.t2}}>{stmt.bankName||stmt.filename}</span>
-                {stmt.period && <span style={{fontSize:10,color:C.t3,fontFamily:'JetBrains Mono,monospace'}}>{stmt.period.from}→{stmt.period.to}</span>}
+                {stmt.period && <span style={{fontSize:10,color:C.t3,fontFamily:C.fontData}}>{stmt.period.from}→{stmt.period.to}</span>}
                 {tx.description && tx.description !== tx.payee && (
                   <span style={{fontSize:11,color:C.t3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:200}}>{tx.description}</span>
                 )}
-                {tx.nominalCode && <span style={{fontSize:10,color:C.pur,fontFamily:'JetBrains Mono,monospace'}}>{tx.nominalCode}</span>}
+                {tx.nominalCode && <span style={{fontSize:10,color:C.pur,fontFamily:C.fontData}}>{tx.nominalCode}</span>}
               </div>
             </div>
             <div style={{textAlign:'right',flexShrink:0}}>
-              {tx.debit  != null && <div style={{fontSize:14,fontWeight:600,color:C.red, fontFamily:'JetBrains Mono,monospace'}}>{fmtCcy(tx.debit)}</div>}
-              {tx.credit != null && <div style={{fontSize:14,fontWeight:600,color:C.grn, fontFamily:'JetBrains Mono,monospace'}}>{fmtCcy(tx.credit)}</div>}
+              {tx.debit  != null && <div style={{fontSize:14,fontWeight:600,color:C.red, fontFamily:C.fontData}}>{fmtCcy(tx.debit)}</div>}
+              {tx.credit != null && <div style={{fontSize:14,fontWeight:600,color:C.grn, fontFamily:C.fontData}}>{fmtCcy(tx.credit)}</div>}
             </div>
             <div style={{fontSize:10,color:C.t3,flexShrink:0}}>→ View</div>
           </div>
@@ -3278,7 +3277,7 @@ export default function App() {
                   placeholder="Category or nominal code"
                   style={{border:`1px solid ${row.nominalCode ? C.grnBrd : C.bdrBrt}`,
                     borderRadius:6,padding:'5px 8px',fontSize:12,
-                    fontFamily:'JetBrains Mono,monospace',width:'100%',boxSizing:'border-box',
+                    fontFamily:C.fontData,width:'100%',boxSizing:'border-box',
                     background: row.nominalCode ? C.grnDim : C.card,outline:'none'}}
                 />
               </div>
@@ -3359,7 +3358,7 @@ export default function App() {
           ].map(({label,val,color}) => (
             <div key={label} style={{background:C.card,borderRadius:14,padding:'16px 20px',boxShadow:C.sh2}}>
               <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontFamily:C.fontUI,fontWeight:600}}>{label}</div>
-              <div style={{fontSize:24,fontWeight:700,color,fontFamily:'JetBrains Mono,monospace',letterSpacing:'-0.01em'}}>{val}</div>
+              <div style={{fontSize:24,fontWeight:700,color,fontFamily:C.fontData,letterSpacing:'-0.01em'}}>{val}</div>
             </div>
           ))}
         </div>
@@ -3367,7 +3366,7 @@ export default function App() {
         <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
           {approved.map(s => {
             const rec     = s.reconciliation;
-            const platCol = s.platform==='xero'?'#13B5EA':'#2CA01C';
+            const platCol = s.platform==='xero'?C.xero:C.qbo;
             const platLbl = s.platform==='xero'?'Xero':'QBO';
             const atCfg   = ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current;
             return (
@@ -3379,7 +3378,7 @@ export default function App() {
                   <div style={{fontSize:11,color:C.t2}}>
                     {s.period?.from} – {s.period?.to} · {getTx(s).length} txn · D:{fmtCcy(rec?.csvDebitTotal)} C:{fmtCcy(rec?.csvCreditTotal)}
                   </div>
-                  <div style={{fontSize:10,color:C.t3,marginTop:2,fontFamily:'JetBrains Mono,monospace'}}>{makeName(s)}</div>
+                  <div style={{fontSize:10,color:C.t3,marginTop:2,fontFamily:C.fontData}}>{makeName(s)}</div>
                 </div>
                 <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                   <ConfidenceBadge score={s.confidenceScore}/>
@@ -3469,6 +3468,242 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────────────
   // DASHBOARD
   // ─────────────────────────────────────────────────────────────────────
+  const renderHome = () => (
+    <div style={{height:'100%',overflowY:'auto',boxSizing:'border-box',
+      padding:isTablet?'16px 12px':'20px 28px'}}>
+      <div style={{maxWidth:880,margin:'0 auto'}}>
+
+        {/* Hero */}
+        <div style={{background:C.blu,borderRadius:16,
+          padding:isNarrow?'28px 20px':'36px 44px',marginBottom:24,color:'#fff'}}>
+          <div style={{fontSize:isNarrow?20:26,fontWeight:800,letterSpacing:'-0.02em',
+            marginBottom:8,fontFamily:C.fontUI}}>StatementAudit Pro</div>
+          <div style={{fontSize:isNarrow?13:15,opacity:0.88,marginBottom:24,
+            maxWidth:520,lineHeight:1.65,fontFamily:C.fontUI}}>
+            AI-powered bank statement extraction, review and export — with full human oversight,
+            UK GDPR compliance, and native integration with Xero and QuickBooks Online.
+          </div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            <button onClick={() => setTab('upload')}
+              style={{background:'#fff',color:C.blu,border:'none',borderRadius:8,
+                padding:'9px 20px',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:C.fontUI}}>
+              Upload a Statement →
+            </button>
+            <button onClick={() => setShowHelp(true)}
+              style={{background:'transparent',color:'#fff',
+                border:'1px solid rgba(255,255,255,0.4)',borderRadius:8,
+                padding:'9px 18px',fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:C.fontUI}}>
+              View full guide
+            </button>
+          </div>
+        </div>
+
+        {/* Two Pathways */}
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+            Two Pathways
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:14}}>
+            <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'20px 22px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                <div style={{width:34,height:34,borderRadius:9,background:C.bluDim,display:'flex',
+                  alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📄</div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.t1,fontFamily:C.fontUI,lineHeight:1.3}}>
+                    Pathway 1 — Upload &amp; Review
+                  </div>
+                  <div style={{fontSize:11,color:C.t3,fontFamily:C.fontUI}}>Any bank · any format</div>
+                </div>
+              </div>
+              {['Upload 1–50 PDF bank statements',
+                'AI extracts dates, descriptions & amounts',
+                'Review, edit and flag transactions',
+                'Approve & export to CSV, Xero or QBO'].map((s,i) => (
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:9,marginBottom:8}}>
+                  <span style={{width:18,height:18,borderRadius:'50%',background:C.blu,color:'#fff',
+                    fontSize:10,fontWeight:700,display:'flex',alignItems:'center',
+                    justifyContent:'center',flexShrink:0,marginTop:1}}>{i+1}</span>
+                  <span style={{fontSize:13,color:C.t2,lineHeight:1.5,fontFamily:C.fontUI}}>{s}</span>
+                </div>
+              ))}
+              <button onClick={() => setTab('upload')}
+                style={{marginTop:14,width:'100%',padding:'9px',background:C.blu,color:'#fff',
+                  border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer',
+                  fontFamily:C.fontUI}}>
+                Start Pathway 1 →
+              </button>
+            </div>
+
+            <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'20px 22px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                <div style={{width:34,height:34,borderRadius:9,background:'#E6F8FE',display:'flex',
+                  alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🔗</div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.t1,fontFamily:C.fontUI,lineHeight:1.3}}>
+                    Pathway 2 — Xero Cloud Sync
+                  </div>
+                  <div style={{fontSize:11,color:C.t3,fontFamily:C.fontUI}}>Empty periods only · human approval</div>
+                </div>
+              </div>
+              {['Connect to Xero via secure OAuth (PKCE)',
+                'Pull statement periods with zero existing entries',
+                'AI prepares journal entries for your review',
+                'Human approval required — no auto-posting, ever'].map((s,i) => (
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:9,marginBottom:8}}>
+                  <span style={{width:18,height:18,borderRadius:'50%',background:C.xero,color:'#fff',
+                    fontSize:10,fontWeight:700,display:'flex',alignItems:'center',
+                    justifyContent:'center',flexShrink:0,marginTop:1}}>{i+1}</span>
+                  <span style={{fontSize:13,color:C.t2,lineHeight:1.5,fontFamily:C.fontUI}}>{s}</span>
+                </div>
+              ))}
+              <button onClick={() => setTab('export')}
+                style={{marginTop:14,width:'100%',padding:'9px',background:C.xero,color:'#fff',
+                  border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer',
+                  fontFamily:C.fontUI}}>
+                Connect Xero in Export tab →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Who it supports */}
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+            Who This Supports
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr 1fr':'repeat(4,1fr)',gap:12}}>
+            {[
+              {icon:'🧮',title:'Bookkeepers',desc:'Process client statements efficiently with an AI-assisted workflow'},
+              {icon:'🏢',title:'Accounting Practices',desc:'Batch up to 50 statements — multiple clients, one session'},
+              {icon:'📊',title:'Finance Managers',desc:'Reconcile bank data against your ledger with a full audit trail'},
+              {icon:'🏪',title:'Sole Traders',desc:'Simple CSV or direct import to Xero or QuickBooks Online'},
+            ].map(({icon,title,desc}) => (
+              <div key={title} style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:10,
+                padding:'16px 14px',textAlign:'center'}}>
+                <div style={{fontSize:24,marginBottom:9}}>{icon}</div>
+                <div style={{fontSize:12,fontWeight:700,color:C.t1,marginBottom:5,fontFamily:C.fontUI}}>{title}</div>
+                <div style={{fontSize:11,color:C.t3,lineHeight:1.55,fontFamily:C.fontUI}}>{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* What you get */}
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+            What You Get
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:10}}>
+            {[
+              {icon:'🤖',title:'AI Extraction',desc:'Dates, descriptions, amounts and running balances extracted automatically from PDF'},
+              {icon:'✅',title:'Human Approval Gate',desc:'Every export and post to a ledger requires your explicit approval — nothing is automatic'},
+              {icon:'💱',title:'FX Detection',desc:'Foreign currency transactions flagged with reference exchange rates for your records'},
+              {icon:'🧠',title:'Payee Memory',desc:'Rules built from your corrections — the system gets smarter with every statement processed'},
+              {icon:'📦',title:'Batch Processing',desc:'Upload and process up to 50 statements per session across multiple bank accounts'},
+              {icon:'🔗',title:'Xero + QBO Export',desc:'Native chart of accounts mapping and direct cloud export to Xero or QuickBooks Online'},
+            ].map(({icon,title,desc}) => (
+              <div key={title} style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:10,
+                padding:'14px 16px',display:'flex',gap:12,alignItems:'flex-start'}}>
+                <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{icon}</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:C.t1,marginBottom:3,fontFamily:C.fontUI}}>{title}</div>
+                  <div style={{fontSize:12,color:C.t3,lineHeight:1.55,fontFamily:C.fontUI}}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Compliance & Data */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+            Compliance &amp; Data
+          </div>
+          <div style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:12,padding:'20px 24px'}}>
+            <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:10,marginBottom:14}}>
+              {[
+                'UK GDPR / DPA 2018 compliant',
+                'EEA-hosted infrastructure (Render, Frankfurt region)',
+                'Anthropic Data Processing Framework applied',
+                'Statements processed in browser memory only',
+                'No client data stored on our servers',
+                'No data sent to AI without your explicit action',
+                'OAuth tokens held in session only — not persisted',
+                'Human approval required before any data export or post',
+              ].map(s => (
+                <div key={s} style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                  <span style={{color:C.grn,fontSize:13,flexShrink:0,marginTop:2,fontWeight:700}}>✓</span>
+                  <span style={{fontSize:12,color:C.t2,lineHeight:1.55,fontFamily:C.fontUI}}>{s}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:11,color:C.t3,lineHeight:1.6,fontFamily:C.fontUI,
+              borderTop:`1px solid ${C.grnBrd}`,paddingTop:12}}>
+              Compliance gate: no real client data may be processed until JOIC registration, Render DPA,
+              Anthropic DPF, Privacy Policy, Customer DPA, RoPA and Breach Procedure are complete.
+              Contact <a href="mailto:support@statementaudit.pro"
+                style={{color:C.grn,textDecoration:'none',fontWeight:600}}>support@statementaudit.pro</a> for status.
+            </div>
+          </div>
+        </div>
+
+        {/* Data Saving Warning */}
+        <div style={{marginBottom:20}}>
+          <div style={{background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:12,padding:'20px 24px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+              <span style={{fontSize:16}}>⚠️</span>
+              <span style={{fontSize:14,fontWeight:700,color:C.amb,fontFamily:C.fontUI}}>
+                Saving Your Data — Important
+              </span>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[
+                'Sessions are not retained after you close the browser tab — always export your work before closing.',
+                'Save statement exports and CSV files to your own secure local drive or approved cloud storage.',
+                'Use the Cloud Backup feature (☁ toolbar icon) to save work-in-progress to OneDrive or Google Drive.',
+                'Never share bank statement files or extracted transaction data with unauthorised parties.',
+                'This app is for use by the account holder or their appointed, authorised agent only.',
+              ].map((s,i) => (
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:9}}>
+                  <span style={{color:C.amb,fontSize:11,flexShrink:0,marginTop:3,fontWeight:700}}>•</span>
+                  <span style={{fontSize:13,color:C.t2,lineHeight:1.55,fontFamily:C.fontUI}}>{s}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Quickstart */}
+        <div style={{marginBottom:32}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+            Quickstart
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr 1fr':'repeat(4,1fr)',gap:12}}>
+            {[
+              {n:1,title:'Upload',desc:'Drop your PDF bank statement on the Upload page or browse to select a file',tab:'upload'},
+              {n:2,title:'Process',desc:'The queue runs AI extraction — click "Extract" to parse each statement',tab:'queue'},
+              {n:3,title:'Review',desc:'Check, edit, flag and approve every transaction in the audit table',tab:'audit'},
+              {n:4,title:'Export',desc:'Download as CSV or post directly to Xero or QBO — one click per statement',tab:'export'},
+            ].map(({n,title,desc,tab:t}) => (
+              <div key={n} onClick={() => setTab(t)}
+                style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:10,
+                  padding:'16px 14px',cursor:'pointer',transition:'border-color 0.15s,box-shadow 0.15s'}}
+                onMouseEnter={e => {e.currentTarget.style.borderColor=C.blu;e.currentTarget.style.boxShadow=C.sh2;}}
+                onMouseLeave={e => {e.currentTarget.style.borderColor=C.bdr;e.currentTarget.style.boxShadow='none';}}>
+                <div style={{width:28,height:28,borderRadius:'50%',background:C.blu,color:'#fff',
+                  fontSize:13,fontWeight:700,display:'flex',alignItems:'center',
+                  justifyContent:'center',marginBottom:10}}>{n}</div>
+                <div style={{fontSize:13,fontWeight:700,color:C.t1,marginBottom:5,fontFamily:C.fontUI}}>{title}</div>
+                <div style={{fontSize:11,color:C.t3,lineHeight:1.55,fontFamily:C.fontUI}}>{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+
   const renderDashboard = () => {
     const fmtDate = ts => { const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); };
     return (
@@ -3543,6 +3778,13 @@ export default function App() {
   const isNarrow = windowWidth < 840;
 
   const PAGE_GUIDES = {
+    home: { title:'About this app', steps:[
+      'StatementAudit Pro extracts bank transactions from PDF statements using AI.',
+      'Pathway 1: Upload PDFs → AI extracts → Review & approve → Export CSV/Xero/QBO.',
+      'Pathway 2: Connect Xero → select empty statement periods → review → post with approval.',
+      'Sessions are temporary — always export or cloud-backup your work before closing.',
+      'Questions? Open the Help panel (? toolbar) or email support@statementaudit.pro.',
+    ]},
     upload: { title:'How to Upload Statements', steps:[
       'Drag & drop one or more bank statement PDFs onto the upload area, or click "Browse files".',
       'Each file is parsed locally in your browser — no data leaves your device at this stage.',
@@ -3603,6 +3845,7 @@ export default function App() {
   ];
 
   const navItems = [
+    {id:'home',   n:'⌂', label:'Home',    badge:null},
     {id:'upload', n:'1', label:'Upload',  badge:null},
     {id:'queue',  n:'2', label:'Process', badge:stmts.length||null},
     {id:'audit',  n:'3', label:'Review',  badge:cnts.review||null},
@@ -3797,6 +4040,7 @@ export default function App() {
             {navItems.map((n, i) => {
               const on = tab===n.id; const done = stepDone(n.id);
               const tip = {
+                home:  'Home — app overview, pathways, compliance info and quickstart.',
                 upload:'Step 1 — Drop PDF bank statements here.',
                 queue: 'Step 2 — Run the AI extraction engine on queued files.',
                 audit: 'Step 3 — Check, edit, and approve each statement.',
@@ -3848,7 +4092,8 @@ export default function App() {
         </div>
 
         {/* Content */}
-        <div style={{flex:1,overflow:'hidden',padding:tab==='dash'?0:isTablet?12:18}}>
+        <div style={{flex:1,overflow:'hidden',padding:(tab==='dash'||tab==='home')?0:isTablet?12:18}}>
+          {tab==='home'   && renderHome()}
           {tab==='upload' && renderUpload()}
           {tab==='queue'  && renderQueue()}
           {tab==='audit'  && renderAudit()}
@@ -3868,7 +4113,7 @@ export default function App() {
             <div onClick={e => e.stopPropagation()}
               style={{width:380,maxWidth:'95vw',height:'100vh',background:'#FFFFFF',
                 display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(107,100,114,0.22)'}}>
-              <div style={{background:'#2677CC',padding:'20px 24px 16px',flexShrink:0}}>
+              <div style={{background:C.blu,padding:'20px 24px 16px',flexShrink:0}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                   <div>
                     <div style={{fontSize:18,fontWeight:700,color:'#fff',fontFamily:C.fontUI}}>
@@ -3878,7 +4123,7 @@ export default function App() {
                       Quick-start guide · {guide.steps.length} steps
                     </div>
                   </div>
-                  <button onClick={() => setShowPageGuide(false)}
+                  <button aria-label="Close page guide" onClick={() => setShowPageGuide(false)}
                     style={{background:'transparent',border:'none',color:'rgba(255,255,255,0.85)',
                       fontSize:22,cursor:'pointer',lineHeight:1,padding:'2px 4px'}}>✕</button>
                 </div>
@@ -3903,8 +4148,8 @@ export default function App() {
                 background:'#F8F9FA',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <span style={{fontSize:12,color:C.t3,fontFamily:C.fontUI}}>Need more help?</span>
                 <button onClick={() => { setShowPageGuide(false); setShowHelp(true); }}
-                  style={{fontSize:12,fontWeight:600,color:'#2677CC',background:'transparent',
-                    border:'1px solid #2677CC',borderRadius:4,padding:'5px 12px',cursor:'pointer',
+                  style={{fontSize:12,fontWeight:600,color:C.blu,background:'transparent',
+                    border:`1px solid ${C.blu}`,borderRadius:4,padding:'5px 12px',cursor:'pointer',
                     fontFamily:C.fontUI}}>
                   Open Help panel →
                 </button>
@@ -3939,7 +4184,7 @@ export default function App() {
                     <div style={{fontSize:19,fontWeight:700,color:C.t1}}>Activity Log</div>
                     <div style={{fontSize:12,color:C.t3,marginTop:2}}>This session only — {events.length} event{events.length!==1?'s':''}</div>
                   </div>
-                  <button onClick={() => setShowActivity(false)}
+                  <button aria-label="Close activity log" onClick={() => setShowActivity(false)}
                     style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:8,color:C.t3,fontSize:18,cursor:'pointer',width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
                 </div>
               </div>
@@ -3950,7 +4195,7 @@ export default function App() {
                   const cfg = EVENT_CFG[ev.type];
                   const proj = projects.find(p => p.id === (ev.stmt.projectId||'default'));
                   return (
-                    <div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'10px 0',borderBottom:`1px solid ${C.bdr}`}}>
+                    <div key={`${ev.ts}:${ev.type}:${ev.stmt.id}`} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'10px 0',borderBottom:`1px solid ${C.bdr}`}}>
                       <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#fff',background:cfg.color,marginTop:1}}>{cfg.icon}</div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:600,color:C.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
@@ -3989,14 +4234,14 @@ export default function App() {
               <button onClick={() => setShowShortcuts(false)} style={{background:'none',border:'none',color:C.t3,fontSize:18,cursor:'pointer',padding:0}}>×</button>
             </div>
             {[
-              ['A','Approve &amp; export current statement'],
+              ['A','Approve & export current statement'],
               ['R','Reject current statement'],
               ['← →','Navigate between statements'],
               ['?','Toggle this overlay'],
             ].map(([k,d]) => (
               <div key={k} style={{display:'flex',alignItems:'center',gap:12,padding:'7px 0',borderBottom:`1px solid ${C.bdr}`}}>
-                <kbd style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:5,padding:'2px 9px',fontSize:13,fontWeight:600,color:C.t1,fontFamily:'JetBrains Mono,monospace',minWidth:32,textAlign:'center',flexShrink:0}}>{k}</kbd>
-                <span style={{fontSize:13,color:C.t2}} dangerouslySetInnerHTML={{__html:d}}/>
+                <kbd style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:5,padding:'2px 9px',fontSize:13,fontWeight:600,color:C.t1,fontFamily:C.fontData,minWidth:32,textAlign:'center',flexShrink:0}}>{k}</kbd>
+                <span style={{fontSize:13,color:C.t2}}>{d}</span>
               </div>
             ))}
             <div style={{fontSize:11,color:C.t4,marginTop:14}}>Shortcuts active in Review tab when no input is focused.</div>
@@ -4455,7 +4700,7 @@ export default function App() {
                     <div style={{fontSize:18,fontWeight:700,color:'#fff'}}>StatementAudit Help</div>
                     <div style={{fontSize:12,color:'rgba(255,255,255,0.7)',marginTop:2}}>Guides &amp; FAQs</div>
                   </div>
-                  <button onClick={() => setShowHelp(false)}
+                  <button aria-label="Close Help panel" onClick={() => setShowHelp(false)}
                     style={{background:'rgba(255,255,255,0.15)',border:'none',color:'#fff',fontSize:20,cursor:'pointer',
                       width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
                 </div>
@@ -4476,15 +4721,15 @@ export default function App() {
                         borderBottom:`1px solid #EBEBEB`,marginBottom:0}}>{sec.section}</div>
                       {sec.items.map(item => (
                         <div key={item.q} style={{borderBottom:'1px solid #EBEBEB',padding:'16px 24px'}}>
-                          <div style={{fontSize:14,fontWeight:600,color:'#0077C5',
+                          <div style={{fontSize:14,fontWeight:600,color:C.blu,
                             fontFamily:C.fontUI,lineHeight:1.4,marginBottom:2}}>
                             {item.q}
                           </div>
-                          <div style={{fontSize:12,fontWeight:700,color:'#393a3d',
+                          <div style={{fontSize:12,fontWeight:700,color:C.t1,
                             fontFamily:C.fontUI,marginBottom:6}}>
                             by StatementAudit Pro
                           </div>
-                          <div style={{fontSize:13,color:'#393a3d',lineHeight:1.65,fontFamily:C.fontUI}}>
+                          <div style={{fontSize:13,color:C.t1,lineHeight:1.65,fontFamily:C.fontUI}}>
                             {item.platforms ? (() => {
                               const xeroFirst = helpQuery.toLowerCase().includes('xero');
                               const ordered = xeroFirst ? [...item.platforms].reverse() : item.platforms;
@@ -4596,6 +4841,9 @@ export default function App() {
                     {feedbackSending ? 'Sending…' : 'Send'}
                   </button>
                 </div>
+                <div style={{fontSize:11,color:C.t3,marginTop:8,lineHeight:1.5}}>
+                  Sent via Formspree. Do not include client data or account numbers.
+                </div>
               </div>
             )}
           </div>
@@ -4623,7 +4871,7 @@ export default function App() {
               style={{width:'100%',boxSizing:'border-box',padding:'13px 16px',fontSize:17,
                 fontWeight:700,letterSpacing:'0.12em',textAlign:'center',
                 border:`2px solid ${trialCodeError ? C.red : C.bdr}`,borderRadius:10,outline:'none',
-                color:C.t1,fontFamily:'JetBrains Mono,monospace',marginBottom:trialCodeError?6:14,
+                color:C.t1,fontFamily:C.fontData,marginBottom:trialCodeError?6:14,
                 background:C.surf,transition:'border-color 0.15s'}}
             />
             {trialCodeError && (
@@ -4641,7 +4889,7 @@ export default function App() {
             </button>
             <div style={{fontSize:12,color:C.t4}}>
               No code?{' '}
-              <a href="mailto:csmm1964@gmail.com?subject=StatementAudit Pro — Demo Access Request"
+              <a href="mailto:support@statementaudit.pro?subject=StatementAudit Pro — Demo Access Request"
                 style={{color:C.blu,textDecoration:'none',fontWeight:500}}>
                 Request demo access →
               </a>
@@ -4773,14 +5021,14 @@ export default function App() {
                     {XERO_CLIENT_ID && (
                       <button onClick={startXeroCoaAuth}
                         title="Connect your Xero Chart of Accounts"
-                        style={{...btn('outline'),padding:'3px 9px',fontSize:11,color:'#13B5EA',borderColor:'#13B5EA'}}>
+                        style={{...btn('outline'),padding:'3px 9px',fontSize:11,color:C.xero,borderColor:C.xero}}>
                         Connect Xero
                       </button>
                     )}
                     {QBO_CLIENT_ID && (
                       <button onClick={startQboCoaAuth}
                         title="Connect your QuickBooks Chart of Accounts"
-                        style={{...btn('outline'),padding:'3px 9px',fontSize:11,color:'#2CA01C',borderColor:'#2CA01C'}}>
+                        style={{...btn('outline'),padding:'3px 9px',fontSize:11,color:C.qbo,borderColor:C.qbo}}>
                         Connect QBO
                       </button>
                     )}
@@ -4856,7 +5104,7 @@ export default function App() {
                         borderBottom:`1px solid ${C.bdr}`,transition:'background 0.1s'}}>
                       <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
                         padding:'6px 24px',alignItems:'start'}}>
-                      <div style={{fontSize:11,color:C.t3,fontFamily:'JetBrains Mono,monospace'}}>{l.date}</div>
+                      <div style={{fontSize:11,color:C.t3,fontFamily:C.fontData}}>{l.date}</div>
                       <div style={{paddingRight:8,display:'flex',flexDirection:'column',gap:3,overflow:'hidden'}}>
                         <div style={{display:'flex',alignItems:'center',gap:4,minWidth:0}}>
                           <input value={l.payee||''}
@@ -4879,7 +5127,7 @@ export default function App() {
                             border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t3,fontSize:11,
                             fontFamily:C.fontUI,outline:'none',boxSizing:'border-box'}}/>
                       </div>
-                      <div style={{fontSize:12,fontFamily:'JetBrains Mono,monospace',
+                      <div style={{fontSize:12,fontFamily:C.fontData,
                         textAlign:'right',color:isPos ? C.grn : C.red}}>{amt}</div>
                       <div style={{paddingLeft:8}}>
                         <input value={l.code} list="sa-chart-datalist"
@@ -4888,7 +5136,7 @@ export default function App() {
                           style={{width:'100%',padding:'4px 8px',background:C.bg,
                             border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
                             borderRadius:6,color:C.t1,fontSize:12,
-                            fontFamily:'JetBrains Mono,monospace',outline:'none',boxSizing:'border-box'}}/>
+                            fontFamily:C.fontData,outline:'none',boxSizing:'border-box'}}/>
                         {(() => {
                           const key = normKey(l.payee, l.description);
                           const sug = !l.fromMemory && key && codingSuggestions[key];
@@ -4967,7 +5215,7 @@ export default function App() {
                               onChange={e => updateCodingLine(l.id||i, {fxRate: e.target.value})}
                               placeholder="e.g. 1.2650"
                               style={{width:90,padding:'2px 6px',background:C.bg,border:'1px solid #C9B8FF',
-                                borderRadius:5,color:C.t1,fontSize:11,fontFamily:'JetBrains Mono,monospace',outline:'none'}}/>
+                                borderRadius:5,color:C.t1,fontSize:11,fontFamily:C.fontData,outline:'none'}}/>
                             <button
                               onClick={async () => {
                                 const isoDate = txDateToISO(l.date);
@@ -5044,7 +5292,7 @@ export default function App() {
               Get in touch to unlock full access.
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:20}}>
-              <a href="mailto:csmm1964@gmail.com?subject=StatementAudit Pro — Full Access Request"
+              <a href="mailto:support@statementaudit.pro?subject=StatementAudit Pro — Full Access Request"
                 style={{display:'block',padding:'13px',background:C.blu,color:'#fff',borderRadius:10,
                   fontSize:14,fontWeight:700,textDecoration:'none',transition:'opacity 0.15s'}}
                 onMouseEnter={e => e.currentTarget.style.opacity='0.88'}
