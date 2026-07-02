@@ -189,15 +189,19 @@ const C = {
 
 ---
 
+## Completed Design Work (all items resolved 2026-07-02)
+
+- [x] **Tabular-nums sweep** — `...C.num` on all amount/balance/figure elements (commit 7ed96a0)
+- [x] **Amount column right-alignment** — `textAlign:'right'` on debit/credit/balance columns
+- [x] **Border colour sweep** — `bdr:#E2E8F0`, `bdrBrt:#CBD5E1`, `surf:#F8FAFC`
+- [x] **Google/Microsoft tokens** — `C.google:'#4285F4'`, `C.microsoft:'#0078D4'` (fixed self-ref bug in 34cbce3)
+- [x] **Spacing rhythm audit** — all gap/margin/padding values aligned to 4/8/16/24/32/48px (commit 34cbce3)
+- [x] **QBO-style statement cards** — border-radius normalised (badge:4, button/input:8, card:10-12, modal:16); sidebar item padding:8px; export stat cards borderRadius:12 (commit 34cbce3)
+
 ## Pending Design Work
 
-1. **Tabular-nums sweep** — `...C.num` on all amount/balance/figure elements
-2. **Amount column right-alignment** — `textAlign:'right'` on debit/credit/balance `<td>`
-3. **Border colour sweep** — `bdr:#E2E8F0`, `bdrBrt:#CBD5E1`, `surf:#F8FAFC`
-4. **Google/Microsoft in cloud provider UI** — replace `'#4285F4'`/`'#0078D4'` with `C.google`/`C.microsoft`
-5. **Spacing rhythm audit** — ensure card padding is consistently 16/24px, row padding 8/12px
-6. **QBO-style statement cards** — review status badge and card hover states for consistency
+*None — all design system items resolved as of 2026-07-02.*
 
 ---
 
-*Last updated: 2026-07-02 — all Design Token items complete. Pending: spacing rhythm audit, QBO card consistency sweep.*
+*Last updated: 2026-07-02 — complete design system shipped. C.google self-reference bug fixed. Full 8px rhythm enforced across 580 changed lines.*

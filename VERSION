@@ -5,5 +5,5 @@ expected_lines: 5398
 model_pinned: claude-sonnet-4-6
 max_tokens: 32000
 json_extractor: robust indexOf/lastIndexOf (NO assistant prefill)
-last_resolved: Design token sweep — C.num tabular-nums, QBO border colours, google/microsoft tokens, ux-blueprint.md checkpoint (2026-07-02)
+last_resolved: Spacing rhythm audit + C.google/microsoft self-ref fix — full 8px grid, border-radius normalised, QBO card consistency (34cbce3)
 open_item: Job: Capture HSBC Balance column; Job 4 parser robustness; scenario 1 upload-time dupe deferred
