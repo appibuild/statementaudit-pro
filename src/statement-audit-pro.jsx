@@ -13,7 +13,7 @@ const C = {
   pur:'#7A5AF0', purDim:'#EEEAFD', purBrd:'#D2C7F7',
   t1:'#0F1B2D', t2:'#475467', t3:'#606B78', t4:'#C8D0DC',
   sh1:'0 1px 4px rgba(15,27,45,0.06)', sh2:'0 4px 16px rgba(15,27,45,0.08)', sh3:'0 8px 32px rgba(15,27,45,0.13)',
-  xero:'#13B5EA', qbo:'#2CA01C', google:C.google, microsoft:C.microsoft,
+  xero:'#13B5EA', qbo:'#2CA01C', google:'#4285F4', microsoft:'#0078D4',
   fontUI:  'Plus Jakarta Sans, system-ui, sans-serif',
   fontData:'JetBrains Mono, monospace',
   num: { fontFamily:'JetBrains Mono, monospace', fontVariantNumeric:'tabular-nums' },
@@ -2152,7 +2152,7 @@ export default function App() {
 
   // ── Style helpers ──────────────────────────────────────────────────────
   const btn = (v, dis=false) => {
-    const base = { padding:'10px 18px', borderRadius:10, fontWeight:600, fontSize:14, cursor:dis?'not-allowed':'pointer',
+    const base = { padding:'8px 16px', borderRadius:10, fontWeight:600, fontSize:14, cursor:dis?'not-allowed':'pointer',
       border:'none', transition:'all 0.15s', opacity:dis?0.5:1, fontFamily:C.fontUI, lineHeight:1.4 };
     const vs = {
       primary: { background:C.grn, color:'#fff', boxShadow:dis?'none':'0 2px 8px rgba(15,169,104,0.24)' },
@@ -2172,7 +2172,7 @@ export default function App() {
 
   const TypeTag = ({type}) => {
     const col = TYPE_COL[type]||C.t2;
-    return <span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:'0.07em',
+    return <span style={{padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:'0.07em',
       background:`${col}16`,color:col}}>{type}</span>;
   };
 
@@ -2204,17 +2204,17 @@ export default function App() {
   const renderUpload = () => (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:24}}>
       {/* Page title */}
-      <div style={{flexShrink:0,marginBottom:14}}>
+      <div style={{flexShrink:0,marginBottom:16}}>
         <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Upload Statements</div>
-        <div style={{fontSize:12,color:C.t2,marginTop:3}}>Drag & drop PDF bank statements to get started</div>
+        <div style={{fontSize:12,color:C.t2,marginTop:4}}>Drag & drop PDF bank statements to get started</div>
       </div>
       {/* Pre-upload configuration — matches simple converter pattern */}
       <div style={{display:'flex',gap:16,alignItems:'flex-end',justifyContent:'center',flexWrap:'wrap'}}>
         <div>
-          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Account Type</div>
+          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8}}>Account Type</div>
           <Tip text="Set this before processing. Current Account, Credit Card, Savings, etc. — tells the AI which debit/credit conventions to apply when reading the PDF." pos="bottom" active={showTips}>
           <select value={uploadDefaultType} onChange={e => setUploadDefaultType(e.target.value)}
-            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
+            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:8,padding:'8px 16px',
               color:ACCOUNT_TYPES[uploadDefaultType]?.color||C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
               fontFamily:C.fontUI,fontWeight:500}}>
             {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -2222,10 +2222,10 @@ export default function App() {
           </Tip>
         </div>
         <div>
-          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Export To</div>
+          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8}}>Export To</div>
           <Tip text="Choose your accounting platform — this determines which CSV format is produced on export. Xero unlocks Pathway 2 (Code & Create) for empty periods." pos="bottom" active={showTips}>
           <select value={uploadDefaultPlatform} onChange={e => { setUploadDefaultPlatform(e.target.value); localStorage.setItem('sa_defaultPlatform', e.target.value); }}
-            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
+            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:8,padding:'8px 16px',
               color:uploadDefaultPlatform==='xero'?C.xero:C.qbo,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
               fontFamily:C.fontUI,fontWeight:500}}>
             <option value="qbo">QuickBooks Online</option>
@@ -2234,10 +2234,10 @@ export default function App() {
           </Tip>
         </div>
         <div>
-          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>Tax Jurisdiction</div>
+          <div style={{fontSize:11,color:C.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8}}>Tax Jurisdiction</div>
           <Tip text="Sets the tax treatment options in Code & Create. UK VAT shows Standard 20%/Reduced 5%/Zero/Exempt/Outside Scope. Jersey shows GST (Standard 5%/Zero/Exempt/ISE/Outside Scope). 'Other' hides the tax column." pos="bottom" active={showTips}>
           <select value={uploadDefaultJurisdiction} onChange={e => { setUploadDefaultJurisdiction(e.target.value); localStorage.setItem('sa_defaultJurisdiction', e.target.value); }}
-            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:9,padding:'10px 14px',
+            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:8,padding:'8px 16px',
               color:C.t1,fontSize:13,outline:'none',cursor:'pointer',minWidth:190,
               fontFamily:C.fontUI,fontWeight:500}}>
             <option value="uk">United Kingdom (VAT)</option>
@@ -2251,7 +2251,7 @@ export default function App() {
         onDrop={e=>{e.preventDefault();setDragging(false);addFiles(e.dataTransfer.files);}}
         onClick={() => fileInputRef.current?.click()}
         style={{width:'100%',maxWidth:520,border:`2px dashed ${dragging?C.grn:C.bdrBrt}`,borderRadius:16,
-          padding:'52px 40px',textAlign:'center',cursor:'pointer',
+          padding:'48px',textAlign:'center',cursor:'pointer',
           background:dragging?C.grnDim:C.card,transition:'all 0.2s',
           boxShadow:dragging?`0 0 0 4px ${C.grnBrd}, ${C.sh2}`:C.sh2}}>
         <div style={{fontSize:40,marginBottom:12}}>📄</div>
@@ -2286,11 +2286,11 @@ export default function App() {
   // QUEUE
   // ─────────────────────────────────────────────────────────────────────
   const renderQueue = () => (
-    <div style={{display:'flex',flexDirection:'column',height:'100%',gap:14}}>
+    <div style={{display:'flex',flexDirection:'column',height:'100%',gap:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
         <div>
           <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Processing Queue</div>
-          <div style={{fontSize:12,color:C.t2,marginTop:3}}>
+          <div style={{fontSize:12,color:C.t2,marginTop:4}}>
             {stmts.length} file{stmts.length!==1?'s':''} · Set account type and platform before processing · Max 50 files
           </div>
         </div>
@@ -2314,23 +2314,23 @@ export default function App() {
       </div>
 
       {selIds.size > 0 && (
-        <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0,padding:'9px 14px',borderRadius:9,
+        <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0,padding:'8px 16px',borderRadius:8,
           background:C.bluDim,border:`1px solid ${C.bluBrd}`,flexWrap:'wrap'}}>
           <span style={{fontSize:13,fontWeight:600,color:C.blu}}>{selIds.size} selected</span>
-          <button onClick={runSelected} disabled={running} style={{...btn('primary',running),padding:'6px 12px',fontSize:12}}>↻ Run selected</button>
+          <button onClick={runSelected} disabled={running} style={{...btn('primary',running),padding:'8px 12px',fontSize:12}}>↻ Run selected</button>
           <span style={{fontSize:12,color:C.t2}}>Set type:</span>
           <select defaultValue="" onChange={e => { if(e.target.value){ setTypeForSelected(e.target.value); e.target.value=''; } }}
-            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:6,padding:'5px 8px',color:C.t1,fontSize:12,outline:'none',cursor:'pointer'}}>
+            style={{background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:8,padding:'4px 8px',color:C.t1,fontSize:12,outline:'none',cursor:'pointer'}}>
             <option value="">Choose…</option>
             {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <button onClick={clearSel} style={{...btn('outline'),padding:'6px 12px',fontSize:12}}>Clear</button>
+          <button onClick={clearSel} style={{...btn('outline'),padding:'8px 12px',fontSize:12}}>Clear</button>
         </div>
       )}
 
       {stmts.length > 0 && (
         <div style={{display:'grid',gridTemplateColumns:'28px 1fr 155px 140px 85px 90px',gap:8,
-          padding:'5px 12px',fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',flexShrink:0,alignItems:'center'}}>
+          padding:'4px 12px',fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',flexShrink:0,alignItems:'center'}}>
           <input type="checkbox" aria-label="Select all statements"
             checked={(() => { const sel = stmts.filter(s => s.status !== 'processing'); return sel.length > 0 && sel.every(s => selIds.has(s.id)); })()}
             onChange={e => setSelIds(e.target.checked
@@ -2341,7 +2341,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
+      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:4}}>
         {stmts.map(s => {
           const locked   = s.status === 'processing'; // only actively processing rows are unselectable
           const editLock = ['processing','approved'].includes(s.status); // dropdowns still locked on approved
@@ -2360,13 +2360,13 @@ export default function App() {
                 {s.error   && <div style={{fontSize:11,color:C.red,marginTop:2}}>⚠ {s.error}</div>}
                 {s.rawResponse && (
                   <div style={{marginTop:4}}>
-                    <button onClick={() => toggleRaw(s.id)} style={{fontSize:10,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>
+                    <button onClick={() => toggleRaw(s.id)} style={{fontSize:10,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>
                       {showRaw.has(s.id) ? 'Hide raw response' : 'Show raw response'}
                     </button>
                     {showRaw.has(s.id) && (
                       <div style={{marginTop:4,position:'relative'}}>
-                        <pre style={{margin:0,fontSize:10,color:C.t2,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'8px',maxHeight:160,overflowY:'auto',...C.num,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{s.rawResponse}</pre>
-                        <button onClick={() => navigator.clipboard.writeText(s.rawResponse)} style={{position:'absolute',top:4,right:4,fontSize:10,color:C.t3,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Copy</button>
+                        <pre style={{margin:0,fontSize:10,color:C.t2,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'8px',maxHeight:160,overflowY:'auto',...C.num,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{s.rawResponse}</pre>
+                        <button onClick={() => navigator.clipboard.writeText(s.rawResponse)} style={{position:'absolute',top:4,right:4,fontSize:10,color:C.t3,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>Copy</button>
                       </div>
                     )}
                   </div>
@@ -2374,15 +2374,15 @@ export default function App() {
               </div>
               <select value={s.accountType} disabled={editLock}
                 onChange={e => updateS(s.id,{accountType:e.target.value})}
-                style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'5px 8px',
+                style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'4px 8px',
                   color:ACCOUNT_TYPES[s.accountType]?.color||C.t1,fontSize:11,outline:'none',
                   cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
                 {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}>
                 <select value={s.platform} disabled={editLock}
                   onChange={e => updateS(s.id,{platform:e.target.value})}
-                  style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'5px 8px',
+                  style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'4px 8px',
                     color:s.platform==='xero'?C.xero:C.qbo,fontSize:11,outline:'none',
                     cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
                   <option value="qbo">QuickBooks Online</option>
@@ -2391,7 +2391,7 @@ export default function App() {
                 {s.platform==='xero' && (
                   <select value={s.jurisdiction||'uk'} disabled={editLock}
                     onChange={e => updateS(s.id,{jurisdiction:e.target.value})}
-                    style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'4px 8px',
+                    style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'4px 8px',
                       color:C.t2,fontSize:10,outline:'none',
                       cursor:editLock?'not-allowed':'pointer',opacity:editLock?0.6:1}}>
                     <option value="uk">UK VAT</option>
@@ -2401,7 +2401,7 @@ export default function App() {
                 )}
               </div>
               <Pill status={s.status}/>
-              <div style={{display:'flex',gap:5}}>
+              <div style={{display:'flex',gap:4}}>
                 {['queued','error','rejected'].includes(s.status) && (
                   <Tip text="Extract transactions from this PDF now." pos="top" active={showTips}>
                   <button onClick={() => processOne(s.id)} style={{...btn('outline'),padding:'4px 10px',fontSize:11}}>Run</button>
@@ -2474,7 +2474,7 @@ export default function App() {
       (s.projectId || 'default') === activeProjectId
     );
     if (!reviewable.length) return (
-      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:14,color:C.t2}}>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:16,color:C.t2}}>
         <div style={{fontSize:40}}>🔍</div>
         <div style={{fontSize:16,color:C.t1}}>No statements in this project yet</div>
         <div style={{fontSize:13,textAlign:'center',lineHeight:1.7,maxWidth:320}}>
@@ -2510,7 +2510,7 @@ export default function App() {
     const openDetail = () => setDetailIds(prev => { const n = new Set(prev); n.add(s.id); return n; });
 
     const tdBase = (ri, flagged, dp) => ({
-      padding:'11px 12px',
+      padding:'12px',
       background: dp ? C.redDim : flagged ? C.ambDim : ri%2===0 ? C.card : '#F8FAFD',
       cursor: canEdit ? 'text' : 'default', color:C.t1,
       whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
@@ -2521,7 +2521,7 @@ export default function App() {
         onChange={e => setEditVal(e.target.value)}
         onKeyDown={e => { if(e.key==='Enter') commitEdit(); if(e.key==='Escape') setEditCell(null); }}
         onBlur={commitEdit}
-        style={{background:C.bg,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 6px',
+        style={{background:C.bg,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 8px',
           color:C.t1,fontSize:12,width:'100%',outline:'none',
           fontFamily:type==='number'?C.fontData:'inherit'}}/>
     );
@@ -2529,7 +2529,7 @@ export default function App() {
     const ES = ({field, opts}) => (
       <select autoFocus value={editVal}
         onChange={e => {setEditVal(e.target.value); setTimeout(commitEdit,60);}} onBlur={commitEdit}
-        style={{background:C.surf,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 6px',
+        style={{background:C.surf,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 8px',
           color:C.t1,fontSize:12,outline:'none'}}>
         {opts.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
@@ -2542,7 +2542,7 @@ export default function App() {
             onChange={e => setEditVal(e.target.value)}
             onKeyDown={e => { if(e.key==='Enter') commitEdit(); if(e.key==='Escape') setEditCell(null); }}
             onBlur={commitEdit}
-            style={{background:C.bg,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 6px',
+            style={{background:C.bg,border:`1px solid ${C.grn}`,borderRadius:4,padding:'2px 8px',
               color:C.t1,fontSize:12,width:'100%',outline:'none'}}/>
           <datalist id={dlId}>{CATEGORIES.map(c => <option key={c} value={c}/>)}</datalist>
         </>
@@ -2552,9 +2552,9 @@ export default function App() {
     return (
       <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
         {/* Page title */}
-        <div style={{flexShrink:0,marginBottom:14}}>
+        <div style={{flexShrink:0,marginBottom:16}}>
           <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Review &amp; Approve</div>
-          <div style={{fontSize:12,color:C.t2,marginTop:3}}>
+          <div style={{fontSize:12,color:C.t2,marginTop:4}}>
             {reviewable.length} statement{reviewable.length!==1?'s':''} · reviewing {idx+1} of {reviewable.length}
           </div>
         </div>
@@ -2562,23 +2562,23 @@ export default function App() {
         {/* Main panel */}
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
           {/* Header */}
-          <div style={{flexShrink:0,paddingBottom:14,borderBottom:`1px solid ${C.bdr}`,marginBottom:12}}>
+          <div style={{flexShrink:0,paddingBottom:16,borderBottom:`1px solid ${C.bdr}`,marginBottom:12}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
               <div>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
                   <div style={{fontSize:17,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>{s.bankName||s.filename}</div>
                   <Pill status={s.status}/>
                   <ConfidenceBadge score={score} hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
-                  <span style={{fontSize:10,fontWeight:700,color:atCfg.color,background:`${atCfg.color}14`,border:`1px solid ${atCfg.color}28`,padding:'2px 7px',borderRadius:3}}>{atCfg.label}</span>
-                  <span style={{fontSize:10,fontWeight:700,color:platColor,background:`${platColor}14`,border:`1px solid ${platColor}28`,padding:'2px 7px',borderRadius:3}}>{platLabel}</span>
+                  <span style={{fontSize:10,fontWeight:700,color:atCfg.color,background:`${atCfg.color}14`,border:`1px solid ${atCfg.color}28`,padding:'2px 8px',borderRadius:4}}>{atCfg.label}</span>
+                  <span style={{fontSize:10,fontWeight:700,color:platColor,background:`${platColor}14`,border:`1px solid ${platColor}28`,padding:'2px 8px',borderRadius:4}}>{platLabel}</span>
                 </div>
                 {s.accountName && <div style={{fontSize:12,color:C.t2}}>{s.accountName}</div>}
                 {s.period && <div style={{fontSize:12,color:C.t2,...C.num}}>{s.period.from} — {s.period.to}</div>}
-                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:7,flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8,flexWrap:'wrap'}}>
                   <select value={s.accountType}
                     onChange={e => updateS(s.id,{accountType:e.target.value})}
                     title="Change account type, then Re-run to re-read with the right rules"
-                    style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:6,padding:'4px 8px',
+                    style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'4px 8px',
                       color:atCfg.color,fontSize:11,outline:'none',cursor:'pointer'}}>
                     {Object.entries(ACCOUNT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
@@ -2601,7 +2601,7 @@ export default function App() {
                   </Tip>
                 </div>
               </div>
-              <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+              <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
                 <button onClick={() => idx>0 && setActiveId(reviewable[idx-1].id)} disabled={idx<=0} style={btn('outline')}>← Prev</button>
                 <span style={{fontSize:11,color:C.t2,...C.num,padding:'0 4px'}}>{idx+1}/{reviewable.length}</span>
                 <button onClick={() => idx<reviewable.length-1 && setActiveId(reviewable[idx+1].id)} disabled={idx>=reviewable.length-1} style={btn('outline')}>Next →</button>
@@ -2623,7 +2623,7 @@ export default function App() {
                         </button>
                         </Tip>
                       </>
-                    : <Tip text="The approval gate is blocked. Closing balance or statement figures don't match — fix the variance first." pos="bottom" active={showTips}><span style={{padding:'6px 14px',borderRadius:9,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:C.fontUI,lineHeight:1.4}}>⛔ Fix required</span></Tip>
+                    : <Tip text="The approval gate is blocked. Closing balance or statement figures don't match — fix the variance first." pos="bottom" active={showTips}><span style={{padding:'8px 16px',borderRadius:8,background:C.redDim,color:C.red,border:`1px solid ${C.redBrd}`,fontWeight:600,fontSize:13,fontFamily:C.fontUI,lineHeight:1.4}}>⛔ Fix required</span></Tip>
                   )}
                   {!fastTrack && txList.length > 0 && rec && (
                     <Tip text="Downloads a three-sheet Excel file — full transaction register, clean import data, and receipts list. Includes VAT/GST Treatment column for Xero Pathway 2." pos="bottom" active={showTips}>
@@ -2660,19 +2660,19 @@ export default function App() {
           </div>
 
           {/* Cross-statement checks + search across all statements */}
-          <div style={{flexShrink:0,display:'flex',gap:10,alignItems:'center',marginBottom:10,flexWrap:'wrap'}}>
+          <div style={{flexShrink:0,display:'flex',gap:8,alignItems:'center',marginBottom:8,flexWrap:'wrap'}}>
             <input value={searchQ} onChange={e=>setSearchQ(e.target.value)}
               placeholder="Search all statements — payee, amount, date…"
-              style={{flex:'1 1 280px',minWidth:220,padding:'10px 14px',background:C.card,border:`1px solid ${C.bdrBrt}`,
-                borderRadius:9,color:C.t1,fontSize:14,outline:'none',fontFamily:C.fontUI,boxSizing:'border-box'}}/>
-            {cnts.dupeCount>0 && <span onClick={() => setShowDupeViewer(v => !v)} style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,padding:'8px 12px',cursor:'pointer'}}>⚠ {cnts.dupeCount} possible duplicate{cnts.dupeCount>1?'s':''} across statements — click to review</span>}
-            {periods.overs.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,padding:'8px 12px'}}>⚠ {periods.overs.length} overlapping period{periods.overs.length>1?'s':''}</span>}
-            {periods.gaps.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,padding:'8px 12px'}}>⚑ {periods.gaps.length} possible missing statement{periods.gaps.length>1?'s':''}</span>}
+              style={{flex:'1 1 280px',minWidth:220,padding:'8px 16px',background:C.card,border:`1px solid ${C.bdrBrt}`,
+                borderRadius:8,color:C.t1,fontSize:14,outline:'none',fontFamily:C.fontUI,boxSizing:'border-box'}}/>
+            {cnts.dupeCount>0 && <span onClick={() => setShowDupeViewer(v => !v)} style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'8px 12px',cursor:'pointer'}}>⚠ {cnts.dupeCount} possible duplicate{cnts.dupeCount>1?'s':''} across statements — click to review</span>}
+            {periods.overs.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.red,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'8px 12px'}}>⚠ {periods.overs.length} overlapping period{periods.overs.length>1?'s':''}</span>}
+            {periods.gaps.length>0 && <span style={{fontSize:13,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,padding:'8px 12px'}}>⚑ {periods.gaps.length} possible missing statement{periods.gaps.length>1?'s':''}</span>}
           </div>
           {/* Cross-statement duplicate viewer — opened by clicking the dupe alert above */}
           {showDupeViewer && cnts.dupeCount > 0 && (
-            <div style={{flexShrink:0,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:9,padding:'12px 16px',marginBottom:10}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{flexShrink:0,background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,padding:'12px 16px',marginBottom:8}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                 <div style={{fontSize:11,color:C.red,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.07em'}}>Cross-Statement Duplicates — Read Only</div>
                 <button onClick={() => setShowDupeViewer(false)} style={{fontSize:11,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>✕ Close</button>
               </div>
@@ -2687,11 +2687,11 @@ export default function App() {
                     const amt = tA.debit != null ? `-${fmtCcy(tA.debit)}` : `+${fmtCcy(tA.credit||0)}`;
                     const stmtLabel = s => s ? `${s.bankName||'Bank'}${s.period ? ` · ${s.period.from}–${s.period.to}` : ''}` : '—';
                     return (
-                      <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i < dupes.crossPairs.length-1 ? `1px solid ${C.redBrd}` : 'none'}}>
-                        <div style={{fontSize:12,color:C.red,...C.num,marginBottom:6}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
+                      <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i < dupes.crossPairs.length-1 ? `1px solid ${C.redBrd}` : 'none'}}>
+                        <div style={{fontSize:12,color:C.red,...C.num,marginBottom:8}}>{tA.date} · {tA.payee||tA.description||'—'} · {amt}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                          <button onClick={() => { setActiveId(pair.a.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sA)} ↗</button>
-                          <button onClick={() => { setActiveId(pair.b.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'3px 10px',cursor:'pointer'}}>{stmtLabel(sB)} ↗</button>
+                          <button onClick={() => { setActiveId(pair.a.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'4px 8px',cursor:'pointer'}}>{stmtLabel(sA)} ↗</button>
+                          <button onClick={() => { setActiveId(pair.b.sid); setTab('audit'); }} style={{fontSize:11,color:C.t2,background:C.card,border:`1px solid ${C.bdr}`,borderRadius:4,padding:'4px 8px',cursor:'pointer'}}>{stmtLabel(sB)} ↗</button>
                         </div>
                       </div>
                     );
@@ -2700,13 +2700,13 @@ export default function App() {
             </div>
           )}
           {searchQ.length>=2 && (
-            <div style={{flexShrink:0,marginBottom:10,maxHeight:210,overflowY:'auto',border:`1px solid ${C.bdr}`,borderRadius:10,background:C.card}}>
-              <div style={{padding:'9px 14px',fontSize:13,color:C.t3,borderBottom:`1px solid ${C.bdr}`}}>
+            <div style={{flexShrink:0,marginBottom:8,maxHeight:210,overflowY:'auto',border:`1px solid ${C.bdr}`,borderRadius:10,background:C.card}}>
+              <div style={{padding:'8px 16px',fontSize:13,color:C.t3,borderBottom:`1px solid ${C.bdr}`}}>
                 {searchResults.length} match{searchResults.length!==1?'es':''} across all statements
               </div>
               {searchResults.map(({stmt,tx})=>(
                 <div key={`${stmt.id}:${tx.id}`} onClick={()=>{setActiveId(stmt.id);setSearchQ('');}}
-                  style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:`1px solid ${C.bdr}`,cursor:'pointer'}}>
+                  style={{display:'flex',alignItems:'center',gap:8,padding:'8px 16px',borderBottom:`1px solid ${C.bdr}`,cursor:'pointer'}}>
                   <TypeTag type={tx.paymentType}/>
                   <span style={{fontSize:14,fontWeight:500,color:C.t1}}>{tx.payee||tx.description}</span>
                   <span style={{fontSize:13,color:C.t3,...C.num}}>{tx.date}</span>
@@ -2723,7 +2723,7 @@ export default function App() {
             <div style={{flexShrink:0,marginBottom:recCollapsed?6:12}}>
               {/* Collapsible header row */}
               <div onClick={() => setRecCollapsed(v => !v)}
-                style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:recCollapsed?0:8,
+                style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:recCollapsed?0:8,
                   padding:recCollapsed?'7px 14px':'3px 0',
                   background:recCollapsed?C.card:'transparent',
                   border:recCollapsed?`1px solid ${C.bdr}`:'none',
@@ -2746,7 +2746,7 @@ export default function App() {
                 </>)}
                 {!recCollapsed && <span style={{fontSize:11,fontWeight:400,color:C.t3,textTransform:'none',letterSpacing:0,marginLeft:4}}>— click to collapse</span>}
               </div>
-              {!recCollapsed && <div style={{background:C.card,borderRadius:16,padding:'20px 24px',boxShadow:C.sh2}}>
+              {!recCollapsed && <div style={{background:C.card,borderRadius:16,padding:'16px 24px',boxShadow:C.sh2}}>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'16px 22px'}}>
                   {[
                     {label:'Transactions',          val:txList.length,                                                 color:C.t1, od:false},
@@ -2760,21 +2760,21 @@ export default function App() {
                     const canEditField = field && canEdit;
                     return (
                     <div key={label}>
-                      <div style={{fontSize:11,color:C.t3,marginBottom:4,textTransform:'uppercase',letterSpacing:'0.07em',fontWeight:600}}>{label}{canEditField && <span style={{color:C.blu,marginLeft:5,fontSize:10}}>✎</span>}</div>
+                      <div style={{fontSize:11,color:C.t3,marginBottom:4,textTransform:'uppercase',letterSpacing:'0.07em',fontWeight:600}}>{label}{canEditField && <span style={{color:C.blu,marginLeft:4,fontSize:10}}>✎</span>}</div>
                       {editing ? (
                         <input autoFocus type="number" value={balVal}
                           onChange={e => setBalVal(e.target.value)}
                           onKeyDown={e => { if(e.key==='Enter') commitBalEdit(); if(e.key==='Escape') setBalEdit(null); }}
                           onBlur={commitBalEdit}
                           style={{fontSize:19,fontWeight:600,color:C.t1,...C.num,
-                            width:'100%',padding:'2px 6px',border:`1px solid ${C.grn}`,borderRadius:5,outline:'none',boxSizing:'border-box'}}/>
+                            width:'100%',padding:'2px 8px',border:`1px solid ${C.grn}`,borderRadius:8,outline:'none',boxSizing:'border-box'}}/>
                       ) : (
                         <div onClick={() => { if(canEditField){ setBalEdit({sid:s.id,field}); setBalVal(rec[field]==null?'':String(rec[field])); } }}
                           style={{fontSize:23,fontWeight:700,color,...C.num,cursor:canEditField?'text':'default',letterSpacing:'-0.01em'}}>{val}</div>
                       )}
                       {od && <div style={{fontSize:12,color:C.red,marginTop:2}}>overdrawn</div>}
                       {field==='openingBalance' && rec.openingAdjusted && rec.printedOpening!=null && (
-                        <div style={{fontSize:11,color:C.t3,marginTop:3,lineHeight:1.35}}>
+                        <div style={{fontSize:11,color:C.t3,marginTop:4,lineHeight:1.35}}>
                           brought forward — your statement shows {fmtBal(rec.printedOpening)} (the balance after the first transaction)
                         </div>
                       )}
@@ -2791,15 +2791,15 @@ export default function App() {
                   const oGap = +(Math.abs(cDeb - sOut)).toFixed(2);
                   const iGap = +(Math.abs(cCrd - sIn)).toFixed(2);
                   return (
-                    <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.bdr}`}}>
+                    <div style={{marginTop:16,paddingTop:12,borderTop:`1px solid ${C.bdr}`}}>
                       <div style={{fontSize:11,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontWeight:600}}>
                         Statement figures vs. your CSV {canEdit && <span style={{fontSize:10,fontWeight:400,textTransform:'none',letterSpacing:0,color:C.t3}}> — click Statement figure to correct if wrong</span>}
                       </div>
                       {figuresMissing && canEdit && (
-                        <div style={{marginBottom:10,padding:'8px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                        <div style={{marginBottom:8,padding:'8px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                           <span style={{flex:'1 1 260px'}}>⚠ Statement Payments Out/In were not read from this PDF — the full variance is your CSV total vs £0. Enter the figures from the statement, or if this bank doesn't print them:</span>
                           <button onClick={() => matchStmtToCSV(s.id)}
-                            style={{...btn('outline'),borderColor:C.amb,color:C.amb,fontSize:12,padding:'5px 12px',whiteSpace:'nowrap'}}>
+                            style={{...btn('outline'),borderColor:C.amb,color:C.amb,fontSize:12,padding:'4px 12px',whiteSpace:'nowrap'}}>
                             Set to match CSV
                           </button>
                         </div>
@@ -2814,7 +2814,7 @@ export default function App() {
                           ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
                               onBlur={commitBalEdit}
-                              style={{width:90,...C.num,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                              style={{width:90,...C.num,fontSize:13,padding:'2px 8px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
                           : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsOut'}),setBalVal(String(sOut)))}
                               style={{fontSize:13,fontWeight:600,...C.num,color:C.t1,
                                 cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sOut)}</div>}
@@ -2825,7 +2825,7 @@ export default function App() {
                           ? <input autoFocus type="number" value={balVal} onChange={e=>setBalVal(e.target.value)}
                               onKeyDown={e=>{if(e.key==='Enter')commitBalEdit();if(e.key==='Escape')setBalEdit(null);}}
                               onBlur={commitBalEdit}
-                              style={{width:90,...C.num,fontSize:13,padding:'2px 6px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
+                              style={{width:90,...C.num,fontSize:13,padding:'2px 8px',border:`1px solid ${C.blu}`,borderRadius:4}}/>
                           : <div onClick={()=>canEdit&&(setBalEdit({sid:s.id,field:'statementPaymentsIn'}),setBalVal(String(sIn)))}
                               style={{fontSize:13,fontWeight:600,...C.num,color:C.t1,
                                 cursor:canEdit?'text':'default',textDecoration:canEdit?'underline dotted':'none'}}>{fmtCcy(sIn)}</div>}
@@ -2835,7 +2835,7 @@ export default function App() {
                     </div>
                   );
                 })()}
-                <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:10}}>
+                <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${C.bdr}`,display:'flex',alignItems:'center',gap:8}}>
                   <span style={{width:24,height:24,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',
                     fontSize:14,fontWeight:700,color:'#fff',background:rec.reconciled?C.grn:(rec.openingLikelyOff?C.amb:C.red)}}>{rec.reconciled?'✓':'!'}</span>
                   <span style={{fontSize:15,color:C.t1}}>
@@ -2894,12 +2894,12 @@ export default function App() {
               The reconciliation strip above stays visible; this adds the one-click approve.
               The ⚡ button calls the EXACT same handler as the standard Approve & Export. */}
           {fastTrack && (
-            <div style={{flexShrink:0,marginBottom:12,background:C.grnDim,borderLeft:`4px solid ${C.grn}`,borderRadius:4,padding:'18px 20px',boxShadow:C.sh1}}>
-              <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:6}}>
+            <div style={{flexShrink:0,marginBottom:12,background:C.grnDim,borderLeft:`4px solid ${C.grn}`,borderRadius:4,padding:'16px',boxShadow:C.sh1}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:8}}>
                 <ConfidenceBadge score={score} size="lg" hint={confidenceHint(score, rec, txList, s.crossCheck)}/>
                 <span style={{fontSize:15,fontWeight:600,color:C.t1}}>This statement passes every check — reconciled, nothing flagged as unsure, no duplicates.</span>
               </div>
-              <div style={{fontSize:13,color:C.t2,marginBottom:14,...C.num}}>
+              <div style={{fontSize:13,color:C.t2,marginBottom:16,...C.num}}>
                 Confidence: {score}/100 · {s.bankName||s.filename} · {atCfg.label} · {platLabel}
                 {s.period && <> · {s.period.from} — {s.period.to}</>} · {txList.length} txn
               </div>
@@ -2907,7 +2907,7 @@ export default function App() {
                 <button onClick={() => { exportStmt(s); approve(s.id); }}
                   style={{...btn('primary'),fontSize:15,padding:'12px 22px'}}>⚡ Approve &amp; Export</button>
                 <button onClick={() => dlWorkbook(s, rec, treatmentMemoryRef.current)}
-                  style={{...btn('outline'),fontSize:13,padding:'10px 18px',borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
+                  style={{...btn('outline'),fontSize:13,padding:'8px 16px',borderColor:C.grn,color:C.grn}}>↓ Audit Workbook</button>
                 <span onClick={openDetail} style={{fontSize:13,color:C.blu,cursor:'pointer',fontWeight:600}}>Review in detail →</span>
               </div>
             </div>
@@ -2915,24 +2915,24 @@ export default function App() {
 
           {/* Warnings (hidden in fast-track — by definition no dupes/variance there) */}
           {!fastTrack && (
-          <div style={{flexShrink:0,display:'flex',flexDirection:'column',gap:5,marginBottom:6}}>
+          <div style={{flexShrink:0,display:'flex',flexDirection:'column',gap:4,marginBottom:8}}>
             {txList.some(t => isDupe(t.id)) && (
-              <div style={{padding:'6px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,fontSize:11,color:C.red}}>
+              <div style={{padding:'8px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,fontSize:11,color:C.red}}>
                 ⚠ Duplicate rows detected — highlighted in red. These also appear in another statement. Verify before approving.
               </div>
             )}
             {txList.some(t => isRepeat(t.id)) && (
-              <div style={{padding:'6px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:11,color:C.amb}}>
+              <div style={{padding:'8px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,fontSize:11,color:C.amb}}>
                 ◆ Repeated charge on the same day within this statement — highlighted amber. Real if the statement reconciles; verify if unsure.
               </div>
             )}
             {flagCount > 0 && (
-              <div style={{padding:'6px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:11,color:C.amb}}>
+              <div style={{padding:'8px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,fontSize:11,color:C.amb}}>
                 ⚑ {flagCount} row{flagCount!==1?'s':''} flagged — resolve before approving
               </div>
             )}
             {rec?.dataIssues?.length > 0 && (
-              <div style={{padding:'6px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,fontSize:11,color:C.amb}}>
+              <div style={{padding:'8px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,fontSize:11,color:C.amb}}>
                 ⚠ {rec.dataIssues.length} row{rec.dataIssues.length!==1?' have':' has'} a data quality issue —
                 {rec.dataIssues.filter(d=>d.issue==='no-amount').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='no-amount').length} with no debit or credit set`}
                 {rec.dataIssues.filter(d=>d.issue==='both-columns').length > 0 && ` ${rec.dataIssues.filter(d=>d.issue==='both-columns').length} with both debit and credit filled`}
@@ -2940,12 +2940,12 @@ export default function App() {
               </div>
             )}
             {rec && !rec.reconciled && !rec.openingLikelyOff && !(rec.balanceBreaks?.length) && (
-              <div style={{padding:'6px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,fontSize:11,color:C.red}}>
+              <div style={{padding:'8px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,fontSize:11,color:C.red}}>
                 ⚠ Reconciliation variance £{rec.variance?.toFixed(2)}{rec.notes?` — ${rec.notes}`:''}
               </div>
             )}
             {rec && !rec.reconciled && rec.balanceBreaks?.length > 0 && (
-              <div style={{padding:'9px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:6,fontSize:12,color:C.red}}>
+              <div style={{padding:'8px 12px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,fontSize:12,color:C.red}}>
                 <div style={{fontWeight:600,marginBottom:4}}>⚠ The running balance doesn't add up — a transaction may be missing or entered the wrong way round.</div>
                 {rec.balanceBreaks.slice(0, 3).map((b,i) => {
                   const flip = rec.flipSuggestions?.find(f => f.fromDate === b.fromDate && f.toDate === b.toDate);
@@ -2962,29 +2962,29 @@ export default function App() {
               </div>
             )}
             {rec && rec.accountTypeLikelyWrong && rec.suggestedType && canEdit && (
-              <div style={{padding:'9px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,
-                fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              <div style={{padding:'8px 12px',background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,
+                fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                 <span style={{flex:'1 1 320px'}}>
                   💡 These numbers don't add up as a <strong>{atCfg.label}</strong>, but they reconcile exactly as a <strong>{ACCOUNT_TYPES[rec.suggestedType]?.label}</strong> — the account type looks wrong.
                 </span>
-                <button onClick={() => applyAccountType(s.id, rec.suggestedType)} style={{...btn('primary'),padding:'6px 12px',fontSize:12}}>Switch to {ACCOUNT_TYPES[rec.suggestedType]?.label}</button>
+                <button onClick={() => applyAccountType(s.id, rec.suggestedType)} style={{...btn('primary'),padding:'8px 12px',fontSize:12}}>Switch to {ACCOUNT_TYPES[rec.suggestedType]?.label}</button>
               </div>
             )}
             {rec && rec.openingLikelyOff && canEdit && (
-              <div style={{padding:'9px 12px',background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:6,
-                fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              <div style={{padding:'8px 12px',background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:8,
+                fontSize:12,color:C.t1,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                 <span style={{flex:'1 1 320px'}}>
                   💡 The transactions match the statement's own totals, but the opening balance doesn't fit the closing balance.
                   The <strong style={{...C.num}}>{fmtBal(rec.openingBalance)}</strong> shown is the balance after the first transaction; the true brought-forward opening is <strong style={{...C.num}}>{fmtBal(rec.derivedOpening)}</strong>.
                 </span>
-                <button onClick={() => useDerivedOpening(s.id)} style={{...btn('primary'),padding:'6px 12px',fontSize:12}}>Use {fmtBal(rec.derivedOpening)}</button>
+                <button onClick={() => useDerivedOpening(s.id)} style={{...btn('primary'),padding:'8px 12px',fontSize:12}}>Use {fmtBal(rec.derivedOpening)}</button>
               </div>
             )}
             {rec && !rec.reconciled && canEdit && (
               <div style={{padding:'12px 14px',background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,fontSize:12}}>
                 <div style={{fontWeight:700,color:C.red,marginBottom:8,fontSize:13}}>⛔ Approval blocked — variance of £{rec.variance?.toFixed(2)}</div>
-                <div style={{color:C.t2,marginBottom:6,fontSize:11}}>Correct the following, then Approve &amp; Export will unlock:</div>
-                <div style={{display:'flex',flexDirection:'column',gap:3,color:C.t1,fontSize:11}}>
+                <div style={{color:C.t2,marginBottom:8,fontSize:11}}>Correct the following, then Approve &amp; Export will unlock:</div>
+                <div style={{display:'flex',flexDirection:'column',gap:4,color:C.t1,fontSize:11}}>
                   {rec.flipSuggestions?.length > 0 && (
                     <div>• Accept the sign-flip suggestion on the amber-highlighted row in the table below.</div>
                   )}
@@ -3047,7 +3047,7 @@ export default function App() {
               </div>
             )}
             {canEdit && (
-              <div style={{padding:'5px 12px',background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:6,fontSize:10,color:C.blu}}>
+              <div style={{padding:'4px 12px',background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:8,fontSize:10,color:C.blu}}>
                 ✎ Click cell to edit · Type dropdown on Type column · ⚑ flag · ✕ delete · Nominal Code and Notes export with CSV
               </div>
             )}
@@ -3059,8 +3059,8 @@ export default function App() {
           <div ref={splitContainer} style={{flex:1,display:'flex',gap:0,overflow:'hidden'}}>
             <div style={{flex:1,minWidth:'30%',overflowY:'auto',overflowX:'auto',borderRadius:12,boxShadow:C.sh2,background:C.card}}>
             {txList.length === 0 ? (
-              <div style={{padding:'40px 24px',textAlign:'center',color:C.t2}}>
-                <div style={{fontSize:15,fontWeight:600,color:C.t1,marginBottom:6}}>No transactions found in this file</div>
+              <div style={{padding:'48px 24px',textAlign:'center',color:C.t2}}>
+                <div style={{fontSize:15,fontWeight:600,color:C.t1,marginBottom:8}}>No transactions found in this file</div>
                 <div style={{fontSize:13,maxWidth:460,margin:'0 auto',lineHeight:1.5}}>
                   This looks like a summary or cover page rather than a transactional statement — or the account type may be wrong. Try “↻ Re-run”, change the account type above, or upload the monthly statement instead.
                 </div>
@@ -3071,7 +3071,7 @@ export default function App() {
                 <tr style={{background:C.surf,position:'sticky',top:0,zIndex:2}}>
                   {['#','Date','Type','Description','Payee','Debit','Credit','Balance','Category',
                     ...(showNominal?['Nominal']:[]),'Notes','Receipt','⚑','✕','↺'].map((h,i) => (
-                    <th key={i} scope="col" style={{padding:'11px 12px',textAlign:[5,6,7].includes(i)?'right':'left',
+                    <th key={i} scope="col" style={{padding:'12px',textAlign:[5,6,7].includes(i)?'right':'left',
                       color:C.t3,fontWeight:700,fontSize:11,textTransform:'uppercase',letterSpacing:'0.07em',
                       whiteSpace:'nowrap',borderBottom:`2px solid ${C.bdr}`,background:C.surf,fontFamily:C.fontUI}}>
                       {h}
@@ -3100,23 +3100,23 @@ export default function App() {
                         {isEd(t.id,'description') ? <EI field="description"/> : (
                           <span>
                             <span title={t.description}>{t.description}</span>
-                            {t.wrapped && <span style={{marginLeft:7,fontSize:11.5,fontWeight:600,color:C.t2,background:'#EEF1F6',borderRadius:999,padding:'2px 9px',whiteSpace:'nowrap'}}>Joined from 2 lines</span>}
-                            {t.ambiguous && <span style={{marginLeft:7,fontSize:11.5,fontWeight:600,color:C.amb,background:C.ambDim,borderRadius:999,padding:'2px 9px',whiteSpace:'nowrap'}}>Worth a check</span>}
+                            {t.wrapped && <span style={{marginLeft:8,fontSize:11.5,fontWeight:600,color:C.t2,background:'#EEF1F6',borderRadius:899,padding:'2px 8px',whiteSpace:'nowrap'}}>Joined from 2 lines</span>}
+                            {t.ambiguous && <span style={{marginLeft:8,fontSize:11.5,fontWeight:600,color:C.amb,background:C.ambDim,borderRadius:899,padding:'2px 8px',whiteSpace:'nowrap'}}>Worth a check</span>}
                             {flipSug && canEdit && (
-                              <span style={{marginLeft:7,fontSize:11,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:6,padding:'2px 8px',whiteSpace:'normal',display:'inline-flex',alignItems:'center',gap:6}}>
+                              <span style={{marginLeft:8,fontSize:11,fontWeight:600,color:C.amb,background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:8,padding:'2px 8px',whiteSpace:'normal',display:'inline-flex',alignItems:'center',gap:8}}>
                                 {flipSug.msg}
                                 <button onClick={e=>{e.stopPropagation();flipTx(s.id,t.id);}} style={{background:'none',border:`1px solid ${C.amb}`,borderRadius:4,cursor:'pointer',color:C.amb,fontWeight:700,padding:'1px 7px',fontSize:11,lineHeight:'18px',flexShrink:0}}>Accept</button>
                               </span>
                             )}
                             {ccFlag && (
                               <span title={ccFlag.issues.map(i=>`${i.field}: AI=${i.llm} text=${i.text}`).join('; ')}
-                                style={{marginLeft:7,fontSize:11,fontWeight:600,color:C.blu,background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:6,padding:'2px 8px',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:4}}>
+                                style={{marginLeft:8,fontSize:11,fontWeight:600,color:C.blu,background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:8,padding:'2px 8px',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:4}}>
                                 ⊕ {ccFlag.issues.map(i => i.field === 'direction' ? `direction (AI:${i.llm}, text:${i.text})` : `${i.field} (AI:${typeof i.llm==='number'?i.llm.toFixed(2):i.llm}, text:${typeof i.text==='number'?i.text.toFixed(2):i.text})`).join(' · ')}
                               </span>
                             )}
                             {(() => { const fx = detectFX(t.description); return fx ? (
                               <span title={`Foreign currency transaction — ${fx.currency} detected`}
-                                style={{marginLeft:7,fontSize:11,fontWeight:600,color:'#7C4DFF',background:'#EDE7FF',border:'1px solid #C9B8FF',borderRadius:6,padding:'2px 8px',whiteSpace:'nowrap'}}>
+                                style={{marginLeft:8,fontSize:11,fontWeight:600,color:'#7C4DFF',background:'#EDE7FF',border:'1px solid #C9B8FF',borderRadius:8,padding:'2px 8px',whiteSpace:'nowrap'}}>
                                 💱 {fx.currency}
                               </span>
                             ) : null; })()}
@@ -3159,8 +3159,8 @@ export default function App() {
                       {showNominal && <td style={{...td,width:112}} onClick={() => canEdit && startEdit(s.id,t.id,'nominalCode',t.nominalCode)}>
                         {isEd(t.id,'nominalCode') ? <EI field="nominalCode"/>
                           : t.codeSource==='remembered'
-                            ? <span style={{display:'flex',alignItems:'center',gap:3}}>
-                                <span style={{fontSize:9,padding:'1px 4px',borderRadius:3,background:C.purDim,color:C.pur,border:`1px solid ${C.purBrd}`,fontWeight:700}}>📌</span>
+                            ? <span style={{display:'flex',alignItems:'center',gap:4}}>
+                                <span style={{fontSize:9,padding:'1px 4px',borderRadius:4,background:C.purDim,color:C.pur,border:`1px solid ${C.purBrd}`,fontWeight:700}}>📌</span>
                                 <span style={{color:C.t1,...C.num,fontSize:11}}>{t.nominalCode}</span>
                               </span>
                             : t.codeSource==='holding'
@@ -3169,7 +3169,7 @@ export default function App() {
                                 ? <span style={{display:'flex',alignItems:'center',gap:4}}>
                                     <span style={{color:C.t1,...C.num,fontSize:11}}>{t.nominalCode}</span>
                                     <span onClick={e=>{e.stopPropagation();toggleRemember(s.id,t.id);}}
-                                      style={{fontSize:9,padding:'1px 4px',borderRadius:3,cursor:'pointer',userSelect:'none',
+                                      style={{fontSize:9,padding:'1px 4px',borderRadius:4,cursor:'pointer',userSelect:'none',
                                         background:t.rememberCode?C.grnDim:'transparent',color:t.rememberCode?C.grn:C.t3,
                                         border:`1px solid ${t.rememberCode?C.grnBrd:C.bdr}`}}
                                       title={t.rememberCode?'Will save on approval — click to cancel':'Click to remember for next import'}>📌</span>
@@ -3182,18 +3182,18 @@ export default function App() {
                       </td>
                       <td style={{...td,textAlign:'center',width:60}}>
                         {t.receipt ? (
-                          <div style={{display:'flex',gap:3,justifyContent:'center'}}>
+                          <div style={{display:'flex',gap:4,justifyContent:'center'}}>
                             <button onClick={() => window.open(t.receipt.url,'_blank','noopener,noreferrer')}
                               title={`View: ${t.receipt.filename}`}
-                              style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:5,cursor:'pointer',color:C.grn,fontSize:12,padding:'2px 6px',fontWeight:600}}>📎 View</button>
+                              style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:8,cursor:'pointer',color:C.grn,fontSize:12,padding:'2px 8px',fontWeight:600}}>📎 View</button>
                             <button onClick={() => dlReceipt(t.receipt, t, s)}
                               title={`Save: ${t.receipt.filename}`}
-                              style={{background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:5,cursor:'pointer',color:C.blu,fontSize:12,padding:'2px 6px',fontWeight:600}}>↓ Save</button>
+                              style={{background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:8,cursor:'pointer',color:C.blu,fontSize:12,padding:'2px 8px',fontWeight:600}}>↓ Save</button>
                           </div>
                         ) : canEdit ? (
                           <button onClick={() => { setReceiptTarget({sid:s.id,tid:t.id}); receiptInputRef.current?.click(); }}
                             title="Attach a receipt (PDF or image) — saved locally, listed in Audit Workbook"
-                            style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',color:C.t3,fontSize:11,padding:'2px 8px'}}>+ Attach</button>
+                            style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:8,cursor:'pointer',color:C.t3,fontSize:11,padding:'2px 8px'}}>+ Attach</button>
                         ) : null}
                       </td>
                       <td style={{...td,textAlign:'center',width:30}}>
@@ -3226,13 +3226,13 @@ export default function App() {
                 <div style={{width:4,height:40,borderRadius:2,background:C.bdrBrt,transition:'background 0.15s',pointerEvents:'none'}}/>
               </div>
               {/* PDF panel — position:relative so the drag capture overlay can be positioned inside it */}
-              <div style={{flex:`0 0 ${pdfSplit}%`,minWidth:'20%',position:'relative',borderRadius:9,
+              <div style={{flex:`0 0 ${pdfSplit}%`,minWidth:'20%',position:'relative',borderRadius:8,
                 border:`1px solid ${C.bdr}`,overflow:'hidden',background:C.card,display:'flex',flexDirection:'column'}}>
                 {/* Transparent capture overlay: prevents <object> stealing mouse events during drag */}
                 {pdfDragActive && (
                   <div style={{position:'absolute',inset:0,zIndex:100,cursor:'col-resize'}}/>
                 )}
-                <div style={{padding:'6px 10px',borderBottom:`1px solid ${C.bdr}`,display:'flex',
+                <div style={{padding:'8px 12px',borderBottom:`1px solid ${C.bdr}`,display:'flex',
                   alignItems:'center',justifyContent:'space-between',flexShrink:0,background:C.surf}}>
                   <span style={{fontSize:11,fontWeight:600,color:C.t2}}>{s.bankName||s.filename} — Original PDF</span>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -3243,9 +3243,9 @@ export default function App() {
                 </div>
                 {pdfUrl ? (
                   <object data={pdfUrl} type="application/pdf" style={{width:'100%',flex:1,border:'none'}}>
-                    <div style={{padding:20,fontSize:13,color:C.t2}}>Can't show the PDF inline here. <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{color:C.blu,fontWeight:600}}>Open it in a new tab →</a></div>
+                    <div style={{padding:24,fontSize:13,color:C.t2}}>Can't show the PDF inline here. <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{color:C.blu,fontWeight:600}}>Open it in a new tab →</a></div>
                   </object>
-                ) : <div style={{padding:20,fontSize:13,color:C.t3}}>Loading PDF…</div>}
+                ) : <div style={{padding:24,fontSize:13,color:C.t3}}>Loading PDF…</div>}
               </div>
             </>)}
           </div>
@@ -3266,15 +3266,15 @@ export default function App() {
   // SEARCH
   // ─────────────────────────────────────────────────────────────────────
   const renderSearch = () => (
-    <div style={{display:'flex',flexDirection:'column',height:'100%',gap:14}}>
+    <div style={{display:'flex',flexDirection:'column',height:'100%',gap:16}}>
       <div style={{flexShrink:0}}>
-        <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI,marginBottom:3}}>Search All Statements</div>
+        <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI,marginBottom:4}}>Search All Statements</div>
         <div style={{fontSize:12,color:C.t2}}>Search by payee, description, date, amount, or nominal code across every loaded statement</div>
       </div>
       <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
         placeholder="e.g.  Barclaycard   /   31/01/2024   /   234.50   /   7200"
         style={{width:'100%',padding:'12px 16px',background:C.card,border:`1px solid ${C.bdrBrt}`,
-          borderRadius:9,color:C.t1,fontSize:14,outline:'none',fontFamily:C.fontUI,
+          borderRadius:8,color:C.t1,fontSize:14,outline:'none',fontFamily:C.fontUI,
           boxSizing:'border-box',flexShrink:0}}/>
       <div style={{fontSize:11,color:C.t3,flexShrink:0}}>
         {searchQ.length < 2
@@ -3283,13 +3283,13 @@ export default function App() {
           ? 'No matching transactions found'
           : `${searchResults.length} result${searchResults.length!==1?'s':''} across ${new Set(searchResults.map(r=>r.stmt.id)).size} statement${new Set(searchResults.map(r=>r.stmt.id)).size!==1?'s':''}`}
       </div>
-      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
+      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:4}}>
         {searchResults.map(({stmt,tx}) => (
           <div key={`${stmt.id}:${tx.id}`} onClick={() => { setActiveId(stmt.id); setTab('audit'); }}
-            style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:8,
+            style={{display:'flex',alignItems:'center',gap:12,padding:'8px 16px',borderRadius:8,
               border:`1px solid ${C.bdr}`,background:C.card,cursor:'pointer',transition:'all 0.12s'}}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:4}}>
+              <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:4}}>
                 <TypeTag type={tx.paymentType}/>
                 <span style={{fontSize:12,fontWeight:500,color:C.t1}}>{tx.payee||tx.description}</span>
                 <span style={{fontSize:11,color:C.t3,...C.num}}>{tx.date}</span>
@@ -3324,7 +3324,7 @@ export default function App() {
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.48)',zIndex:200,
         display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
         <div style={{background:C.card,borderRadius:12,padding:24,width:'min(820px,96vw)',
-          maxHeight:'85vh',display:'flex',flexDirection:'column',gap:14,boxShadow:'0 8px 40px rgba(0,0,0,0.18)'}}>
+          maxHeight:'85vh',display:'flex',flexDirection:'column',gap:16,boxShadow:'0 8px 40px rgba(0,0,0,0.18)'}}>
           {/* Header */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
             <div>
@@ -3334,11 +3334,11 @@ export default function App() {
               </div>
             </div>
             <button onClick={() => setQboImportRows(null)}
-              style={{...btn('outline'),padding:'5px 11px',fontSize:13,flexShrink:0}}>✕</button>
+              style={{...btn('outline'),padding:'4px 8px',fontSize:13,flexShrink:0}}>✕</button>
           </div>
           {/* Column headers */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 130px',gap:8,padding:'6px 10px',
-            background:C.bg,borderRadius:7,fontSize:11,fontWeight:600,color:C.t3,
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 130px',gap:8,padding:'8px 12px',
+            background:C.bg,borderRadius:8,fontSize:11,fontWeight:600,color:C.t3,
             textTransform:'uppercase',letterSpacing:'0.07em',flexShrink:0}}>
             <div>Payee / Bank keyword</div>
             <div>QBO category (pre-filled)</div>
@@ -3348,7 +3348,7 @@ export default function App() {
           <div style={{overflowY:'auto',flex:1,display:'flex',flexDirection:'column',gap:4}}>
             {qboImportRows.map((row, i) => (
               <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 130px',gap:8,
-                padding:'7px 10px',background:i%2===0?C.surf:C.card,borderRadius:6,alignItems:'center'}}>
+                padding:'7px 10px',background:i%2===0?C.surf:C.card,borderRadius:8,alignItems:'center'}}>
                 <div style={{fontSize:12,color:C.t1,fontWeight:500}}>{row.payeeName || row.keyword}</div>
                 <div style={{fontSize:11,color:C.t3,fontStyle:'italic',lineHeight:1.4}}>{row.qboCategory}</div>
                 <input
@@ -3357,7 +3357,7 @@ export default function App() {
                     j===i ? {...r, nominalCode: ev.target.value.trim()} : r))}
                   placeholder="Category or nominal code"
                   style={{border:`1px solid ${row.nominalCode ? C.grnBrd : C.bdrBrt}`,
-                    borderRadius:6,padding:'5px 8px',fontSize:12,
+                    borderRadius:8,padding:'4px 8px',fontSize:12,
                     ...C.num,width:'100%',boxSizing:'border-box',
                     background: row.nominalCode ? C.grnDim : C.card,outline:'none'}}
                 />
@@ -3365,7 +3365,7 @@ export default function App() {
             ))}
           </div>
           {/* Footer */}
-          <div style={{display:'flex',gap:10,justifyContent:'flex-end',alignItems:'center',
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center',
             borderTop:`1px solid ${C.bdr}`,paddingTop:12,flexShrink:0}}>
             <div style={{fontSize:12,color:C.t3,flex:1}}>
               {filledCount > 0
@@ -3401,7 +3401,7 @@ export default function App() {
     const totalCred  = approved.reduce((n,s) => n + (s.reconciliation?.csvCreditTotal || 0), 0);
 
     if (!approved.length) return (
-      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:14,color:C.t2}}>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:16,color:C.t2}}>
         <div style={{fontSize:40}}>📥</div>
         <div style={{fontSize:16,color:C.t1}}>No approved statements yet</div>
         <button onClick={() => setTab('audit')} style={btn('primary')}>Go to Audit</button>
@@ -3413,7 +3413,7 @@ export default function App() {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
           <div>
             <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Export to Accounting Platform</div>
-            <div style={{fontSize:12,color:C.t2,marginTop:3}}>{approved.length} statement{approved.length!==1?'s':''} approved · {totalTx} transactions ready</div>
+            <div style={{fontSize:12,color:C.t2,marginTop:4}}>{approved.length} statement{approved.length!==1?'s':''} approved · {totalTx} transactions ready</div>
           </div>
           <div style={{display:'flex',gap:8}}>
             {qboApproved.length > 1 && (
@@ -3431,27 +3431,27 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{flexShrink:0,display:'grid',gridTemplateColumns:isNarrow?'1fr':'repeat(3,1fr)',gap:10}}>
+        <div style={{flexShrink:0,display:'grid',gridTemplateColumns:isNarrow?'1fr':'repeat(3,1fr)',gap:8}}>
           {[
             {label:'Total Transactions', val:totalTx,        color:C.t1},
             {label:'Total Debits',       val:fmtCcy(totalDeb), color:C.red},
             {label:'Total Credits',      val:fmtCcy(totalCred),color:C.grn},
           ].map(({label,val,color}) => (
-            <div key={label} style={{background:C.card,borderRadius:14,padding:'16px 20px',boxShadow:C.sh2}}>
+            <div key={label} style={{background:C.card,borderRadius:12,padding:'16px 24px',boxShadow:C.sh2}}>
               <div style={{fontSize:10,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8,fontFamily:C.fontUI,fontWeight:600}}>{label}</div>
               <div style={{fontSize:24,fontWeight:700,color,...C.num,letterSpacing:'-0.01em'}}>{val}</div>
             </div>
           ))}
         </div>
 
-        <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
+        <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:8}}>
           {approved.map(s => {
             const rec     = s.reconciliation;
             const platCol = s.platform==='xero'?C.xero:C.qbo;
             const platLbl = s.platform==='xero'?'Xero':'QBO';
             const atCfg   = ACCOUNT_TYPES[s.accountType]||ACCOUNT_TYPES.current;
             return (
-              <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 18px',
+              <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'16px',
                 background:C.card,borderRadius:12,boxShadow:C.sh1}}>
                 <div style={{width:3,height:36,borderRadius:2,background:atCfg.color,flexShrink:0}}/>
                 <div style={{flex:1,minWidth:0}}>
@@ -3461,10 +3461,10 @@ export default function App() {
                   </div>
                   <div style={{fontSize:10,color:C.t3,marginTop:2,...C.num}}>{makeName(s)}</div>
                 </div>
-                <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
                   <ConfidenceBadge score={s.confidenceScore}/>
-                  <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:3,color:platCol,background:`${platCol}14`,border:`1px solid ${platCol}28`}}>{platLbl}</span>
-                  <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:3,
+                  <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,color:platCol,background:`${platCol}14`,border:`1px solid ${platCol}28`}}>{platLbl}</span>
+                  <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,
                     color:rec?.reconciled?C.grn:C.amb,
                     background:rec?.reconciled?C.grnDim:C.ambDim,
                     border:`1px solid ${rec?.reconciled?C.grnBrd:C.ambBrd}`}}>
@@ -3480,7 +3480,7 @@ export default function App() {
         </div>
 
         {/* Payee memory management */}
-        <div style={{flexShrink:0,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:9,padding:'14px 16px',display:'flex',flexDirection:'column',gap:10}}>
+        <div style={{flexShrink:0,background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'16px',display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
             <div>
               <div style={{fontSize:12,fontWeight:600,color:C.t1}}>Payee Code Memory</div>
@@ -3488,7 +3488,7 @@ export default function App() {
                 {Object.keys(payeeMemory).length} rule{Object.keys(payeeMemory).length!==1?'s':''} stored · auto-fills Nominal Code on next import
               </div>
             </div>
-            <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
               <Tip text="Save your current payee rules as a JSON backup file. Keep this somewhere safe — it's your only recovery if browser storage is cleared." pos="top" active={showTips}>
               <button onClick={exportRules} disabled={!Object.keys(payeeMemory).length} style={btn('outline')}>↓ Save Rules</button>
               </Tip>
@@ -3506,11 +3506,11 @@ export default function App() {
           </div>
           {/* Backup help panel */}
           <div style={{background:'#FFF3CD',border:'2px solid #F5A623',borderRadius:8,padding:'12px 16px',lineHeight:1.6}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
               <span style={{fontSize:18,lineHeight:1}}>⚠️</span>
               <span style={{fontSize:13,fontWeight:700,color:'#92400E'}}>Backup your rules — do this now</span>
             </div>
-            <div style={{fontSize:12,color:'#78350F',marginBottom:6}}>
+            <div style={{fontSize:12,color:'#78350F',marginBottom:8}}>
               <strong>Rules live in this browser only</strong> (OneDrive Practice Workspace users: rules also sync to your shared folder — manual backups are still recommended as a secondary copy). Clear your browser data or switch devices and they are gone permanently unless backed up or synced.
             </div>
             <div style={{fontSize:11,color:'#92400E',lineHeight:1.6}}>
@@ -3531,7 +3531,7 @@ export default function App() {
               { label:'How to import into Xero', q:'import into xero or qbo', openXero: true },
             ].map(({label, q, openXero}) => (
               <button key={q} onClick={() => { setShowHelp(true); setHelpQuery(q); }}
-                style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',
+                style={{display:'flex',alignItems:'center',gap:8,padding:'12px 16px',
                   background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:4,
                   cursor:'pointer',fontFamily:C.fontUI,width:'100%',textAlign:'left'}}>
                 <span style={{fontSize:14}}>💡</span>
@@ -3564,16 +3564,16 @@ export default function App() {
             AI-powered bank statement extraction, review and export — with full human oversight,
             UK GDPR compliance, and native integration with Xero and QuickBooks Online.
           </div>
-          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             <button onClick={() => setTab('upload')}
               style={{background:'#fff',color:C.blu,border:'none',borderRadius:8,
-                padding:'9px 20px',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:C.fontUI}}>
+                padding:'8px 16px',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:C.fontUI}}>
               Upload a Statement →
             </button>
             <button onClick={() => setShowHelp(true)}
               style={{background:'transparent',color:'#fff',
                 border:'1px solid rgba(255,255,255,0.4)',borderRadius:8,
-                padding:'9px 18px',fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:C.fontUI}}>
+                padding:'8px 16px',fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:C.fontUI}}>
               View full guide
             </button>
           </div>
@@ -3581,13 +3581,13 @@ export default function App() {
 
         {/* Two Pathways */}
         <div style={{marginBottom:24}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:16,fontFamily:C.fontUI}}>
             Two Pathways
           </div>
-          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:14}}>
-            <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'20px 22px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                <div style={{width:34,height:34,borderRadius:9,background:C.bluDim,display:'flex',
+          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:16}}>
+            <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'16px 24px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                <div style={{width:34,height:34,borderRadius:8,background:C.bluDim,display:'flex',
                   alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📄</div>
                 <div>
                   <div style={{fontSize:13,fontWeight:700,color:C.t1,fontFamily:C.fontUI,lineHeight:1.3}}>
@@ -3600,7 +3600,7 @@ export default function App() {
                 'AI extracts dates, descriptions & amounts',
                 'Review, edit and flag transactions',
                 'Approve & export to CSV, Xero or QBO'].map((s,i) => (
-                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:9,marginBottom:8}}>
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:8}}>
                   <span style={{width:18,height:18,borderRadius:'50%',background:C.blu,color:'#fff',
                     fontSize:10,fontWeight:700,display:'flex',alignItems:'center',
                     justifyContent:'center',flexShrink:0,marginTop:1}}>{i+1}</span>
@@ -3608,16 +3608,16 @@ export default function App() {
                 </div>
               ))}
               <button onClick={() => setTab('upload')}
-                style={{marginTop:14,width:'100%',padding:'9px',background:C.blu,color:'#fff',
+                style={{marginTop:16,width:'100%',padding:'8px',background:C.blu,color:'#fff',
                   border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer',
                   fontFamily:C.fontUI}}>
                 Start Pathway 1 →
               </button>
             </div>
 
-            <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'20px 22px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                <div style={{width:34,height:34,borderRadius:9,background:'#E6F8FE',display:'flex',
+            <div style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:12,padding:'16px 24px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                <div style={{width:34,height:34,borderRadius:8,background:'#E6F8FE',display:'flex',
                   alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🔗</div>
                 <div>
                   <div style={{fontSize:13,fontWeight:700,color:C.t1,fontFamily:C.fontUI,lineHeight:1.3}}>
@@ -3630,7 +3630,7 @@ export default function App() {
                 'Pull statement periods with zero existing entries',
                 'AI prepares journal entries for your review',
                 'Human approval required — no auto-posting, ever'].map((s,i) => (
-                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:9,marginBottom:8}}>
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:8}}>
                   <span style={{width:18,height:18,borderRadius:'50%',background:C.xero,color:'#fff',
                     fontSize:10,fontWeight:700,display:'flex',alignItems:'center',
                     justifyContent:'center',flexShrink:0,marginTop:1}}>{i+1}</span>
@@ -3638,7 +3638,7 @@ export default function App() {
                 </div>
               ))}
               <button onClick={() => setTab('export')}
-                style={{marginTop:14,width:'100%',padding:'9px',background:C.xero,color:'#fff',
+                style={{marginTop:16,width:'100%',padding:'8px',background:C.xero,color:'#fff',
                   border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer',
                   fontFamily:C.fontUI}}>
                 Connect Xero in Export tab →
@@ -3649,7 +3649,7 @@ export default function App() {
 
         {/* Who it supports */}
         <div style={{marginBottom:24}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:16,fontFamily:C.fontUI}}>
             Who This Supports
           </div>
           <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr 1fr':'repeat(4,1fr)',gap:12}}>
@@ -3660,9 +3660,9 @@ export default function App() {
               {icon:'🏪',title:'Sole Traders',desc:'Simple CSV or direct import to Xero or QuickBooks Online'},
             ].map(({icon,title,desc}) => (
               <div key={title} style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:10,
-                padding:'16px 14px',textAlign:'center'}}>
-                <div style={{fontSize:24,marginBottom:9}}>{icon}</div>
-                <div style={{fontSize:12,fontWeight:700,color:C.t1,marginBottom:5,fontFamily:C.fontUI}}>{title}</div>
+                padding:'16px',textAlign:'center'}}>
+                <div style={{fontSize:24,marginBottom:8}}>{icon}</div>
+                <div style={{fontSize:12,fontWeight:700,color:C.t1,marginBottom:4,fontFamily:C.fontUI}}>{title}</div>
                 <div style={{fontSize:11,color:C.t3,lineHeight:1.55,fontFamily:C.fontUI}}>{desc}</div>
               </div>
             ))}
@@ -3671,10 +3671,10 @@ export default function App() {
 
         {/* What you get */}
         <div style={{marginBottom:24}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:16,fontFamily:C.fontUI}}>
             What You Get
           </div>
-          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:10}}>
+          <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:8}}>
             {[
               {icon:'🤖',title:'AI Extraction',desc:'Dates, descriptions, amounts and running balances extracted automatically from PDF'},
               {icon:'✅',title:'Human Approval Gate',desc:'Every export and post to a ledger requires your explicit approval — nothing is automatic'},
@@ -3684,10 +3684,10 @@ export default function App() {
               {icon:'🔗',title:'Xero + QBO Export',desc:'Native chart of accounts mapping and direct cloud export to Xero or QuickBooks Online'},
             ].map(({icon,title,desc}) => (
               <div key={title} style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:10,
-                padding:'14px 16px',display:'flex',gap:12,alignItems:'flex-start'}}>
+                padding:'16px',display:'flex',gap:12,alignItems:'flex-start'}}>
                 <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{icon}</span>
                 <div>
-                  <div style={{fontSize:13,fontWeight:600,color:C.t1,marginBottom:3,fontFamily:C.fontUI}}>{title}</div>
+                  <div style={{fontSize:13,fontWeight:600,color:C.t1,marginBottom:4,fontFamily:C.fontUI}}>{title}</div>
                   <div style={{fontSize:12,color:C.t3,lineHeight:1.55,fontFamily:C.fontUI}}>{desc}</div>
                 </div>
               </div>
@@ -3696,12 +3696,12 @@ export default function App() {
         </div>
 
         {/* Compliance & Data */}
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:16,fontFamily:C.fontUI}}>
             Compliance &amp; Data
           </div>
-          <div style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:12,padding:'20px 24px'}}>
-            <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:10,marginBottom:14}}>
+          <div style={{background:C.grnDim,border:`1px solid ${C.grnBrd}`,borderRadius:12,padding:'16px 24px'}}>
+            <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr':'1fr 1fr',gap:8,marginBottom:16}}>
               {[
                 'UK GDPR / DPA 2018 compliant',
                 'EEA-hosted infrastructure (Render, Frankfurt region)',
@@ -3729,9 +3729,9 @@ export default function App() {
         </div>
 
         {/* Data Saving Warning */}
-        <div style={{marginBottom:20}}>
-          <div style={{background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:12,padding:'20px 24px'}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+        <div style={{marginBottom:16}}>
+          <div style={{background:C.ambDim,border:`1px solid ${C.ambBrd}`,borderRadius:12,padding:'16px 24px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
               <span style={{fontSize:16}}>⚠️</span>
               <span style={{fontSize:14,fontWeight:700,color:C.amb,fontFamily:C.fontUI}}>
                 Saving Your Data — Important
@@ -3745,8 +3745,8 @@ export default function App() {
                 'Never share bank statement files or extracted transaction data with unauthorised parties.',
                 'This app is for use by the account holder or their appointed, authorised agent only.',
               ].map((s,i) => (
-                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:9}}>
-                  <span style={{color:C.amb,fontSize:11,flexShrink:0,marginTop:3,fontWeight:700}}>•</span>
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                  <span style={{color:C.amb,fontSize:11,flexShrink:0,marginTop:4,fontWeight:700}}>•</span>
                   <span style={{fontSize:13,color:C.t2,lineHeight:1.55,fontFamily:C.fontUI}}>{s}</span>
                 </div>
               ))}
@@ -3755,8 +3755,8 @@ export default function App() {
         </div>
 
         {/* Quickstart */}
-        <div style={{marginBottom:32}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:14,fontFamily:C.fontUI}}>
+        <div style={{marginBottom:42}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.t1,marginBottom:16,fontFamily:C.fontUI}}>
             Quickstart
           </div>
           <div style={{display:'grid',gridTemplateColumns:isNarrow?'1fr 1fr':'repeat(4,1fr)',gap:12}}>
@@ -3768,13 +3768,13 @@ export default function App() {
             ].map(({n,title,desc,tab:t}) => (
               <div key={n} onClick={() => setTab(t)}
                 style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:10,
-                  padding:'16px 14px',cursor:'pointer',transition:'border-color 0.15s,box-shadow 0.15s'}}
+                  padding:'16px',cursor:'pointer',transition:'border-color 0.15s,box-shadow 0.15s'}}
                 onMouseEnter={e => {e.currentTarget.style.borderColor=C.blu;e.currentTarget.style.boxShadow=C.sh2;}}
                 onMouseLeave={e => {e.currentTarget.style.borderColor=C.bdr;e.currentTarget.style.boxShadow='none';}}>
                 <div style={{width:28,height:28,borderRadius:'50%',background:C.blu,color:'#fff',
                   fontSize:13,fontWeight:700,display:'flex',alignItems:'center',
-                  justifyContent:'center',marginBottom:10}}>{n}</div>
-                <div style={{fontSize:13,fontWeight:700,color:C.t1,marginBottom:5,fontFamily:C.fontUI}}>{title}</div>
+                  justifyContent:'center',marginBottom:8}}>{n}</div>
+                <div style={{fontSize:13,fontWeight:700,color:C.t1,marginBottom:4,fontFamily:C.fontUI}}>{title}</div>
                 <div style={{fontSize:11,color:C.t3,lineHeight:1.55,fontFamily:C.fontUI}}>{desc}</div>
               </div>
             ))}
@@ -3788,11 +3788,11 @@ export default function App() {
   const renderDashboard = () => {
     const fmtDate = ts => { const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); };
     return (
-      <div style={{padding:'18px',overflowY:'auto',height:'100%',boxSizing:'border-box'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+      <div style={{padding:'16px',overflowY:'auto',height:'100%',boxSizing:'border-box'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <div style={{fontSize:19,fontWeight:700,color:C.t1,fontFamily:C.fontUI}}>Projects</div>
-            <div style={{fontSize:12,color:C.t2,marginTop:3}}>
+            <div style={{fontSize:12,color:C.t2,marginTop:4}}>
               {projects.length} project{projects.length!==1?'s':''} · click a card to switch and review
             </div>
           </div>
@@ -3810,14 +3810,14 @@ export default function App() {
               <div key={p.id}
                 onClick={() => { setActiveProjectId(p.id); localStorage.setItem('sa_activeProject',p.id); setTab('audit'); }}
                 style={{background:isActive?C.bluDim:C.card,
-                  borderRadius:14,padding:'20px 22px',cursor:'pointer',
+                  borderRadius:14,padding:'16px 24px',cursor:'pointer',
                   transition:'all 0.15s',
                   boxShadow:isActive?`0 0 0 2px ${C.bluBrd}, ${C.sh2}`:C.sh2}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                   <div style={{fontSize:15,fontWeight:700,color:isActive?C.blu:C.t1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{p.name}</div>
-                  {isActive && <span style={{fontSize:10,fontWeight:700,color:C.blu,background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:4,padding:'1px 6px',flexShrink:0,marginLeft:6}}>Active</span>}
+                  {isActive && <span style={{fontSize:10,fontWeight:700,color:C.blu,background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:4,padding:'1px 6px',flexShrink:0,marginLeft:8}}>Active</span>}
                 </div>
-                <div style={{display:'flex',flexDirection:'column',gap:3,marginBottom:10}}>
+                <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:8}}>
                   {approved > 0 && <span style={{fontSize:12,color:C.grn}}>✓ {approved} approved</span>}
                   {review   > 0 && <span style={{fontSize:12,color:C.blu}}>⚑ {review} for review</span>}
                   {errored  > 0 && <span style={{fontSize:12,color:C.red}}>⚠ {errored} error{errored!==1?'s':''}</span>}
@@ -3840,8 +3840,8 @@ export default function App() {
               localStorage.setItem('sa_activeProject', id);
             }}
             style={{background:C.surf,border:`2px dashed ${C.bdrBrt}`,borderRadius:12,
-              padding:'18px 20px',cursor:'pointer',display:'flex',flexDirection:'column',
-              alignItems:'center',justifyContent:'center',gap:6,color:C.t3,
+              padding:'16px',cursor:'pointer',display:'flex',flexDirection:'column',
+              alignItems:'center',justifyContent:'center',gap:8,color:C.t3,
               transition:'all 0.15s',minHeight:100}}>
             <div style={{fontSize:24}}>+</div>
             <div style={{fontSize:13}}>New Project</div>
@@ -3951,16 +3951,16 @@ export default function App() {
         borderRight:`1px solid ${C.bdr}`,transition:'width 0.18s',overflow:'hidden'}}>
 
         {/* Brand */}
-        <div style={{padding:'18px 14px 14px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0}}>
+        <div style={{padding:'16px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0}}>
           {sidebarCollapsed ? (
             <div style={{display:'flex',justifyContent:'center'}}>
-              <div style={{width:34,height:34,borderRadius:9,background:C.blu,display:'flex',
+              <div style={{width:34,height:34,borderRadius:8,background:C.blu,display:'flex',
                 alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:17}}>£</div>
             </div>
           ) : (
             <>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:34,height:34,borderRadius:9,background:C.blu,display:'flex',
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:34,height:34,borderRadius:8,background:C.blu,display:'flex',
                   alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:17,flexShrink:0}}>£</div>
                 <div>
                   <div style={{fontSize:14,fontWeight:700,color:C.t1,letterSpacing:'-0.01em',lineHeight:1.2,whiteSpace:'nowrap'}}>StatementAudit Pro</div>
@@ -3968,7 +3968,7 @@ export default function App() {
                 </div>
               </div>
               {TRIAL_MODE && (
-                <div style={{marginTop:10,padding:'5px 8px',borderRadius:6,textAlign:'center',
+                <div style={{marginTop:8,padding:'4px 8px',borderRadius:8,textAlign:'center',
                   background:trialUsed >= TRIAL_LIMIT ? C.redDim : C.ambDim,
                   border:`1px solid ${trialUsed >= TRIAL_LIMIT ? C.redBrd : C.ambBrd}`,
                   fontSize:10,fontWeight:600,color:trialUsed >= TRIAL_LIMIT ? C.red : C.amb}}>
@@ -3998,21 +3998,21 @@ export default function App() {
                       onChange={e => setRenameProjectVal(e.target.value)}
                       onKeyDown={e => { if(e.key==='Enter') commitRename(); if(e.key==='Escape') setRenamingProjectId(null); }}
                       onBlur={commitRename}
-                      style={{width:'100%',boxSizing:'border-box',background:C.card,border:`1px solid ${C.grn}`,borderRadius:6,
+                      style={{width:'100%',boxSizing:'border-box',background:C.card,border:`1px solid ${C.grn}`,borderRadius:8,
                         padding:'5px 7px',color:C.t1,fontSize:12,outline:'none',fontFamily:C.fontUI}}/>
                   : <div style={{display:'flex',gap:4}}>
                       <select value={activeProjectId} onChange={e => setActiveProjectId(e.target.value)}
-                        style={{flex:1,minWidth:0,background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:6,
+                        style={{flex:1,minWidth:0,background:C.card,border:`1px solid ${C.bdrBrt}`,borderRadius:8,
                           padding:'5px 7px',color:C.t1,fontSize:12,outline:'none',cursor:'pointer',fontFamily:C.fontUI}}>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
                       <button onClick={() => renameProject(activeProjectId)} title="Rename"
-                        style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:5,cursor:'pointer',
+                        style={{background:'none',border:`1px solid ${C.bdr}`,borderRadius:8,cursor:'pointer',
                           color:C.t2,fontSize:12,padding:'4px 6px',lineHeight:1}}>✏</button>
                     </div>
                 }
                 <button onClick={addProject}
-                  style={{width:'100%',marginTop:5,background:'none',border:`1px solid ${C.bdr}`,borderRadius:6,
+                  style={{width:'100%',marginTop:4,background:'none',border:`1px solid ${C.bdr}`,borderRadius:8,
                     cursor:'pointer',color:C.t3,fontSize:11,padding:'4px 0',fontFamily:C.fontUI}}>+ New Project</button>
               </div>
             )}
@@ -4046,19 +4046,19 @@ export default function App() {
                 : ['queued','processing'].includes(x.status) ? 'queue' : 'upload';
               return (
                 <div key={x.id} onClick={() => { setActiveId(x.id); setTab(destTab); }}
-                  style={{padding:'7px 8px',borderRadius:6,marginBottom:2,cursor:'pointer',
+                  style={{padding:'8px',borderRadius:8,marginBottom:4,cursor:'pointer',
                     background:isA&&tab===destTab?C.bluDim:'transparent',
                     border:`1px solid ${isA&&tab===destTab?C.bluBrd:'transparent'}`,
                     transition:'all 0.12s'}}>
                   <div style={{fontSize:11,fontWeight:600,color:C.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:2}}>
                     {x.bankName||x.filename}
                   </div>
-                  <div style={{fontSize:10,color:C.t3,marginBottom:3,...C.num}}>{x.period?.from||'—'}</div>
-                  <div style={{display:'flex',gap:3,alignItems:'center',flexWrap:'wrap'}}>
-                    <span style={{fontSize:10,fontWeight:700,padding:'1px 4px',borderRadius:3,color:atC.color,background:`${atC.color}14`}}>
+                  <div style={{fontSize:10,color:C.t3,marginBottom:4,...C.num}}>{x.period?.from||'—'}</div>
+                  <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
+                    <span style={{fontSize:10,fontWeight:700,padding:'1px 4px',borderRadius:4,color:atC.color,background:`${atC.color}14`}}>
                       {atC.label.split(' ')[0]}
                     </span>
-                    <span style={{fontSize:10,fontWeight:700,padding:'1px 4px',borderRadius:3,color:cfg.color,background:`${cfg.color}14`}}>
+                    <span style={{fontSize:10,fontWeight:700,padding:'1px 4px',borderRadius:4,color:cfg.color,background:`${cfg.color}14`}}>
                       {cfg.label}
                     </span>
                     {hasDp && <span style={{fontSize:10,fontWeight:700,color:C.red}}>DUPE</span>}
@@ -4072,7 +4072,7 @@ export default function App() {
         </div>
 
         {/* Collapse toggle */}
-        <div style={{padding:'6px 8px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+        <div style={{padding:'8px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
           <button onClick={() => setSidebarCollapsed(v => !v)}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4,width:'100%',
@@ -4093,7 +4093,7 @@ export default function App() {
           {TRIAL_MODE && trialUsed >= TRIAL_LIMIT && (
             <button onClick={() => setShowTrialCap(true)}
               style={{fontSize:11,fontWeight:600,color:C.red,background:C.redDim,
-                border:`1.5px solid ${C.redBrd}`,borderRadius:7,padding:'4px 10px',cursor:'pointer',
+                border:`1.5px solid ${C.redBrd}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',
                 fontFamily:C.fontUI,marginRight:4}}>
               Trial limit — Upgrade →
             </button>
@@ -4101,7 +4101,7 @@ export default function App() {
           {toolItems.map(({icon,label,active,green,tip,onClick}) => (
             <Tip key={label} text={isTablet ? label : tip} pos="bottom" active={showTips||isTablet}>
               <button onClick={onClick}
-                style={{display:'flex',alignItems:'center',gap:5,
+                style={{display:'flex',alignItems:'center',gap:4,
                   padding:isTablet?'6px 8px':'6px 10px',
                   borderRadius:4,border:'none',cursor:'pointer',fontSize:12,fontWeight:active?600:400,
                   fontFamily:C.fontUI,transition:'all 0.12s',whiteSpace:'nowrap',
@@ -4134,7 +4134,7 @@ export default function App() {
                     fontSize:12,userSelect:'none',flexShrink:0,padding:'0 1px'}}>›</span>}
                   <Tip text={tip} pos="bottom" active={showTips}>
                     <button onClick={() => setTab(n.id)}
-                      style={{display:'flex',alignItems:'center',gap:6,
+                      style={{display:'flex',alignItems:'center',gap:8,
                         padding:isNarrow?'0 7px':'0 11px',
                         height:'100%',background:'transparent',border:'none',
                         cursor:'pointer',fontSize:12,fontWeight:on?600:500,fontFamily:C.fontUI,
@@ -4159,7 +4159,7 @@ export default function App() {
           <div style={{display:'flex',alignItems:'center',gap:8,paddingRight:16,flexShrink:0}}>
             <button onClick={() => setShowPageGuide(v => !v)}
               title={PAGE_GUIDES[tab]?.title || 'How to use this page'}
-              style={{display:'flex',alignItems:'center',gap:6,
+              style={{display:'flex',alignItems:'center',gap:8,
                 padding:isNarrow?'4px 8px':'4px 12px',
                 borderRadius:20,fontFamily:C.fontUI,fontSize:12,fontWeight:500,cursor:'pointer',
                 transition:'all 0.15s',whiteSpace:'nowrap',
@@ -4200,7 +4200,7 @@ export default function App() {
                     <div style={{fontSize:18,fontWeight:700,color:'#fff',fontFamily:C.fontUI}}>
                       {guide.title}
                     </div>
-                    <div style={{fontSize:12,color:'rgba(255,255,255,0.75)',marginTop:3,fontFamily:C.fontUI}}>
+                    <div style={{fontSize:12,color:'rgba(255,255,255,0.75)',marginTop:4,fontFamily:C.fontUI}}>
                       Quick-start guide · {guide.steps.length} steps
                     </div>
                   </div>
@@ -4211,8 +4211,8 @@ export default function App() {
               </div>
               <div style={{flex:1,overflowY:'auto',background:'#FFFFFF'}}>
                 {guide.steps.map((step, i) => (
-                  <div key={i} style={{display:'flex',gap:14,alignItems:'flex-start',
-                    padding:'14px 24px',borderBottom:'1px solid #EBEBEB'}}>
+                  <div key={i} style={{display:'flex',gap:16,alignItems:'flex-start',
+                    padding:'16px 24px',borderBottom:'1px solid #EBEBEB'}}>
                     <span style={{width:22,height:22,borderRadius:'50%',flexShrink:0,
                       background:C.bluDim,color:C.blu,display:'flex',alignItems:'center',
                       justifyContent:'center',fontSize:11,fontWeight:700,fontFamily:C.fontUI,marginTop:1}}>
@@ -4225,12 +4225,12 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0,
+              <div style={{padding:'16px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0,
                 background:'#F8F9FA',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <span style={{fontSize:12,color:C.t3,fontFamily:C.fontUI}}>Need more help?</span>
                 <button onClick={() => { setShowPageGuide(false); setShowHelp(true); }}
                   style={{fontSize:12,fontWeight:600,color:C.blu,background:'transparent',
-                    border:`1px solid ${C.blu}`,borderRadius:4,padding:'5px 12px',cursor:'pointer',
+                    border:`1px solid ${C.blu}`,borderRadius:4,padding:'4px 12px',cursor:'pointer',
                     fontFamily:C.fontUI}}>
                   Open Help panel →
                 </button>
@@ -4259,7 +4259,7 @@ export default function App() {
             style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:900,display:'flex',alignItems:'flex-start',justifyContent:'flex-end'}}>
             <div onClick={e => e.stopPropagation()}
               style={{width:400,maxWidth:'95vw',height:'100vh',background:C.card,borderLeft:`1px solid ${C.bdr}`,display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
-              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.surf}}>
+              <div style={{padding:'16px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.surf}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div>
                     <div style={{fontSize:19,fontWeight:700,color:C.t1}}>Activity Log</div>
@@ -4276,7 +4276,7 @@ export default function App() {
                   const cfg = EVENT_CFG[ev.type];
                   const proj = projects.find(p => p.id === (ev.stmt.projectId||'default'));
                   return (
-                    <div key={`${ev.ts}:${ev.type}:${ev.stmt.id}`} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'10px 0',borderBottom:`1px solid ${C.bdr}`}}>
+                    <div key={`${ev.ts}:${ev.type}:${ev.stmt.id}`} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'8px 0',borderBottom:`1px solid ${C.bdr}`}}>
                       <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#fff',background:cfg.color,marginTop:1}}>{cfg.icon}</div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:600,color:C.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
@@ -4293,7 +4293,7 @@ export default function App() {
                   );
                 })}
               </div>
-              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+              <div style={{padding:'16px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
                 <div style={{fontSize:11,color:C.t4,textAlign:'center',lineHeight:1.5}}>
                   Activity reflects this browser session.<br/>
                   {cloudProvider !== 'none' ? `Approved statements auto-save to ${CLOUD_CFG[cloudProvider].label}.` : 'Connect ☁ Cloud to persist statements across devices.'}
@@ -4310,7 +4310,7 @@ export default function App() {
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:900,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <div onClick={e => e.stopPropagation()}
             style={{background:C.card,border:`1px solid ${C.bdr}`,borderRadius:14,padding:'28px 32px',width:360,maxWidth:'90vw',boxShadow:'0 12px 40px rgba(0,0,0,0.3)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
               <div style={{fontSize:16,fontWeight:700,color:C.t1}}>Keyboard shortcuts</div>
               <button onClick={() => setShowShortcuts(false)} style={{background:'none',border:'none',color:C.t3,fontSize:18,cursor:'pointer',padding:0}}>×</button>
             </div>
@@ -4321,11 +4321,11 @@ export default function App() {
               ['?','Toggle this overlay'],
             ].map(([k,d]) => (
               <div key={k} style={{display:'flex',alignItems:'center',gap:12,padding:'7px 0',borderBottom:`1px solid ${C.bdr}`}}>
-                <kbd style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:5,padding:'2px 9px',fontSize:13,fontWeight:600,color:C.t1,...C.num,minWidth:32,textAlign:'center',flexShrink:0}}>{k}</kbd>
+                <kbd style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'2px 8px',fontSize:13,fontWeight:600,color:C.t1,...C.num,minWidth:32,textAlign:'center',flexShrink:0}}>{k}</kbd>
                 <span style={{fontSize:13,color:C.t2}}>{d}</span>
               </div>
             ))}
-            <div style={{fontSize:11,color:C.t4,marginTop:14}}>Shortcuts active in Review tab when no input is focused.</div>
+            <div style={{fontSize:11,color:C.t4,marginTop:16}}>Shortcuts active in Review tab when no input is focused.</div>
           </div>
         </div>
       )}
@@ -4338,7 +4338,7 @@ export default function App() {
             style={{width:420,maxWidth:'95vw',height:'100vh',background:C.card,borderLeft:`1px solid ${C.bdr}`,
               display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
             {/* Header */}
-            <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,
+            <div style={{padding:'16px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,
               background: cloudProvider === 'google' ? C.google : cloudProvider === 'microsoft' ? C.microsoft : C.blu}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
@@ -4356,16 +4356,16 @@ export default function App() {
             </div>
 
             {/* Body */}
-            <div style={{flex:1,overflowY:'auto',padding:'20px 24px'}}>
+            <div style={{flex:1,overflowY:'auto',padding:'16px 24px'}}>
               {cloudProvider === 'none' ? (
                 <>
-                  <p style={{fontSize:13,color:C.t2,lineHeight:1.6,marginTop:0,marginBottom:20}}>
+                  <p style={{fontSize:13,color:C.t2,lineHeight:1.6,marginTop:0,marginBottom:16}}>
                     Connect your own cloud to save approved statements automatically.
                     Files are stored in your account — StatementAudit Pro never sees them.
                   </p>
 
                   {/* Connect buttons */}
-                  <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:24}}>
+                  <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
                     <button onClick={() => startCloudAuth('google')}
                       style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px',borderRadius:10,
                         border:`1px solid #E3E8EF`,background:'#fff',cursor:'pointer',
@@ -4390,19 +4390,19 @@ export default function App() {
 
                   {cloudError && (
                     <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,
-                      padding:'10px 14px',fontSize:12,color:C.red,marginBottom:16}}>{cloudError}</div>
+                      padding:'8px 16px',fontSize:12,color:C.red,marginBottom:16}}>{cloudError}</div>
                   )}
 
                   {/* How it works */}
-                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'14px 16px',marginBottom:16}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>How it works</div>
+                  <div style={{background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:10,padding:'16px',marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8}}>How it works</div>
                     {[
                       ['☁', 'Approved statements auto-save as JSON to a private app folder'],
                       ['↩', 'Reconnecting restores all your previous statements'],
                       ['🔒', 'Files stay in your account — we never store or see them'],
                       ['👥', 'Share the folder with colleagues for team access'],
                     ].map(([icon, text]) => (
-                      <div key={text} style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:8}}>
+                      <div key={text} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:8}}>
                         <span style={{fontSize:14,lineHeight:'20px',flexShrink:0}}>{icon}</span>
                         <span style={{fontSize:13,color:C.t2,lineHeight:1.5}}>{text}</span>
                       </div>
@@ -4432,28 +4432,28 @@ export default function App() {
                       'In Render dashboard → your service → Environment → add variable VITE_MICROSOFT_CLIENT_ID = (paste the GUID) → Save. Render rebuilds automatically.',
                     ]},
                   ].map(({ provider, label, color, icon, steps }) => (
-                    <details key={provider} style={{marginBottom:10,borderRadius:10,border:`1px solid ${C.bdr}`,overflow:'hidden'}}>
-                      <summary style={{padding:'11px 14px',background:C.surf,cursor:'pointer',
+                    <details key={provider} style={{marginBottom:8,borderRadius:10,border:`1px solid ${C.bdr}`,overflow:'hidden'}}>
+                      <summary style={{padding:'12px 16px',background:C.surf,cursor:'pointer',
                         display:'flex',alignItems:'center',gap:8,fontSize:13,fontWeight:600,color:C.t1,listStyle:'none',userSelect:'none'}}>
                         <span style={{fontSize:15}}>{icon}</span>
                         <span style={{flex:1}}>Setup: {label}</span>
                         <span style={{fontSize:10,color:C.t3,fontWeight:400}}>click to expand ▾</span>
                       </summary>
                       <div style={{padding:'12px 14px',background:C.card}}>
-                        <div style={{fontSize:11,color:C.t3,marginBottom:10,lineHeight:1.5}}>
+                        <div style={{fontSize:11,color:C.t3,marginBottom:8,lineHeight:1.5}}>
                           One-time setup in your {label === 'Google Drive' ? 'Google Cloud Console' : 'Azure Portal'}.
                           Takes about 5 minutes.
                         </div>
                         {steps.map((step, i) => (
-                          <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:9}}>
+                          <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:8}}>
                             <span style={{width:20,height:20,borderRadius:'50%',background:color,color:'#fff',
                               fontSize:10,fontWeight:700,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',
                               marginTop:1}}>{i+1}</span>
                             <span style={{fontSize:12,color:C.t2,lineHeight:1.55}}>{step}</span>
                           </div>
                         ))}
-                        <div style={{marginTop:10,padding:'8px 10px',background:C.bluDim,border:`1px solid ${C.bluBrd}`,
-                          borderRadius:7,fontSize:11,color:C.blu,lineHeight:1.5}}>
+                        <div style={{marginTop:8,padding:'8px 12px',background:C.bluDim,border:`1px solid ${C.bluBrd}`,
+                          borderRadius:8,fontSize:11,color:C.blu,lineHeight:1.5}}>
                           After saving the Render env variable, wait ~2 minutes for the rebuild, then the Connect button will work.
                         </div>
                       </div>
@@ -4464,7 +4464,7 @@ export default function App() {
                 <>
                   {/* Connected state header */}
                   <div style={{background:cloudProvider==='google'?'#E8F0FE':'#E6F2FB',border:`1px solid ${cloudProvider==='google'?'#C2D8FB':'#B8DCFB'}`,
-                    borderRadius:10,padding:'14px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
+                    borderRadius:10,padding:'16px',marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:36,height:36,borderRadius:'50%',background:cloudProvider==='google'?C.google:C.microsoft,
                       display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff',flexShrink:0}}>
                       {cloudProvider === 'google' ? '📁' : '🗂'}
@@ -4494,7 +4494,7 @@ export default function App() {
                   {/* M365 Workspace section (Microsoft only) */}
                   {cloudProvider === 'microsoft' && (
                     <div style={{border:`1px solid ${C.bdr}`,borderRadius:10,overflow:'hidden',marginBottom:16}}>
-                      <div style={{padding:'11px 14px',background:workspaceMode==='active'?'#E6F2FB':C.surf,
+                      <div style={{padding:'12px 16px',background:workspaceMode==='active'?'#E6F2FB':C.surf,
                         display:'flex',alignItems:'center',gap:8}}>
                         <span style={{fontSize:15}}>👥</span>
                         <span style={{fontSize:13,fontWeight:700,color:C.t1,flex:1}}>
@@ -4517,19 +4517,19 @@ export default function App() {
                             </p>
 
                             {workspaceError && (
-                              <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:7,
+                              <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,
                                 padding:'8px 12px',fontSize:12,color:C.red,marginBottom:12}}>{workspaceError}</div>
                             )}
 
                             {wsView === 'none' && (
                               <div style={{display:'flex',gap:8}}>
                                 <button onClick={() => { setWsView('create'); setWorkspaceError(null); }}
-                                  style={{flex:1,padding:'9px 12px',borderRadius:8,border:`1px solid #0078D4`,
+                                  style={{flex:1,padding:'8px 12px',borderRadius:8,border:`1px solid #0078D4`,
                                     background:C.microsoft,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer'}}>
                                   + Create workspace
                                 </button>
                                 <button onClick={() => { setWsView('join'); setWorkspaceError(null); }}
-                                  style={{flex:1,padding:'9px 12px',borderRadius:8,border:`1px solid ${C.bdr}`,
+                                  style={{flex:1,padding:'8px 12px',borderRadius:8,border:`1px solid ${C.bdr}`,
                                     background:C.surf,color:C.t1,fontSize:12,fontWeight:600,cursor:'pointer'}}>
                                   Join workspace
                                 </button>
@@ -4544,17 +4544,17 @@ export default function App() {
                                 </div>
                                 <input value={wsCreateInput} onChange={e => setWsCreateInput(e.target.value)}
                                   placeholder="Workspace name (e.g. Smith & Co)"
-                                  style={{width:'100%',padding:'8px 10px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                  style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${C.bdr}`,
                                     fontSize:12,color:C.t1,background:C.card,marginBottom:8,boxSizing:'border-box'}} />
                                 <div style={{display:'flex',gap:8}}>
                                   <button onClick={wsCreate} disabled={workspaceSyncing}
-                                    style={{flex:1,padding:'8px',borderRadius:7,border:'none',
+                                    style={{flex:1,padding:'8px',borderRadius:8,border:'none',
                                       background:C.microsoft,color:'#fff',fontSize:12,fontWeight:600,
                                       cursor:workspaceSyncing?'default':'pointer',opacity:workspaceSyncing?0.6:1}}>
                                     {workspaceSyncing ? 'Creating…' : 'Create'}
                                   </button>
                                   <button onClick={() => { setWsView('none'); setWorkspaceError(null); }}
-                                    style={{padding:'8px 14px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                    style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.bdr}`,
                                       background:C.surf,color:C.t2,fontSize:12,cursor:'pointer'}}>Cancel</button>
                                 </div>
                               </div>
@@ -4568,18 +4568,18 @@ export default function App() {
                                 </div>
                                 <input value={wsJoinInput} onChange={e => setWsJoinInput(e.target.value)}
                                   placeholder="https://onedrive.live.com/…"
-                                  style={{width:'100%',padding:'8px 10px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                  style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${C.bdr}`,
                                     fontSize:11,color:C.t1,background:C.card,marginBottom:8,boxSizing:'border-box'}} />
                                 <div style={{display:'flex',gap:8}}>
                                   <button onClick={wsJoin} disabled={workspaceSyncing || !wsJoinInput.trim()}
-                                    style={{flex:1,padding:'8px',borderRadius:7,border:'none',
+                                    style={{flex:1,padding:'8px',borderRadius:8,border:'none',
                                       background:C.microsoft,color:'#fff',fontSize:12,fontWeight:600,
                                       cursor:(workspaceSyncing||!wsJoinInput.trim())?'default':'pointer',
                                       opacity:(workspaceSyncing||!wsJoinInput.trim())?0.5:1}}>
                                     {workspaceSyncing ? 'Joining…' : 'Join'}
                                   </button>
                                   <button onClick={() => { setWsView('none'); setWorkspaceError(null); }}
-                                    style={{padding:'8px 14px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                    style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.bdr}`,
                                       background:C.surf,color:C.t2,fontSize:12,cursor:'pointer'}}>Cancel</button>
                                 </div>
                               </div>
@@ -4593,13 +4593,13 @@ export default function App() {
                             </div>
 
                             {workspaceError && (
-                              <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:7,
-                                padding:'8px 12px',fontSize:12,color:C.red,marginBottom:10}}>{workspaceError}</div>
+                              <div style={{background:C.redDim,border:`1px solid ${C.redBrd}`,borderRadius:8,
+                                padding:'8px 12px',fontSize:12,color:C.red,marginBottom:8}}>{workspaceError}</div>
                             )}
 
                             {workspaceShareUrl && (
-                              <div style={{background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:7,
-                                padding:'8px 12px',marginBottom:10}}>
+                              <div style={{background:C.bluDim,border:`1px solid ${C.bluBrd}`,borderRadius:8,
+                                padding:'8px 12px',marginBottom:8}}>
                                 <div style={{fontSize:10,color:C.t3,fontWeight:600,marginBottom:4}}>SHARE THIS LINK WITH COLLEAGUES</div>
                                 <div style={{fontSize:10,color:C.blu,wordBreak:'break-all',lineHeight:1.4}}>{workspaceShareUrl}</div>
                               </div>
@@ -4607,13 +4607,13 @@ export default function App() {
 
                             <div style={{display:'flex',gap:8}}>
                               <button onClick={wsPullMemory} disabled={workspaceSyncing}
-                                style={{flex:1,padding:'8px',borderRadius:7,border:`1px solid ${C.bdr}`,
+                                style={{flex:1,padding:'8px',borderRadius:8,border:`1px solid ${C.bdr}`,
                                   background:C.surf,color:C.t1,fontSize:12,fontWeight:600,
                                   cursor:workspaceSyncing?'default':'pointer',opacity:workspaceSyncing?0.6:1}}>
                                 {workspaceSyncing ? '↻ Syncing…' : '↻ Pull latest'}
                               </button>
                               <button onClick={wsLeave}
-                                style={{padding:'8px 14px',borderRadius:7,border:`1px solid ${C.redBrd}`,
+                                style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.redBrd}`,
                                   background:C.redDim,color:C.red,fontSize:12,fontWeight:600,cursor:'pointer'}}>
                                 Leave
                               </button>
@@ -4625,7 +4625,7 @@ export default function App() {
                   )}
 
                   <button onClick={disconnectCloud}
-                    style={{width:'100%',padding:'10px',borderRadius:8,border:`1px solid ${C.redBrd}`,
+                    style={{width:'100%',padding:'8px',borderRadius:8,border:`1px solid ${C.redBrd}`,
                       background:C.redDim,color:C.red,fontSize:13,fontWeight:600,cursor:'pointer'}}>
                     Disconnect {CLOUD_CFG[cloudProvider].label}
                   </button>
@@ -4634,7 +4634,7 @@ export default function App() {
             </div>
 
             {/* Footer */}
-            <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+            <div style={{padding:'16px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
               <div style={{fontSize:11,color:C.t4,textAlign:'center',lineHeight:1.5}}>
                 Processed in memory only — never stored on our servers. EEA-hosted.<br/>
                 Google Drive · OneDrive · Your storage, your control.
@@ -4775,8 +4775,8 @@ export default function App() {
               style={{width:440,maxWidth:'95vw',height:'100vh',background:C.card,borderLeft:`1px solid ${C.bdr}`,
                 display:'flex',flexDirection:'column',boxShadow:'-8px 0 32px rgba(0,0,0,0.2)'}}>
               {/* Header */}
-              <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.blu}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <div style={{padding:'16px 24px',borderBottom:`1px solid ${C.bdr}`,flexShrink:0,background:C.blu}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                   <div>
                     <div style={{fontSize:18,fontWeight:700,color:'#fff'}}>StatementAudit Help</div>
                     <div style={{fontSize:12,color:'rgba(255,255,255,0.7)',marginTop:2}}>Guides &amp; FAQs</div>
@@ -4807,7 +4807,7 @@ export default function App() {
                             {item.q}
                           </div>
                           <div style={{fontSize:12,fontWeight:700,color:C.t1,
-                            fontFamily:C.fontUI,marginBottom:6}}>
+                            fontFamily:C.fontUI,marginBottom:8}}>
                             by StatementAudit Pro
                           </div>
                           <div style={{fontSize:13,color:C.t1,lineHeight:1.65,fontFamily:C.fontUI}}>
@@ -4819,13 +4819,13 @@ export default function App() {
                                   <div style={{fontSize:11,fontWeight:700,color:C.t3,textTransform:'uppercase',
                                     letterSpacing:'0.07em',marginBottom:8,paddingBottom:4,
                                     borderBottom:`1px solid ${C.bdr}`}}>{label}</div>
-                                  <ol style={{margin:0,paddingLeft:18,display:'flex',flexDirection:'column',gap:7}}>
+                                  <ol style={{margin:0,paddingLeft:16,display:'flex',flexDirection:'column',gap:8}}>
                                     {steps.map((step,i) => <li key={i} style={{lineHeight:1.5}}>{step}</li>)}
                                   </ol>
                                 </div>
                               ));
                             })() : item.steps ? (
-                              <ol style={{margin:0,paddingLeft:18,display:'flex',flexDirection:'column',gap:7}}>
+                              <ol style={{margin:0,paddingLeft:16,display:'flex',flexDirection:'column',gap:8}}>
                                 {item.steps.map((step,i) => (
                                   <li key={i} style={{lineHeight:1.5}}>{step}</li>
                                 ))}
@@ -4839,7 +4839,7 @@ export default function App() {
                 }
               </div>
               {/* Footer */}
-              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
+              <div style={{padding:'16px 24px',borderTop:`1px solid ${C.bdr}`,flexShrink:0}}>
                 <div style={{fontSize:12,color:C.t3,textAlign:'center'}}>
                   Need more help? Email <a href="mailto:support@statementaudit.pro" style={{color:C.blu}}>support@statementaudit.pro</a>
                 </div>
@@ -4870,7 +4870,7 @@ export default function App() {
             {feedbackSent ? (
               <div style={{padding:'32px 20px',textAlign:'center'}}>
                 <div style={{fontSize:40,marginBottom:12}}>✓</div>
-                <div style={{fontSize:14,color:C.t2,lineHeight:1.6,marginBottom:20}}>
+                <div style={{fontSize:14,color:C.t2,lineHeight:1.6,marginBottom:16}}>
                   We've received your message — thank you!<br/>
                   Your feedback helps shape what we build next.
                 </div>
@@ -4889,7 +4889,7 @@ export default function App() {
                   placeholder="Reactions and suggestions welcome! Thanks!"
                   rows={6}
                   style={{width:'100%',boxSizing:'border-box',resize:'vertical',padding:'12px',
-                    fontSize:13,color:C.t1,border:`1px solid ${C.bdr}`,borderRadius:9,
+                    fontSize:13,color:C.t1,border:`1px solid ${C.bdr}`,borderRadius:8,
                     outline:'none',fontFamily:C.fontUI,lineHeight:1.6,
                     background:C.surf,transition:'border-color 0.15s'}}
                   onFocus={e => e.target.style.borderColor=C.bluBrd}
@@ -4901,7 +4901,7 @@ export default function App() {
                   onChange={e => setFeedbackEmail(e.target.value)}
                   placeholder="Your email (optional — so we can follow up)"
                   type="email"
-                  style={{width:'100%',boxSizing:'border-box',marginTop:8,padding:'9px 12px',
+                  style={{width:'100%',boxSizing:'border-box',marginTop:8,padding:'8px 12px',
                     fontSize:12,color:C.t1,border:`1px solid ${C.bdr}`,borderRadius:8,
                     outline:'none',fontFamily:C.fontUI,background:C.surf,
                     transition:'border-color 0.15s'}}
@@ -4909,7 +4909,7 @@ export default function App() {
                   onBlur={e => e.target.style.borderColor=C.bdr}
                 />
                 {/* Footer row */}
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:14}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
                   <div style={{fontSize:11,color:C.t4,lineHeight:1.4,maxWidth:200}}>
                     Sent directly to the product team.
                   </div>
@@ -4934,13 +4934,13 @@ export default function App() {
       {/* Trial access code gate — full-screen, highest z-index */}
       {showTrialGate && (
         <div style={{position:'fixed',inset:0,background:'rgba(15,27,45,0.94)',zIndex:9999,
-          display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
           <div style={{background:C.card,borderRadius:18,padding:'40px 44px',width:400,maxWidth:'100%',
             boxShadow:'0 32px 80px rgba(0,0,0,0.5)',border:`1px solid ${C.bdr}`,textAlign:'center'}}>
             <div style={{width:52,height:52,borderRadius:14,background:C.blu,display:'flex',alignItems:'center',
               justifyContent:'center',color:'#fff',fontWeight:700,fontSize:24,margin:'0 auto 20px'}}>£</div>
-            <div style={{fontSize:22,fontWeight:700,color:C.t1,marginBottom:6}}>StatementAudit Pro</div>
-            <div style={{fontSize:13,color:C.t3,marginBottom:28,lineHeight:1.5}}>
+            <div style={{fontSize:22,fontWeight:700,color:C.t1,marginBottom:8}}>StatementAudit Pro</div>
+            <div style={{fontSize:13,color:C.t3,marginBottom:32,lineHeight:1.5}}>
               This is a private demo — enter your access code to continue.
             </div>
             <input
@@ -4961,8 +4961,8 @@ export default function App() {
               </div>
             )}
             <button onClick={checkTrialCode}
-              style={{width:'100%',padding:'13px',background:C.blu,color:'#fff',border:'none',
-                borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:20,
+              style={{width:'100%',padding:'12px',background:C.blu,color:'#fff',border:'none',
+                borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer',marginBottom:16,
                 transition:'opacity 0.15s'}}
               onMouseEnter={e => e.currentTarget.style.opacity='0.88'}
               onMouseLeave={e => e.currentTarget.style.opacity='1'}>
@@ -4995,10 +4995,10 @@ export default function App() {
         const canExport    = confirmed === total && (!isXero || emptyPeriodOk) && total > 0 && gstComplete && rulePackOk;
         return (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.72)',zIndex:9994,
-            display:'flex',alignItems:'flex-start',justifyContent:'center',padding:20,overflowY:'auto'}}>
+            display:'flex',alignItems:'flex-start',justifyContent:'center',padding:24,overflowY:'auto'}}>
             <div style={{background:C.card,borderRadius:16,width:'100%',maxWidth:800,
               boxShadow:'0 24px 64px rgba(0,0,0,0.5)',border:`1px solid ${C.bdr}`,
-              marginTop:20,marginBottom:20}}>
+              marginTop:16,marginBottom:16}}>
 
               {/* Header */}
               <div style={{padding:'18px 24px',borderBottom:`1px solid ${C.bdr}`,
@@ -5015,7 +5015,7 @@ export default function App() {
                 </div>
                 <button onClick={() => setShowCodingModal(false)}
                   style={{fontSize:12,color:C.t3,background:'none',border:`1px solid ${C.bdr}`,
-                    borderRadius:6,padding:'4px 12px',cursor:'pointer',marginLeft:16,flexShrink:0}}>
+                    borderRadius:8,padding:'4px 12px',cursor:'pointer',marginLeft:16,flexShrink:0}}>
                   ✕ Cancel
                 </button>
               </div>
@@ -5027,7 +5027,7 @@ export default function App() {
                   <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',flex:'1 1 300px',
                     background:emptyPeriodOk ? C.grnDim : C.redDim,
                     border:`1px solid ${emptyPeriodOk ? C.grnBrd : C.redBrd}`,
-                    borderRadius:8,padding:'10px 14px'}}>
+                    borderRadius:8,padding:'8px 16px'}}>
                     <input type="checkbox" checked={emptyPeriodOk}
                       onChange={e => setEmptyPeriodOk(e.target.checked)}
                       style={{accentColor:C.grn,width:14,height:14,flexShrink:0}}/>
@@ -5041,7 +5041,7 @@ export default function App() {
                 ) : (
                   <div style={{display:'flex',alignItems:'flex-start',gap:8,flex:'1 1 300px',
                     background:C.bluDim,border:`1px solid ${C.bluBrd}`,
-                    borderRadius:8,padding:'10px 14px'}}>
+                    borderRadius:8,padding:'8px 16px'}}>
                     <span style={{fontSize:18,lineHeight:1,flexShrink:0}}>ℹ</span>
                     <span style={{fontSize:12,color:C.blu,lineHeight:1.5}}>
                       <strong>Reference coding for QBO</strong>
@@ -5055,7 +5055,7 @@ export default function App() {
                   <div style={{display:'flex',alignItems:'center',gap:8,flex:'0 1 auto',
                     background: rulePackOk ? C.grnDim : C.redDim,
                     border:`1px solid ${rulePackOk ? C.grnBrd : C.redBrd}`,
-                    borderRadius:8,padding:'10px 14px'}}>
+                    borderRadius:8,padding:'8px 16px'}}>
                     <span style={{fontSize:18,lineHeight:1,flexShrink:0}}>{rulePackOk ? '🏛' : '⚠️'}</span>
                     <span style={{fontSize:11,color: rulePackOk ? C.grn : C.red,lineHeight:1.4}}>
                       <strong>{jur === 'jersey' ? `Jersey GST Rule-Pack v${gstJersey.version}` : `UK VAT Rule-Pack v${vatUK.version}`}</strong>
@@ -5068,7 +5068,7 @@ export default function App() {
                   </div>
                 )}
                 <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',
-                  background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'10px 14px'}}>
+                  background:C.surf,border:`1px solid ${C.bdr}`,borderRadius:8,padding:'8px 16px'}}>
                   <input type="checkbox" checked={autoConfirmMem}
                     onChange={e => {
                       const on = e.target.checked;
@@ -5085,7 +5085,7 @@ export default function App() {
                 </label>
                 <div style={{display:'flex',alignItems:'center',gap:8,
                   background:C.surf,border:`1px solid ${chartAccounts.length?C.bluBrd:C.bdr}`,
-                  borderRadius:8,padding:'10px 14px',flexShrink:0}}>
+                  borderRadius:8,padding:'8px 16px',flexShrink:0}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:12,color:chartAccounts.length?C.blu:C.t3,fontWeight:500}}>
                       {chartAccounts.length ? `📋 ${chartAccounts.length} accounts` : '📋 No chart loaded'}
@@ -5186,17 +5186,17 @@ export default function App() {
                       <div style={{display:'grid',gridTemplateColumns:'86px 1fr 90px 140px 130px 44px',
                         padding:'6px 24px',alignItems:'start'}}>
                       <div style={{fontSize:11,color:C.t3,...C.num}}>{l.date}</div>
-                      <div style={{paddingRight:8,display:'flex',flexDirection:'column',gap:3,overflow:'hidden'}}>
+                      <div style={{paddingRight:8,display:'flex',flexDirection:'column',gap:4,overflow:'hidden'}}>
                         <div style={{display:'flex',alignItems:'center',gap:4,minWidth:0}}>
                           <input value={l.payee||''}
                             onChange={e => updateCodingLine(l.id||i, {payee: e.target.value})}
                             placeholder="Payee"
                             style={{flex:1,minWidth:0,padding:'3px 6px',background:C.bg,
-                              border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t1,fontSize:12,
+                              border:`1px solid ${C.bdrBrt}`,borderRadius:8,color:C.t1,fontSize:12,
                               fontFamily:C.fontUI,outline:'none',boxSizing:'border-box'}}/>
                           {l.fromMemory && (
                             <span style={{flexShrink:0,fontSize:10,color:C.blu,background:C.bluDim,
-                              border:`1px solid ${C.bluBrd}`,borderRadius:3,padding:'1px 5px'}}>
+                              border:`1px solid ${C.bluBrd}`,borderRadius:4,padding:'1px 5px'}}>
                               remembered
                             </span>
                           )}
@@ -5205,7 +5205,7 @@ export default function App() {
                           onChange={e => updateCodingLine(l.id||i, {description: e.target.value})}
                           placeholder="Description (optional)"
                           style={{width:'100%',padding:'3px 6px',background:C.bg,
-                            border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t3,fontSize:11,
+                            border:`1px solid ${C.bdrBrt}`,borderRadius:8,color:C.t3,fontSize:11,
                             fontFamily:C.fontUI,outline:'none',boxSizing:'border-box'}}/>
                       </div>
                       <div style={{fontSize:12,...C.num,
@@ -5216,7 +5216,7 @@ export default function App() {
                           placeholder="e.g. 400"
                           style={{width:'100%',padding:'4px 8px',background:C.bg,
                             border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
-                            borderRadius:6,color:C.t1,fontSize:12,
+                            borderRadius:8,color:C.t1,fontSize:12,
                             ...C.num,outline:'none',boxSizing:'border-box'}}/>
                         {(() => {
                           const key = normKey(l.payee, l.description);
@@ -5224,7 +5224,7 @@ export default function App() {
                           return sug ? (
                             <button onClick={() => updateCodingLine(l.id||i, {code: sug.code, confirmed: false})}
                               title="Click to apply AI suggestion"
-                              style={{marginTop:3,width:'100%',padding:'2px 6px',background:C.purDim,
+                              style={{marginTop:4,width:'100%',padding:'2px 8px',background:C.purDim,
                                 border:`1px solid ${C.purBrd}`,borderRadius:4,color:C.pur,fontSize:10,
                                 cursor:'pointer',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',
                                 whiteSpace:'nowrap',fontFamily:C.fontUI}}>
@@ -5234,12 +5234,12 @@ export default function App() {
                         })()}
                       </div>
                       {hasTaxCol && activePack ? (
-                        <div style={{paddingLeft:6}}>
+                        <div style={{paddingLeft:8}}>
                           <select value={l.gstTreatment||''}
                             onChange={e => updateCodingLine(l.id||i, {gstTreatment: e.target.value, confirmed: false})}
                             style={{width:'100%',padding:'4px 6px',background:C.bg,
                               border:`1px solid ${l.gstTreatment ? (l.confirmed ? C.grnBrd : C.ambBrd) : C.redBrd}`,
-                              borderRadius:6,color: l.gstTreatment ? C.t1 : C.red,fontSize:11,
+                              borderRadius:8,color: l.gstTreatment ? C.t1 : C.red,fontSize:11,
                               outline:'none',boxSizing:'border-box',cursor:'pointer'}}>
                             <option value=''>— pick treatment —</option>
                             {activePack.options.map(o => (
@@ -5255,7 +5255,7 @@ export default function App() {
                           onClick={() => updateCodingLine(l.id||i, {confirmed: !l.confirmed})}
                           disabled={!l.code.trim() || (hasTaxCol && !l.gstTreatment)}
                           title={l.confirmed ? 'Un-confirm' : 'Confirm this code'}
-                          style={{width:28,height:28,borderRadius:6,flexShrink:0,
+                          style={{width:28,height:28,borderRadius:8,flexShrink:0,
                             border:`1px solid ${l.confirmed ? C.grnBrd : C.bdrBrt}`,
                             background: l.confirmed ? C.grn : 'none',
                             color: l.confirmed ? '#fff' : C.t4,
@@ -5277,7 +5277,7 @@ export default function App() {
                                 ci===0 ? {tracking1:e.target.value,confirmed:false}
                                        : {tracking2:e.target.value,confirmed:false})}
                               style={{flex:1,maxWidth:200,padding:'3px 6px',background:C.bg,
-                                border:`1px solid ${C.bdrBrt}`,borderRadius:5,color:C.t2,
+                                border:`1px solid ${C.bdrBrt}`,borderRadius:8,color:C.t2,
                                 fontSize:11,outline:'none',cursor:'pointer'}}>
                               <option value=''>— {cat.name} (optional) —</option>
                               {cat.options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -5295,8 +5295,8 @@ export default function App() {
                             <input value={l.fxRate||''}
                               onChange={e => updateCodingLine(l.id||i, {fxRate: e.target.value})}
                               placeholder="e.g. 1.2650"
-                              style={{width:90,padding:'2px 6px',background:C.bg,border:'1px solid #C9B8FF',
-                                borderRadius:5,color:C.t1,fontSize:11,...C.num,outline:'none'}}/>
+                              style={{width:90,padding:'2px 8px',background:C.bg,border:'1px solid #C9B8FF',
+                                borderRadius:8,color:C.t1,fontSize:11,...C.num,outline:'none'}}/>
                             <button
                               onClick={async () => {
                                 const isoDate = txDateToISO(l.date);
@@ -5310,8 +5310,8 @@ export default function App() {
                                   else updateCodingLine(l.id||i, {fxRate: ''});
                                 } catch { updateCodingLine(l.id||i, {fxRate: ''}); }
                               }}
-                              style={{padding:'2px 9px',background:'#EDE7FF',border:'1px solid #C9B8FF',
-                                borderRadius:5,color:'#7C4DFF',fontSize:10,cursor:'pointer',fontWeight:600}}>
+                              style={{padding:'2px 8px',background:'#EDE7FF',border:'1px solid #C9B8FF',
+                                borderRadius:8,color:'#7C4DFF',fontSize:10,cursor:'pointer',fontWeight:600}}>
                               Look up (free)
                             </button>
                             {l.fxRate && l.fxRate !== '…' && <span style={{fontSize:10,color:C.t3}}>· reference only</span>}
@@ -5324,18 +5324,18 @@ export default function App() {
               </div>
 
               {/* Footer */}
-              <div style={{padding:'14px 24px',borderTop:`1px solid ${C.bdr}`,
+              <div style={{padding:'16px 24px',borderTop:`1px solid ${C.bdr}`,
                 display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
                 <div style={{fontSize:13,color: confirmed === total && total > 0 ? C.grn : C.t3}}>
                   {confirmed} / {total} lines confirmed
                   {isXero && !emptyPeriodOk && total > 0 && (
-                    <span style={{marginLeft:10,fontSize:11,color:C.red}}>· tick the empty-period box above</span>
+                    <span style={{marginLeft:8,fontSize:11,color:C.red}}>· tick the empty-period box above</span>
                   )}
                   {isXero && !gstComplete && (
-                    <span style={{marginLeft:10,fontSize:11,color:C.red}}>· pick {taxLabel.toLowerCase()} for every line</span>
+                    <span style={{marginLeft:8,fontSize:11,color:C.red}}>· pick {taxLabel.toLowerCase()} for every line</span>
                   )}
                   {isXero && !rulePackOk && (
-                    <span style={{marginLeft:10,fontSize:11,color:C.red,fontWeight:600}}>· {jur === 'jersey' ? 'GST' : 'VAT'} rule-pack expired — export blocked</span>
+                    <span style={{marginLeft:8,fontSize:11,color:C.red,fontWeight:600}}>· {jur === 'jersey' ? 'GST' : 'VAT'} rule-pack expired — export blocked</span>
                   )}
                 </div>
                 <div style={{display:'flex',gap:8}}>
@@ -5361,27 +5361,27 @@ export default function App() {
       {showTrialCap && (
         <div onClick={() => setShowTrialCap(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:9998,
-            display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
           <div onClick={e => e.stopPropagation()}
             style={{background:C.card,borderRadius:18,padding:'36px 40px',width:420,maxWidth:'100%',
               boxShadow:'0 24px 64px rgba(0,0,0,0.4)',border:`1px solid ${C.bdr}`,textAlign:'center'}}>
-            <div style={{fontSize:40,marginBottom:14}}>🎯</div>
+            <div style={{fontSize:40,marginBottom:16}}>🎯</div>
             <div style={{fontSize:20,fontWeight:700,color:C.t1,marginBottom:8}}>Trial Complete</div>
             <div style={{fontSize:13,color:C.t2,lineHeight:1.7,marginBottom:24}}>
               You've processed {TRIAL_LIMIT} statement{TRIAL_LIMIT !== 1 ? 's' : ''} — enough to see the full workflow.
               <br/>
               Get in touch to unlock full access.
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:20}}>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
               <a href="mailto:support@statementaudit.pro?subject=StatementAudit Pro — Full Access Request"
-                style={{display:'block',padding:'13px',background:C.blu,color:'#fff',borderRadius:10,
+                style={{display:'block',padding:'12px',background:C.blu,color:'#fff',borderRadius:10,
                   fontSize:14,fontWeight:700,textDecoration:'none',transition:'opacity 0.15s'}}
                 onMouseEnter={e => e.currentTarget.style.opacity='0.88'}
                 onMouseLeave={e => e.currentTarget.style.opacity='1'}>
                 Request full access →
               </a>
               <button onClick={() => setShowTrialCap(false)}
-                style={{padding:'11px',background:'none',border:`1px solid ${C.bdr}`,borderRadius:10,
+                style={{padding:'12px',background:'none',border:`1px solid ${C.bdr}`,borderRadius:10,
                   fontSize:13,color:C.t2,cursor:'pointer'}}>
                 Continue browsing (review &amp; export only)
               </button>
